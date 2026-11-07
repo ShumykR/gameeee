@@ -1,0 +1,19 @@
+{
+  "name": "Head Bash Arena",
+  "short_name": "Head Bash",
+  "description": "Фізична гра для двох: вдар суперника в голову! Локальний мультиплеєр і бот.",
+  "lang": "uk",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "landscape",
+  "background_color": "#14101e",
+  "theme_color": "#14101e",
+  "categories": ["games"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
