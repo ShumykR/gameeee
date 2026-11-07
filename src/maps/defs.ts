@@ -47,7 +47,7 @@ export const MAPS: MapDef[] = [
         mat: 'grass',
         pts: heightfield(0, 44, 0.5, (x) => {
           const t = (x - 22) / 22;
-          return 18 - 1.5 * (1 - Math.cos(t * Math.PI)) - 7 * Math.pow(Math.abs(t), 5) + 0.3 * Math.sin(x * 0.9);
+          return 18 - 1.5 * (1 - Math.cos(t * Math.PI)) - 7 * Math.pow(Math.abs(t), 5) + 0.3 * Math.cos((x - 22) * 0.9);
         }, 30),
       },
       { mat: 'rock', pts: slab(-4, -10, 1.2, 30) },

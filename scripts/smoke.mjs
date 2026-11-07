@@ -34,12 +34,13 @@ try {
     await page.goto(`http://localhost:${port}/?${query}`);
     await page.waitForFunction(() => window.__ready === true, null, { timeout: 20000 });
     if (args.click) {
-      for (const sel of args.click.split(',')) {
+      let k = 0;
+      for (const sel of args.click.split('|')) {
+        if (args.menushot) await page.screenshot({ path: `screenshots/${tag}-${vp.name}-step${k++}.png` });
         await page.click(sel, { timeout: 5000 }).catch((e) => errors.push(`[${vp.name}] click ${sel}: ${e.message}`));
-        await page.waitForTimeout(400);
+        await page.waitForTimeout(500);
       }
     }
-    if (args.menushot) await page.screenshot({ path: `screenshots/${tag}-${vp.name}-menu.png` });
     if (args.keys) {
       // hold keys for a while: "KeyD,ArrowLeft"
       for (const k of args.keys.split(',')) await page.keyboard.down(k);
@@ -51,7 +52,7 @@ try {
     const state = await page.evaluate(() => {
       const g = window.__game;
       if (!g) return null;
-      return { phase: g.phase, scores: g.match.scores, round: g.match.round, cars: g.cars.map((c) => ({ x: +c.position.x.toFixed(2), y: +c.position.y.toFixed(2), a: +c.angle.toFixed(2), alive: c.alive })) };
+      return { step: g.stepCount, pt: +g.phaseTime.toFixed(2), map: g.map.id, phase: g.phase, scores: g.match.scores, round: g.match.round, cars: g.cars.map((c) => ({ x: +c.position.x.toFixed(2), y: +c.position.y.toFixed(2), a: +c.angle.toFixed(2), alive: c.alive })) };
     });
     console.log(vp.name, JSON.stringify(state));
     await ctx.close();
