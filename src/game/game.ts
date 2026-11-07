@@ -32,6 +32,10 @@ export interface GameConfig {
   /** Map pool; a random one is picked each round when `randomMaps` is set. */
   maps: MapDef[];
   randomMaps: boolean;
+  /** Pick a random car for each player every round. */
+  randomCars?: boolean;
+  /** Car pool for random cars (defaults to the two chosen cars). */
+  carPool?: CarDef[];
   target: number;
   roundTime: number;
   seed?: number;
@@ -54,6 +58,8 @@ export class Game {
   suddenDeath = false;
   stepCount = 0;
   map!: MapDef;
+  /** Cars used this round (differ from cfg.cars when randomCars is on). */
+  roundCars!: CarDef[];
   mapIndex = 0;
   lastResult: RoundResult | null = null;
   /** Real-time seconds of slow motion remaining. */
@@ -94,13 +100,23 @@ export class Game {
       this.mapIndex = next;
     }
     this.map = this.cfg.maps[this.mapIndex];
+    if (this.cfg.randomCars && this.cfg.carPool?.length) {
+      const pool = this.cfg.carPool;
+      const pick = (avoid?: CarDef) => {
+        let c = pool[Math.floor(this.rand() * pool.length)];
+        if (avoid && pool.length > 1 && c.id === avoid.id) c = pool[(pool.indexOf(c) + 1) % pool.length];
+        return c;
+      };
+      const a = pick();
+      this.roundCars = [a, pick(a)];
+    } else this.roundCars = [...this.cfg.cars];
     this.world = new World({ gravity: new Vec2(0, this.map.gravity ?? DEFAULT_GRAVITY) });
     this.world.on('begin-contact', (c: Contact) => this.contactQueue.push([c.getFixtureA(), c.getFixtureB(), c]));
     this.world.on('post-solve', (c: Contact, imp) => this.onPostSolve(c, imp.normalImpulses));
     this.arena = new Arena(this.world, this.map, Math.floor(this.rand() * 1e9));
     this.cars = [0, 1].map((p) => {
       const [x, y] = this.map.spawns[p];
-      return new Car(this.world, this.cfg.cars[p], p, x, y, p === 0 ? 1 : -1);
+      return new Car(this.world, this.roundCars[p], p, x, y, p === 0 ? 1 : -1);
     });
     this.ragdolls = [];
     this.resolver.reset();

@@ -203,7 +203,7 @@ export class GameView {
     switch (e.type) {
       case 'roundStart':
         this.buildRound();
-        this.setCenter(`РАУНД ${e.round}`, 1.2, e.map.name);
+        this.setCenter(`РАУНД ${e.round}`, 1.2, g.cfg.randomCars ? `${g.cars[0].def.name}  vs  ${g.cars[1].def.name}` : e.map.name);
         break;
       case 'countdown':
         this.setCenter(String(e.n), 0.9);
@@ -279,10 +279,12 @@ export class GameView {
       return s;
     });
     this.blocks.clear();
+    // Sudden-death lava belongs to the previous round: remove its sprites too.
+    for (const c of this.fxLayer.removeChildren()) c.destroy();
     this.riseLava = null;
     this.riseTop = null;
     this.carLayer.removeChildren();
-    const sameCar = g.cfg.cars[0].id === g.cfg.cars[1].id;
+    const sameCar = g.cars[0].def.id === g.cars[1].def.id;
     this.carViews = g.cars.map((c) => new CarView(c, sameCar && c.player === 1));
     for (const cv of this.carViews) this.carLayer.addChild(cv.root);
     this.ragdollSprites = [];

@@ -129,6 +129,7 @@ export class Menu {
     };
     mk('Очок до перемоги', [3, 5, 7, 10], this.settings.target, String, (v) => (this.settings.target = v));
     mk('Час раунду', [30, 45, 60, 90], this.settings.roundTime, (v) => `${v}с`, (v) => (this.settings.roundTime = v));
+    mk('Випадкові авто щораунду', [1, 0], this.settings.randomCars ? 1 : 0, (v) => (v ? 'так' : 'ні'), (v) => (this.settings.randomCars = !!v));
     mk('Звук', [1, 0], audio.muted ? 0 : 1, (v) => (v ? 'увімк' : 'вимк'), (v) => audio.setMuted(!v));
     s.appendChild(button('◀ назад', '', () => this.showMain(), 'back'));
     this.keyHandler = (e) => e.code === 'Escape' && this.showMain();
@@ -169,10 +170,20 @@ export class Menu {
     const renderAll = () => { render(0); render(1); };
     renderAll();
     s.appendChild(wrap);
+    const syncRandom = () => wrap.classList.toggle('random-cars', this.settings.randomCars);
+    syncRandom();
     const foot = el('div', 'row foot');
+    const toggle = button(this.settings.randomCars ? '🎲 щораунду: так' : '🎲 щораунду: ні', `small ${this.settings.randomCars ? 'on' : ''}`, () => {
+      this.settings.randomCars = !this.settings.randomCars;
+      this.hooks.settingsChanged();
+      toggle.textContent = this.settings.randomCars ? '🎲 щораунду: так' : '🎲 щораунду: ні';
+      toggle.classList.toggle('on', this.settings.randomCars);
+      syncRandom();
+    });
+    toggle.title = 'Нове випадкове авто кожному гравцю кожного раунду';
     foot.append(
       button('◀ меню', '', () => this.hooks.toMenu(), 'back'),
-      button('🎲', 'small', () => { idx[0] = Math.floor(Math.random() * CARS.length); idx[1] = Math.floor(Math.random() * CARS.length); renderAll(); }),
+      toggle,
       button('далі ▶', 'primary', () => commit()),
     );
     s.appendChild(foot);

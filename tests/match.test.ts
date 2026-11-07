@@ -68,3 +68,41 @@ describe('FixedStepper', () => {
     expect(n).toBe(5);
   });
 });
+
+import { Game } from '../src/game/game';
+import { CARS } from '../src/cars/defs';
+import { MAPS } from '../src/maps/defs';
+
+describe('random cars each round', () => {
+  it('picks new cars from the pool every round', () => {
+    const g = new Game({ cars: [CARS[0], CARS[1]], maps: [MAPS[0]], randomMaps: false, randomCars: true, carPool: CARS, target: 99, roundTime: 60, seed: 3 });
+    const seen = new Set<string>();
+    for (let r = 0; r < 8; r++) {
+      seen.add(g.cars[0].def.id + '/' + g.cars[1].def.id);
+      expect(g.cars[0].def.id).not.toBe(g.cars[1].def.id);
+      g.kill(1, 'fall');
+      let started = false;
+      g.on((e) => { if (e.type === 'roundStart') started = true; });
+      while (!started) g.step();
+    }
+    expect(seen.size).toBeGreaterThan(4);
+  });
+  it('keeps the chosen cars when off', () => {
+    const g = new Game({ cars: [CARS[2], CARS[3]], maps: [MAPS[0]], randomMaps: false, target: 99, roundTime: 60, seed: 3 });
+    g.kill(1, 'fall');
+    let started = false;
+    g.on((e) => { if (e.type === 'roundStart') started = true; });
+    while (!started) g.step();
+    expect(g.cars.map((c) => c.def.id)).toEqual([CARS[2].id, CARS[3].id]);
+  });
+  it('sudden-death lava does not carry over to the next round', () => {
+    const g = new Game({ cars: [CARS[0], CARS[1]], maps: [MAPS[0]], randomMaps: false, target: 99, roundTime: 1, seed: 3 });
+    while (!g.arena.riseBody) g.step();
+    g.kill(0, 'fall');
+    let started = false;
+    g.on((e) => { if (e.type === 'roundStart') started = true; });
+    while (!started) g.step();
+    expect(g.arena.riseBody).toBe(null);
+    expect(g.suddenDeath).toBe(false);
+  });
+});
