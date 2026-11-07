@@ -18,6 +18,11 @@ export const PROP_PAL: (RGB | null)[] = [
   [200, 40, 20], // 11 lava dark
   [255, 250, 200], // 12 lava hot
   [230, 60, 60], // 13 red
+  [200, 240, 255], // 14 ice light
+  [120, 196, 236], // 15 ice
+  [70, 140, 200], // 16 ice dark
+  [150, 140, 130], // 17 stone
+  [100, 92, 86], // 18 stone dark
 ];
 
 export function sawGrid(r: number, ppm = ART_PPM): PixelGrid {
@@ -46,7 +51,8 @@ export function sawGrid(r: number, ppm = ART_PPM): PixelGrid {
   return g;
 }
 
-export function crateGrid(size: number, ppm = ART_PPM): PixelGrid {
+export function crateGrid(size: number, ppm = ART_PPM, style: 'crate' | 'ice' | 'stone' = 'crate'): PixelGrid {
+  if (style !== 'crate') return blockGrid(size, ppm, style);
   const n = Math.round(size * ppm);
   const g = makeGrid(n, n, n / 2, n / 2);
   for (let y = 0; y < n; y++)
@@ -128,5 +134,22 @@ export function lavaSurfaceGrid(): PixelGrid {
     const top = Math.round(1.5 + Math.sin((x / W) * Math.PI * 4) * 1.5);
     for (let y = top; y < H; y++) gset(g, x, y, y === top ? 12 : 10);
   }
+  return g;
+}
+
+function blockGrid(size: number, ppm: number, style: 'ice' | 'stone'): PixelGrid {
+  const n = Math.round(size * ppm);
+  const g = makeGrid(n, n, n / 2, n / 2);
+  const [l, b, d] = style === 'ice' ? [14, 15, 16] : [3, 17, 18];
+  for (let y = 0; y < n; y++)
+    for (let x = 0; x < n; x++) {
+      let v = b;
+      if (x === 0 || y === 0 || x === n - 1 || y === n - 1) v = 1;
+      else if (y < 3 || x < 2) v = l;
+      else if (y > n - 4 || x > n - 3) v = d;
+      else if (style === 'ice' && (x - y + n) % 7 < 2) v = l;
+      else if (style === 'stone' && ((x * 7 + y * 13) % 17 === 0 || (y === Math.floor(n / 2) && x % 5 !== 0))) v = d;
+      gset(g, x, y, v);
+    }
   return g;
 }

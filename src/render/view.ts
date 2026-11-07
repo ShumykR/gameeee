@@ -19,6 +19,8 @@ export const PLAYER_COLORS = ['#3ec1ff', '#ff5a6e'];
 export const PLAYER_NAMES = ['P1', 'P2'];
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+const shadeHex = (c: number, f: number) => (Math.round(((c >> 16) & 255) * f) << 16) | (Math.round(((c >> 8) & 255) * f) << 8) | Math.round((c & 255) * f);
+const DUST: Record<string, number> = { meadow: 0xb08a5a, foundry: 0x8a8a96, sawmill: 0xc49a64, sky: 0xb08a5a, ice: 0xe8f6ff, neon: 0x7a5aa8, desert: 0xf0cc80, moon: 0xb4b2c0 };
 const lerpAngle = (a: number, b: number, t: number) => {
   let d = b - a;
   while (d > Math.PI) d -= Math.PI * 2;
@@ -141,6 +143,8 @@ export class GameView {
   private carLayer = new Container();
   private fxLayer = new Container();
   private flash = new Graphics();
+  private ringGfx = new Graphics();
+  private rings: { x: number; y: number; t: number }[] = [];
   private carViews: CarView[] = [];
   private ragdollSprites: { head: Sprite; torso: Sprite }[] = [];
   private platforms: Sprite[] = [];
@@ -170,7 +174,7 @@ export class GameView {
   private debugGfx = new Graphics();
 
   constructor(readonly app: Application, readonly input: InputManager) {
-    this.world.addChild(this.mapLayer, this.dynLayer, this.carLayer, this.particles.container, this.fxLayer, this.debugGfx);
+    this.world.addChild(this.mapLayer, this.dynLayer, this.carLayer, this.particles.container, this.ringGfx, this.fxLayer, this.debugGfx);
     app.stage.addChild(this.bgLayer, this.world, this.flash, this.hud, this.touchLayer, this.touchLabels);
     for (let i = 0; i < 3; i++) {
       const s = new Sprite();
@@ -209,8 +213,15 @@ export class GameView {
         break;
       case 'impact': {
         const n = Math.min(24, Math.round(e.strength * 3));
-        this.particles.burst(e.x, e.y, n, { speed: 6 + e.strength, colors: [0xfff3a0, 0xffc040, 0xffffff], life: 0.35, size: 0.1, g: 20, drag: 2 });
-        if (e.carCar) this.trauma = Math.min(1, this.trauma + Math.min(0.35, e.strength * 0.05));
+        if (e.carCar) {
+          this.particles.burst(e.x, e.y, n, { speed: 6 + e.strength, colors: [0xfff3a0, 0xffc040, 0xffffff], life: 0.35, size: 0.1, g: 20, drag: 2 });
+          this.trauma = Math.min(1, this.trauma + Math.min(0.35, e.strength * 0.05));
+        } else {
+          // landing: dust puffs to both sides
+          const dust = DUST[g.map.theme] ?? 0xc8b8a0;
+          for (const dir of [-1, 1]) this.particles.burst(e.x, e.y, Math.ceil(n / 2), { speed: 2 + e.strength * 0.5, colors: [dust, shadeHex(dust, 0.85)], life: 0.6, size: 0.3, g: -1, drag: 3, dir: dir < 0 ? Math.PI + 0.25 : -0.25, spread: 0.6 });
+          this.trauma = Math.min(1, this.trauma + Math.min(0.15, e.strength * 0.015));
+        }
         break;
       }
       case 'death': {
@@ -219,6 +230,7 @@ export class GameView {
         this.particles.burst(e.x, e.y, 22, { speed: 4, colors: [0x403a48, 0x5a5464, 0x2a2630], life: 1.6, size: 0.45, g: -2, drag: 1.5 });
         this.trauma = 1;
         this.flashA = 0.55;
+        this.rings.push({ x: e.x, y: e.y, t: 0 });
         break;
       }
       case 'pad':
@@ -450,7 +462,8 @@ export class GameView {
       live.add(bl.body);
       let s = this.blocks.get(bl.body);
       if (!s) {
-        s = new Sprite(cached(`crate:${bl.size}`, () => gridTexture(crateGrid(bl.size), PROP_PAL)));
+        const style = g.map.fallingBlocks?.style ?? 'crate';
+        s = new Sprite(cached(`crate:${bl.size}:${style}`, () => gridTexture(crateGrid(bl.size, ART_PPM, style), PROP_PAL)));
         s.anchor.set(0.5);
         s.scale.set(1 / ART_PPM);
         this.dynLayer.addChild(s);
@@ -484,6 +497,13 @@ export class GameView {
     }
 
     this.particles.update(simDt);
+    this.ringGfx.clear();
+    for (const r of this.rings) {
+      r.t += simDt;
+      const k = r.t / 0.45;
+      if (k < 1) this.ringGfx.circle(r.x, r.y, 0.5 + k * 4.5).stroke({ color: 0xfff6c0, width: 0.35 * (1 - k), alpha: 1 - k });
+    }
+    this.rings = this.rings.filter((r) => r.t < 0.45);
     if (this.debug) drawPhysicsDebug(this.debugGfx, g.world);
     else this.debugGfx.clear();
 
@@ -507,8 +527,13 @@ export class GameView {
       if (touching && slip > 3 && Math.random() < 0.5) {
         const p = w.getPosition();
         const back = -Math.sign(w.getAngularVelocity());
-        this.particles.spawn(p.x + back * r * 0.6, p.y + r * 0.8, { vx: back * (2 + Math.random() * 3), vy: -1.5 - Math.random() * 2, g: 6, drag: 2, life: 0.5, size: 0.16, color: 0xc8b8a0, spin: 3 });
+        const dust = DUST[this.game!.map.theme] ?? 0xc8b8a0;
+        this.particles.spawn(p.x + back * r * 0.6, p.y + r * 0.8, { vx: back * (2 + Math.random() * 3), vy: -1.5 - Math.random() * 2, g: 6, drag: 2, life: 0.5, size: 0.16, color: dust, spin: 3 });
       }
+    }
+    if (c.alive && c.input !== 0 && Math.random() < 0.18) {
+      const p = c.chassis.getWorldPoint({ x: -1.45 * c.facing, y: 0.1 });
+      this.particles.spawn(p.x, p.y, { vx: -c.facing * 1.5, vy: -0.8, life: 0.7, size: 0.22, color: 0x9a96a4, drag: 1.5, g: -2 });
     }
     if (c.boosting && Math.random() < 0.8) {
       const fwd = c.chassis.getWorldVector({ x: c.facing, y: 0 });

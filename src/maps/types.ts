@@ -45,6 +45,7 @@ export interface FallingBlocksDef {
   y: number;
   interval: number;
   size: number;
+  style?: 'crate' | 'ice' | 'stone';
 }
 
 export interface MapDef {

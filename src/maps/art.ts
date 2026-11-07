@@ -274,13 +274,27 @@ export function generateLayer(spec: Theme['layers'][number]): BgLayer {
         break;
       }
       case 'trees': {
-        const base = h * 0.6 + n * 4;
-        const cell = Math.floor(x / 9);
-        const cx = cell * 9 + 4;
-        const th = 10 + hash2(cell, s) * 18;
-        const dx = Math.abs(x - cx);
-        const crown = base - th + dx * dx * 0.25;
-        col(x, Math.min(base, crown), (y) => (y < base ? ((x + y) % 3 === 0 ? c2 : y < crown + 2 ? shade(c1, 1.25) : c1) : c2));
+        // Round-crowned trees: take the highest crown covering this column.
+        const ground = h * 0.78 + n * 3;
+        let top = ground, trunk = false, shadeEdge = false;
+        for (let k = -2; k <= 2; k++) {
+          const cell = Math.floor(x / 16) + k;
+          const cx = cell * 16 + 8 + (hash2(cell, s, 1) - 0.5) * 8;
+          const r = 6 + hash2(cell, s, 2) * 6;
+          const cy = ground - 6 - r - hash2(cell, s, 3) * 8;
+          const dx = x - cx;
+          if (Math.abs(dx) < r) {
+            const t = cy - Math.sqrt(r * r - dx * dx) * (0.85 + 0.15 * Math.abs(Math.sin(dx * 1.3)));
+            if (t < top) { top = t; shadeEdge = dx > r * 0.35; }
+          }
+          if (Math.abs(dx) < 1.2) trunk = true;
+        }
+        col(x, top, (y) => {
+          if (y >= ground) return c2;
+          if (y - top < 1.5 && !shadeEdge) return shade(c1, 1.3);
+          if (shadeEdge || (bayer(x, y) < 0.25 && y - top > 6)) return c2;
+          return trunk && y > ground - 7 ? shade(c2, 0.7) : c1;
+        });
         break;
       }
       case 'pines': {
@@ -330,13 +344,14 @@ export function generateLayer(spec: Theme['layers'][number]): BgLayer {
       case 'islands': {
         const cell = Math.floor(x / 64);
         const cx = cell * 64 + 32 + (hash2(cell, s) - 0.5) * 20;
-        const r = 14 + hash2(cell, s + 3) * 14;
+        const r = 12 + hash2(cell, s + 3) * 14;
         const dx = Math.abs(x - cx);
         if (dx < r) {
-          const midY = h * 0.45;
-          const top = midY - Math.sqrt(r * r - dx * dx) * 0.3;
-          const bot = midY + (r - dx) * 1.1;
-          for (let y = Math.floor(top); y < Math.min(h, bot); y++) putPx(rgba, w, x, y, y < top + 2 ? c2 : c1);
+          const midY = h * 0.42 + hash2(cell, s + 5) * 8;
+          const top = midY - Math.sqrt(r * r - dx * dx) * 0.12 - 1;
+          const k = 1 - dx / r;
+          const bot = midY + Math.pow(k, 0.7) * r * 1.2 * (0.8 + 0.2 * Math.abs(Math.sin(x * 0.9)));
+          for (let y = Math.floor(top); y < Math.min(h, bot); y++) putPx(rgba, w, x, y, y < top + 2.5 ? c2 : (x + y) % 5 === 0 ? shade(c1, 0.9) : c1);
         }
         break;
       }
