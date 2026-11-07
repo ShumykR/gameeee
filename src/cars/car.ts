@@ -1,5 +1,9 @@
 import { World, Body, Polygon, Circle, WheelJoint, Vec2, Fixture } from 'planck';
-import { CAT, MASK, STEP_DT } from '../physics/constants';
+import { CAT, MASK, STEP_DT, DEFAULT_GRAVITY } from '../physics/constants';
+
+/** Tuning knobs shared by all cars. */
+export const TUNE = { groundTilt: 1.6, maxSpin: 7.5, selfRight: 14 };
+const SELF_RIGHT = TUNE.selfRight;
 import type { FixtureTag } from '../physics/tags';
 import type { CarDef, Pt } from './types';
 
@@ -30,6 +34,7 @@ export class Car {
   boosting = false;
   /** Seconds the car has been stuck upside down. */
   flipTimer = 0;
+  private flipDir = 1;
   /** Number of wheels touching something this step. */
   wheelsOnGround = 0;
   chassisTouching = false;
@@ -201,7 +206,7 @@ export class Car {
 
     const I = this.chassis.getInertia() + this.wheels.reduce((s, w) => s + w.getMass() * Vec2.distanceSquared(w.getPosition(), this.chassis.getWorldCenter()), 0);
     const w = this.chassis.getAngularVelocity();
-    const maxSpin = 7.5;
+    const maxSpin = TUNE.maxSpin;
     // Air control: pressing toward a direction rotates the car the way the
     // motor's reaction torque would (forward = nose up / backflip).
     if (dir !== 0 && this.inAir) {
@@ -210,24 +215,30 @@ export class Car {
         this.chassis.applyTorque(want * d.air * I, true);
       }
     } else if (dir !== 0) {
-      // A little ground tilt helps wheelies and recovery.
-      this.chassis.applyTorque(-dir * d.air * 0.18 * I, true);
+      // Ground tilt: pressing a direction lifts that end (wheelie / stoppie).
+      // A PD controller eases the car toward its wheelie angle instead of flipping it.
+      const lift = -dir * this.angle; // >0 when the pressed end is already up
+      const liftRate = -dir * w;
+      const want = 80 * ((d.wheelie ?? 0.45) - lift) - 9 * liftRate;
+      // Below the target it lifts; above it, a weaker assist pushes back down so
+      // holding the throttle doesn't simply loop the car over.
+      const mag = Math.min(Math.max(want, -d.air * TUNE.groundTilt * 0.6), d.air * TUNE.groundTilt);
+      if (mag !== 0) this.chassis.applyTorque(-dir * mag * I, true);
     }
 
     // Self-righting: if stuck upside down / on the side, slowly roll back.
     const a = this.angle;
-    const slow = this.chassis.getLinearVelocity().length() < 2.5;
-    if (Math.abs(a) > 1.5 && (this.chassisTouching || this.wheelsOnGround < this.wheels.length) && slow) {
+    const slow = this.chassis.getLinearVelocity().length() < 3;
+    if (Math.abs(a) > 1.4 && (this.chassisTouching || this.wheelsOnGround < this.wheels.length) && slow) {
+      if (this.flipTimer === 0) this.flipDir = -Math.sign(a) || 1;
       this.flipTimer += dt;
-    } else {
-      this.flipTimer = Math.max(0, this.flipTimer - dt * 2);
+    } else if (Math.abs(a) < 0.9 || !slow) {
+      this.flipTimer = Math.max(0, this.flipTimer - dt * 3);
     }
-    if (this.flipTimer > 0.9 && this.alive) {
-      const k = Math.min(1, (this.flipTimer - 0.9) / 0.6);
-      this.chassis.applyTorque(-Math.sign(a) * 9 * k * I, true);
-      if (this.flipTimer > 1.4 && this.chassisTouching) {
-        this.chassis.applyForceToCenter(new Vec2(0, -this.mass * 14 * k), true);
-      }
+    if (this.flipTimer > 0.8 && this.alive) {
+      const k = Math.min(1, (this.flipTimer - 0.8) / 0.5);
+      if (Math.abs(w) < 3.5) this.chassis.applyTorque(this.flipDir * SELF_RIGHT * k * I, true);
+      if (this.chassisTouching) this.chassis.applyForceToCenter(new Vec2(0, -this.mass * DEFAULT_GRAVITY * 0.75 * k), true);
     }
 
     // Rocket booster.
@@ -258,18 +269,29 @@ export class Car {
       const t = Vec2.dot(Vec2.sub(c, anchor), axis);
       // lateral drift is handled by the joint; we only clamp along the axis
       const over = t > travel ? t - travel : t < -travel ? t + travel : 0;
+      // Progressive bump stop: stiffen the spring as the wheel nears the end of travel.
+      const j = this.joints[i];
+      const near = Math.max(0, Math.abs(t) / travel - 0.7) / 0.3;
+      j.setSpringFrequencyHz(this.def.suspension.hz * (1 + near * near * 4));
+      j.setSpringDampingRatio(Math.min(1, this.def.suspension.damping + near * 0.4));
       if (!over) continue;
       const vw = wb.getLinearVelocity();
       const vc = this.chassis.getLinearVelocityFromWorldPoint(c);
       const rel = Vec2.dot(Vec2.sub(vw, vc), axis);
       const mw = wb.getMass();
-      const mEff = (mw * mc) / (mw + mc);
       let dv = 0;
       if ((over > 0 && rel > 0) || (over < 0 && rel < 0)) dv = -rel;
-      dv -= (over * 0.3) / dt;
-      const imp = axis.clone().mul(dv * mEff);
-      wb.applyLinearImpulse(imp, c, true);
-      this.chassis.applyLinearImpulse(imp.clone().neg(), c, true);
+      dv -= (over * 0.8) / dt;
+      if (over < 0) {
+        // Bottoming out: the wheel is usually pinned by the ground, so stop the chassis instead.
+        const imp = axis.clone().mul(-dv * mc * (1 / this.wheels.length));
+        this.chassis.applyLinearImpulse(imp, c, true);
+      } else {
+        const mEff = (mw * mc) / (mw + mc);
+        const imp = axis.clone().mul(dv * mEff);
+        wb.applyLinearImpulse(imp, c, true);
+        this.chassis.applyLinearImpulse(imp.clone().neg(), c, true);
+      }
     }
   }
 

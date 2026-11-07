@@ -77,7 +77,7 @@ export class InputManager {
   /** Lay out the four big touch buttons: two per player, in the bottom corners. */
   layout(w: number, h: number) {
     const bw = Math.min(150, Math.max(90, w * 0.13));
-    const bh = Math.min(h * 0.55, Math.max(110, h * 0.42));
+    const bh = Math.min(h * 0.5, Math.max(110, h * 0.4));
     const y = h - bh;
     this.zones = [
       { player: 0, btn: 'left', x: 0, y, w: bw, h: bh },

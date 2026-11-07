@@ -13,6 +13,7 @@ import { pixelText } from './pixeltext';
 import { gridTexture, rgbaTexture, whiteTexture } from './textures';
 import { hex, hueShift, toHex } from './color';
 import type { InputManager } from '../input/input';
+import { drawPhysicsDebug } from './debug';
 
 export const PLAYER_COLORS = ['#3ec1ff', '#ff5a6e'];
 export const PLAYER_NAMES = ['P1', 'P2'];
@@ -165,9 +166,11 @@ export class GameView {
   private scoreKey = '';
   private snapCam = true;
   showTouch = false;
+  debug = false;
+  private debugGfx = new Graphics();
 
   constructor(readonly app: Application, readonly input: InputManager) {
-    this.world.addChild(this.mapLayer, this.dynLayer, this.carLayer, this.particles.container, this.fxLayer);
+    this.world.addChild(this.mapLayer, this.dynLayer, this.carLayer, this.particles.container, this.fxLayer, this.debugGfx);
     app.stage.addChild(this.bgLayer, this.world, this.flash, this.hud, this.touchLayer, this.touchLabels);
     for (let i = 0; i < 3; i++) {
       const s = new Sprite();
@@ -354,7 +357,10 @@ export class GameView {
     const b = g.map.bounds;
     const maxZoom = H / 8.5;
     const minZoom = Math.max(W / (b.x1 - b.x0), H / (b.y1 - b.y0)) * 0.98;
-    const cam = fitCamera({ x0, y0, x1, y1 }, W, H, b, { margin: 3.2, minZoom: Math.min(minZoom, maxZoom), maxZoom, topPad: 2 });
+    // Keep the action above the touch buttons on phones.
+    const bottomPad = this.showTouch ? H * 0.16 : 0;
+    const cam = fitCamera({ x0, y0, x1, y1 }, W, H - bottomPad, b, { margin: 3.2, minZoom: Math.min(minZoom, maxZoom), maxZoom, topPad: 2 });
+    cam.y += bottomPad / 2 / cam.zoom;
     return cam;
   }
 
@@ -478,6 +484,8 @@ export class GameView {
     }
 
     this.particles.update(simDt);
+    if (this.debug) drawPhysicsDebug(this.debugGfx, g.world);
+    else this.debugGfx.clear();
 
     // flash
     this.flashA = Math.max(0, this.flashA - realDt * 2.2);
@@ -562,8 +570,8 @@ export class GameView {
       const pressed = this.input.touch[z.player][z.btn];
       const col = toHex(hex(PLAYER_COLORS[z.player]));
       const pad = 6;
-      t.roundRect(z.x + pad, z.y + pad, z.w - pad * 2, z.h - pad * 2, 14).fill({ color: pressed ? col : 0x000000, alpha: pressed ? 0.45 : 0.18 });
-      t.roundRect(z.x + pad, z.y + pad, z.w - pad * 2, z.h - pad * 2, 14).stroke({ color: col, alpha: 0.7, width: 3 });
+      t.roundRect(z.x + pad, z.y + pad, z.w - pad * 2, z.h - pad * 2, 14).fill({ color: pressed ? col : 0x000000, alpha: pressed ? 0.4 : 0.1 });
+      t.roundRect(z.x + pad, z.y + pad, z.w - pad * 2, z.h - pad * 2, 14).stroke({ color: col, alpha: 0.55, width: 3 });
       const cx = z.x + z.w / 2, cy = z.y + z.h / 2;
       const s = Math.min(z.w, z.h) * 0.2;
       const d = z.btn === 'left' ? -1 : 1;

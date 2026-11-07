@@ -27,8 +27,22 @@ async function boot() {
 
   const view = new GameView(app, input);
   view.showTouch = matchMedia('(pointer: coarse)').matches;
-  const game = new Game({ cars: [CARS[0], CARS[1]], maps: MAPS, randomMaps: false, target: 5, roundTime: 60 });
+  const q = new URLSearchParams(location.search);
+  const pick = (id: string | null, d: number) => CARS.find((c) => c.id === id) ?? CARS[d];
+  const map = MAPS.find((m) => m.id === q.get('map'));
+  const game = new Game({
+    cars: [pick(q.get('p1'), 0), pick(q.get('p2'), 1)],
+    maps: map ? [map] : MAPS,
+    randomMaps: !map,
+    target: 5,
+    roundTime: Number(q.get('time') ?? 60),
+    seed: q.has('seed') ? Number(q.get('seed')) : undefined,
+  });
   view.attach(game);
+  view.debug = q.has('debug');
+  input.onAnyKey = (code) => {
+    if (code === 'Backquote') view.debug = !view.debug;
+  };
 
   app.ticker.add((t) => {
     const dt = t.deltaMS / 1000;

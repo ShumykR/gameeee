@@ -44,7 +44,8 @@ try {
       // hold keys for a while: "KeyD,ArrowLeft"
       for (const k of args.keys.split(',')) await page.keyboard.down(k);
     }
-    await page.waitForTimeout(waitMs);
+    if (args.steps) await page.waitForFunction((n) => window.__game.stepCount >= n, Number(args.steps), { timeout: 90000 });
+    else await page.waitForTimeout(waitMs);
     await page.screenshot({ path: `screenshots/${tag}-${vp.name}.png` });
     if (args.keys) for (const k of args.keys.split(',')) await page.keyboard.up(k);
     const state = await page.evaluate(() => {

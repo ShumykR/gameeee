@@ -70,6 +70,8 @@ export interface CarDef {
   tireFriction: number;
   /** Driver head (sensor). Car-local. */
   head: { x: number; y: number; r: number };
+  /** Max nose-up angle the ground tilt assist aims for (rad). */
+  wheelie?: number;
   /** Angular acceleration available in the air, rad/s². */
   air: number;
   /** Rocket booster: pushes forward while driving forward. */
