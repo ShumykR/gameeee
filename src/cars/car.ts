@@ -272,8 +272,8 @@ export class Car {
       // Progressive bump stop: stiffen the spring as the wheel nears the end of travel.
       const j = this.joints[i];
       const near = Math.max(0, Math.abs(t) / travel - 0.7) / 0.3;
-      j.setSpringFrequencyHz(this.def.suspension.hz * (1 + near * near * 4));
-      j.setSpringDampingRatio(Math.min(1, this.def.suspension.damping + near * 0.4));
+      j.setSpringFrequencyHz(this.def.suspension.hz * (1 + near * near * 1.2));
+      j.setSpringDampingRatio(Math.min(1.2, this.def.suspension.damping + near * 0.6));
       if (!over) continue;
       const vw = wb.getLinearVelocity();
       const vc = this.chassis.getLinearVelocityFromWorldPoint(c);
@@ -281,17 +281,17 @@ export class Car {
       const mw = wb.getMass();
       let dv = 0;
       if ((over > 0 && rel > 0) || (over < 0 && rel < 0)) dv = -rel;
-      dv -= (over * 0.8) / dt;
-      if (over < 0) {
-        // Bottoming out: the wheel is usually pinned by the ground, so stop the chassis instead.
-        const imp = axis.clone().mul(-dv * mc * (1 / this.wheels.length));
-        this.chassis.applyLinearImpulse(imp, c, true);
-      } else {
-        const mEff = (mw * mc) / (mw + mc);
-        const imp = axis.clone().mul(dv * mEff);
-        wb.applyLinearImpulse(imp, c, true);
-        this.chassis.applyLinearImpulse(imp.clone().neg(), c, true);
-      }
+      dv -= Math.max(-0.5, Math.min(0.5, (over * 0.1) / dt));
+      // Effective mass of the chassis at the wheel point along the axis (includes rotation).
+      const com = this.chassis.getWorldCenter();
+      const rx = c.x - com.x, ry = c.y - com.y;
+      const rn = rx * axis.y - ry * axis.x;
+      const invC = 1 / mc + (rn * rn) / this.chassis.getInertia();
+      // When bottoming out the wheel is usually pinned by the ground, so only the chassis moves.
+      const invW = over < 0 ? 0 : 1 / mw;
+      const imp = axis.clone().mul(dv / (invC + invW));
+      if (invW) wb.applyLinearImpulse(imp, c, true);
+      this.chassis.applyLinearImpulse(imp.clone().neg(), c, true);
     }
   }
 

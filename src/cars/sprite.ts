@@ -132,6 +132,18 @@ export function generateCarGrid(def: CarDef, ppm = ART_PPM): PixelGrid {
     }
   }
 
+  // Wheel arches: darken body pixels just around each wheel so wheels sit in wells.
+  for (const wd of def.wheels) {
+    const cx = wd.x * ppm + ox, cy = wd.y * ppm + oy, r = wd.r * ppm;
+    for (let y = Math.floor(cy - r - 3); y <= cy + 1; y++) {
+      for (let x = Math.floor(cx - r - 3); x <= cx + r + 3; x++) {
+        if (!gget(mats, x, y)) continue;
+        const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy);
+        if (d < r + 1.6) gset(out, x, y, d > r + 0.6 ? P.OUTLINE : P.DARK);
+      }
+    }
+  }
+
   // Head & tail lights: scan front/back columns for the first interior body pixel.
   const bodyRows: number[] = [];
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (gget(mats, x, y) === 1) { bodyRows.push(y); break; }

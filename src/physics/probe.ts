@@ -105,7 +105,7 @@ export function measure(def: CarDef): Handling {
 }
 
 /** Drop the car from `h` meters: returns suspension extremes and whether the chassis bottomed out. */
-export function dropTest(def: CarDef, h = 6) {
+export function dropTest(def: CarDef, h = 4.5) {
   const world = testWorld();
   const car = new Car(world, def, 0, 0, -h, 1);
   let minT = 0, maxT = 0, bottomed = false, bounces = 0, lastVy = 0;

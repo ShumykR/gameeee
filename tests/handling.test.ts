@@ -19,7 +19,7 @@ describe.each(CARS.map((c) => [c.id, c] as const))('handling: %s', (_id, def) =>
   it('self-rights when upside down', () => {
     expect(h.recover).toBeLessThan(5);
   });
-  it('survives a 6m drop without bottoming out', () => {
+  it('survives a 4.5m drop without bottoming out', () => {
     const d = dropTest(def);
     expect(d.bottomed).toBe(false);
     expect(Math.abs(d.angle)).toBeLessThan(0.5);

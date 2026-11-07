@@ -37,3 +37,13 @@ html, body {
 .btn.small { padding: 6px 10px; font-size: 12px; }
 
 .hud-btn { position: fixed; top: 8px; left: 50%; transform: translateX(-50%); margin-left: -150px; z-index: 5; opacity: .8; }
+
+.gallery { position: fixed; inset: 0; overflow: auto; display: flex; flex-wrap: wrap; gap: 8px; padding: 10px; align-content: flex-start; background: linear-gradient(#2a1f44, #14101e); }
+.gcard { background: var(--panel); border: 3px solid #0c0914; border-radius: 6px; padding: 6px 8px; width: 216px; display: flex; flex-direction: column; align-items: center; }
+.gcard canvas { image-rendering: pixelated; max-width: 200px; height: auto; }
+.gname { font-weight: 800; font-size: 15px; }
+.garch { color: var(--muted); font-size: 11px; text-transform: uppercase; }
+.gbars { width: 100%; margin-top: 4px; }
+.gbar { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--muted); }
+.gbar span { width: 44px; }
+.gbar i { display: block; height: 6px; background: var(--gold); border: 1px solid #0c0914; }

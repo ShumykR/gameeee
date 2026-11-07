@@ -8,6 +8,12 @@ import { MAPS } from './maps/defs';
 TextureSource.defaultOptions.scaleMode = 'nearest';
 
 async function boot() {
+  if (new URLSearchParams(location.search).has('gallery')) {
+    const { showGallery } = await import('./ui/gallery');
+    showGallery(document.getElementById('ui')!);
+    (window as any).__ready = true;
+    return;
+  }
   const host = document.getElementById('app')!;
   const app = new Application();
   await app.init({

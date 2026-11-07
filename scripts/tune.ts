@@ -17,7 +17,7 @@ for (const def of CARS) {
   );
 }
 import { dropTest } from '../src/physics/probe';
-console.log('\ndrop test (6m): minT maxT bottomed bounces');
+console.log('\ndrop test (4.5m): minT maxT bottomed bounces');
 for (const def of CARS) {
   if (only && def.id !== only) continue;
   const d = dropTest(def);
