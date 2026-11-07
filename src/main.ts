@@ -90,7 +90,7 @@ async function boot() {
 
   const startDemo = () => {
     const a = CARS[Math.floor(Math.random() * CARS.length)], b = CARS[Math.floor(Math.random() * CARS.length)];
-    const g = newGame({ cars: [a, b], maps: MAPS, randomMaps: true, target: 999, roundTime: 40 });
+    const g = newGame({ cars: [a, b], maps: MAPS, randomMaps: true, randomCars: true, carPool: CARS, target: 999, roundTime: 40 });
     g.controllers[0] = new Bot('hard', 11);
     g.controllers[1] = new Bot('normal', 12);
     setState('menu');
@@ -102,6 +102,8 @@ async function boot() {
       cars: [CAR_BY_ID[settings.p1] ?? CARS[0], CAR_BY_ID[settings.p2] ?? CARS[1]],
       maps: map ? [map] : MAPS,
       randomMaps: !map,
+      randomCars: settings.randomCars,
+      carPool: CARS,
       target: settings.target,
       roundTime: settings.roundTime,
       seed: q.has('seed') ? Number(q.get('seed')) : undefined,
@@ -171,6 +173,7 @@ async function boot() {
     settings.map = q.get('map') ?? settings.map;
     if (q.get('time')) settings.roundTime = Number(q.get('time'));
     if (q.get('target')) settings.target = Number(q.get('target'));
+    if (q.has('randomcars')) settings.randomCars = q.get('randomcars') !== '0';
     mode = q.get('mode') === 'bot' ? 'bot' : 'pvp';
     startMatch();
   } else {
@@ -201,6 +204,7 @@ async function boot() {
   });
 
   (window as any).__ready = true;
+  (window as any).__view = view;
   (window as any).__app = { menu, settings, get state() { return state; } };
 }
 
