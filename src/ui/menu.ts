@@ -12,6 +12,9 @@ import { mapThumb } from './thumbs';
 
 export type Mode = 'pvp' | 'bot';
 
+/** The vs-bot mode is hidden for now: the game focuses on local 2-player. Flip to re-enable. */
+export const SHOW_BOT_MODE = false;
+
 export interface MenuHooks {
   start(mode: Mode): void;
   resume(): void;
@@ -90,10 +93,8 @@ export class Menu {
     logo.append(titleCanvas('HEAD BASH', 18, '#ffd23f', 3), titleCanvas('ARENA', 14, '#ff5a6e', 3));
     s.appendChild(logo);
     const col = el('div', 'main-buttons');
-    col.append(
-      button('2 гравці', 'primary big', () => this.hooks.start('pvp')),
-      button('проти бота', 'big', () => this.hooks.start('bot')),
-    );
+    col.append(button('грати вдвох', 'primary big', () => this.hooks.start('pvp')));
+    if (SHOW_BOT_MODE) col.append(button('проти бота', 'big', () => this.hooks.start('bot')));
     const diff = el('div', 'seg');
     for (const lv of ['easy', 'normal', 'hard'] as BotLevel[]) {
       const b = button(LEVEL_NAMES[lv], `small ${this.settings.bot === lv ? 'on' : ''}`, () => {
@@ -103,7 +104,7 @@ export class Menu {
       });
       diff.appendChild(b);
     }
-    col.appendChild(diff);
+    if (SHOW_BOT_MODE) col.appendChild(diff);
     const row = el('div', 'row');
     row.append(button('налаштування', 'small', () => this.showSettings()));
     if (this.hooks.install) row.append(button('встановити', 'small gold', () => this.hooks.install?.()));
