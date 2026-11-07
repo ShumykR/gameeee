@@ -1,0 +1,37 @@
+{
+  "name": "gameeee",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview --port 4173",
+    "test": "vitest run",
+    "typecheck": "tsc",
+    "e2e": "node scripts/smoke.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ShumykR/gameeee.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ShumykR/gameeee/issues"
+  },
+  "homepage": "https://github.com/ShumykR/gameeee#readme",
+  "dependencies": {
+    "pixi.js": "^8.22.0",
+    "planck": "^1.4.2"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.6",
+    "vitest": "^5.1.0"
+  },
+  "private": true,
+  "type": "module"
+}
