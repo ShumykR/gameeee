@@ -37,10 +37,11 @@ describe('abilities', () => {
   it('abilities fit the car', () => {
     expect(abilityOf(CAR_BY_ID.tank)?.projectile).toBe('cannon');
     expect(abilityOf(CAR_BY_ID['toaster-racer'])?.projectile).toBe('toast');
-    expect(abilityOf(CAR_BY_ID['snowball-cannon'])?.projectile).toBe('snowball');
-    expect(abilityOf(CAR_BY_ID['flying-saucer'])?.kind).toBe('fly');
+    expect(abilityOf(CAR_BY_ID['snowball-cannon'])?.projectile).toBe('bigsnow');
+    expect(abilityOf(CAR_BY_ID['flying-saucer'])?.kind).toBe('beam');
     expect(abilityOf(CAR_BY_ID['fire-truck'])?.projectile).toBe('water');
-    expect(abilityOf(CAR_BY_ID['ghost-bike'])?.kind).toBe('phase');
+    expect(abilityOf(CAR_BY_ID['ghost-train'])?.kind).toBe('phase');
+    expect(abilityOf(CAR_BY_ID['invisible-car'])?.kind).toBe('invis');
     expect(abilityOf(CAR_BY_ID['mine-lander'])?.item).toBe('mine');
     expect(abilityOf(CAR_BY_ID.limousine)).toBeNull();
     expect(abilityOf(CAR_BY_ID.firework)).toBeNull(); // booster only
@@ -143,7 +144,7 @@ describe('abilities', () => {
     const vx = g.cars[1].chassis.getLinearVelocity().x;
     g.useAbility(0);
     expect(g.cars[1].chassis.getLinearVelocity().x).toBeGreaterThan(vx + 2);
-    g = ready({ kind: 'roar', stun: true });
+    g = ready({ kind: 'discharge' });
     placeFoe(g, 3);
     g.useAbility(0);
     expect(g.cars[1].stunT).toBeGreaterThan(0.5);

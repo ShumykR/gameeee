@@ -1,8 +1,33 @@
 import { World, Body, Chain, Box, Circle, Vec2 } from 'planck';
-import { CAT, MASK } from '../physics/constants';
+import { ART_PPM, CAT, DEFAULT_GRAVITY, MASK } from '../physics/constants';
 import type { FixtureTag } from '../physics/tags';
-import type { MapDef, PlatformDef, SawDef, Pt, SuddenDeathKind } from './types';
-import { groundY } from './decor';
+import type { DecorKind, MapDef, PlatformDef, SawDef, Pt, SuddenDeathKind } from './types';
+import type { ItemKind } from '../cars/types';
+import type { Car } from '../cars/car';
+import { groundY, placedDecor } from './decor';
+
+/** Background props that are real, pushable objects (spawned as loose items). */
+export const PROP_ITEMS: Partial<Record<DecorKind, { item: ItemKind; n: number }>> = {
+  pumpkin: { item: 'pumpkin', n: 1 }, gift: { item: 'gift', n: 1 }, haybale: { item: 'hay', n: 1 }, cone: { item: 'cone', n: 1 },
+  tires: { item: 'tire', n: 3 }, cow: { item: 'cow', n: 1 }, block: { item: 'toyblock', n: 2 },
+};
+
+/** Decor that turns into a pushable item instead of being painted. */
+export const isPropDecor = (kind: DecorKind) => kind in PROP_ITEMS;
+
+/** Radius of the loop-the-loop's inner surface, meters. */
+export const LOOP_R = 4.0;
+
+export interface PortalRuntime { x: number; y: number; hw: number; hh: number }
+export interface BeamRuntime { x: number; top: number; bottom: number; hw: number }
+export interface GoalRuntime { x0: number; x1: number; top: number; bottom: number; side: 0 | 1 }
+export interface LoopRuntime { x: number; y: number }
+interface LoopRide { dir: number; last: number; swept: number; t: number }
+
+export type ArenaEvent =
+  | { type: 'portal'; player: number; x: number; y: number; from: { x: number; y: number } }
+  | { type: 'goal'; side: 0 | 1; x: number; y: number }
+  | { type: 'effect'; player: number; effect: 'lift'; x: number; y: number };
 
 export const MAT_FRICTION: Record<string, number> = {
   grass: 0.9, rock: 0.85, sand: 0.75, metal: 0.7, ice: 0.08, wood: 0.85, snow: 0.45, moon: 0.8, neon: 0.75, brick: 0.85,
@@ -52,6 +77,20 @@ export class Arena {
   detonations: { x: number; y: number }[] = [];
   /** Horizontal wind acceleration (m/s²). */
   wind = 0;
+  /** Loose props to spawn as items at round start. */
+  readonly props: { kind: ItemKind; x: number; y: number }[] = [];
+  readonly portals: PortalRuntime[] = [];
+  readonly beams: BeamRuntime[] = [];
+  readonly goals: GoalRuntime[] = [];
+  loop: LoopRuntime | null = null;
+  /** Tractor beams are switched on. */
+  beamOn = true;
+  /** Last goal (for the HUD), seconds since. */
+  goalT = 99;
+  private rides: (LoopRide | null)[] = [null, null];
+  private loopReady = [true, true];
+  private inPortal = new Map<Body, number>();
+  private ballReset: { ball: BallRuntime; t: number }[] = [];
   private rainTimer = 0;
   private uid = 0;
   private blockTimer = 0;
@@ -106,6 +145,17 @@ export class Arena {
       });
       this.lavaBodies.push(body);
     }
+    // Water is a sensor: heads drown in it, swimmers float on it (see Game).
+    for (const wv of def.water ?? []) {
+      const body = world.createBody({ type: 'static', position: new Vec2(wv.x + wv.w / 2, wv.y + 0.5 + wv.h / 2) });
+      body.createFixture({
+        shape: new Box(wv.w / 2, wv.h / 2),
+        isSensor: true,
+        filterCategoryBits: CAT.HAZARD,
+        filterMaskBits: MASK.HAZARD,
+        userData: { kind: 'hazard', type: 'water' } satisfies FixtureTag,
+      });
+    }
     for (const sp of def.spikes ?? []) {
       const body = world.createBody({ type: 'static', position: new Vec2(sp.x + sp.w / 2, sp.y - 0.25) });
       body.createFixture({
@@ -132,6 +182,207 @@ export class Arena {
       this.saws.push(rt);
     }
     this.spawnBalls();
+    this.buildGadgets();
+  }
+
+  /** Turn painted props into the real thing: portals, loop, beams, goals, trampolines, ledges, loose props. */
+  private buildGadgets() {
+    const m = 1 / ART_PPM;
+    const portals: PortalRuntime[] = [];
+    for (const d of placedDecor(this.def)) {
+      const s = d.s ?? 1;
+      const prop = PROP_ITEMS[d.kind];
+      if (prop) {
+        // Keep the spawn spots clear: a prop dropped on a car at the start would shove it.
+        if (this.def.spawns.some(([sx]) => Math.abs(sx - d.x) < 3.2)) continue;
+        for (let i = 0; i < prop.n; i++) this.props.push({ kind: prop.item, x: d.x + (i % 2 ? 0.25 : 0), y: d.y - 0.5 - i * 0.5 });
+        continue;
+      }
+      switch (d.kind) {
+        case 'portal': portals.push({ x: d.x, y: d.y - 23 * m * s, hw: 14 * m * s, hh: 20 * m * s }); break;
+        case 'beam': this.beams.push({ x: d.x, bottom: d.y, top: d.y - 60 * m * s, hw: 8 * m * s }); break;
+        case 'goal': {
+          const w = 58 * m * s, h = 36 * m * s;
+          const x0 = d.x - w / 2, x1 = d.x + w / 2;
+          // Side view: crossbar on top, net at the back, open toward the pitch.
+          const back = d.flip ? x1 : x0;
+          this.staticBox((x0 + x1) / 2, d.y - h + 0.14, w / 2, 0.14, 'ledge');
+          this.staticBox(back + (d.flip ? -0.14 : 0.14), d.y - h / 2, 0.14, h / 2, 'terrain');
+          this.goals.push({ x0: x0 + 0.3, x1: x1 - 0.3, top: d.y - h + 0.3, bottom: d.y, side: d.x < (this.def.bounds.x0 + this.def.bounds.x1) / 2 ? 0 : 1 });
+          break;
+        }
+        case 'umbrella': {
+          // The canopy is a trampoline.
+          const body = this.world.createBody({ type: 'static', position: new Vec2(d.x, d.y - 30 * m * s) });
+          body.createFixture({
+            shape: new Box(12 * m * s, 0.12),
+            friction: 0.6,
+            filterCategoryBits: CAT.TERRAIN,
+            filterMaskBits: MASK.TERRAIN,
+            userData: { kind: 'pad', power: 14, nx: 0, ny: -1 } satisfies FixtureTag,
+          });
+          this.padBodies.push(body);
+          break;
+        }
+        case 'gate':
+          // Roof beam of the temple gate: a ledge you can land on.
+          this.staticBox(d.x, d.y - 46 * m * s, 31 * m * s, 0.18, 'ledge');
+          break;
+        case 'loop': {
+          const cx = d.x, cy = d.y - 62 * m * s;
+          const pts: Vec2[] = [];
+          const n = 48;
+          for (let i = 0; i < n; i++) {
+            const a = (i / n) * Math.PI * 2;
+            pts.push(new Vec2(cx + Math.cos(a) * LOOP_R, cy + Math.sin(a) * LOOP_R));
+          }
+          const body = this.world.createBody({ type: 'static' });
+          body.createFixture({
+            shape: new Chain(pts, true),
+            friction: 0.9,
+            filterCategoryBits: CAT.TERRAIN,
+            filterMaskBits: MASK.TERRAIN,
+            userData: { kind: 'loop' } satisfies FixtureTag,
+          });
+          this.loop = { x: cx, y: cy };
+          break;
+        }
+      }
+    }
+    if (portals.length >= 2) this.portals.push(portals[0], portals[1]);
+  }
+
+  private staticBox(x: number, y: number, hw: number, hh: number, kind: 'terrain' | 'ledge') {
+    const body = this.world.createBody({ type: 'static', position: new Vec2(x, y) });
+    body.createFixture({
+      shape: new Box(hw, hh),
+      friction: 0.8,
+      filterCategoryBits: CAT.TERRAIN,
+      filterMaskBits: MASK.TERRAIN,
+      userData: (kind === 'ledge' ? { kind: 'ledge' } : { kind: 'terrain', mat: 'metal' }) satisfies FixtureTag,
+    });
+  }
+
+  /** Is player p riding the loop right now (its walls only hold riders)? */
+  loopRiding(p: number): boolean {
+    return !!this.rides[p];
+  }
+
+  /**
+   * Gadgets acting on cars and loose bodies each step: portals teleport, the loop
+   * carries fast cars round, tractor beams lift, goals celebrate.
+   */
+  interact(cars: Car[], loose: Body[], dt: number): ArenaEvent[] {
+    const ev: ArenaEvent[] = [];
+    const g = this.def.gravity ?? DEFAULT_GRAVITY;
+    // ---- portals: entering one pops you out of the other, speed kept
+    if (this.portals.length === 2) {
+      const inside = (p: PortalRuntime, q: Vec2) => Math.abs(q.x - p.x) < p.hw && Math.abs(q.y - p.y) < p.hh;
+      const tp = (bodies: Body[], key: Body, player?: number) => {
+        const q = key.getWorldCenter();
+        const idx = inside(this.portals[0], q) ? 0 : inside(this.portals[1], q) ? 1 : -1;
+        const was = this.inPortal.get(key) ?? -1;
+        if (idx === -1) { this.inPortal.delete(key); return; }
+        if (was !== -1) return;
+        const a = this.portals[idx], b = this.portals[1 - idx];
+        const dx = b.x - a.x, dy = b.y - a.y;
+        for (const body of bodies) { const p = body.getPosition(); body.setPosition(new Vec2(p.x + dx, p.y + dy)); }
+        this.inPortal.set(key, 1 - idx);
+        if (player !== undefined) ev.push({ type: 'portal', player, x: q.x + dx, y: q.y + dy, from: { x: q.x, y: q.y } });
+      };
+      for (const c of cars) tp(c.allBodies, c.chassis, c.player);
+      for (const b of loose) if (b.getType() === 'dynamic') tp([b], b);
+      for (const b of this.balls) tp([b.body], b.body);
+    }
+    // ---- loop-the-loop
+    if (this.loop) {
+      const L = this.loop;
+      for (const c of cars) {
+        const p = c.player;
+        const q = c.chassis.getWorldCenter();
+        const dx = q.x - L.x, dy = q.y - L.y;
+        const d = Math.hypot(dx, dy);
+        const ride = this.rides[p];
+        if (!ride) {
+          if (d > LOOP_R + 0.3) this.loopReady[p] = true;
+          const v = c.chassis.getLinearVelocity();
+          if (this.loopReady[p] && c.alive && d < LOOP_R && dy > 0 && Math.abs(dx) < 0.6 && Math.abs(v.x) > 5 && c.phaseT <= 0) {
+            this.rides[p] = { dir: Math.sign(v.x), last: Math.atan2(dy, dx), swept: 0, t: 0 };
+            this.loopReady[p] = false;
+          }
+          continue;
+        }
+        const a = Math.atan2(dy, dx);
+        let da = a - ride.last;
+        while (da > Math.PI) da -= Math.PI * 2;
+        while (da < -Math.PI) da += Math.PI * 2;
+        ride.swept += da * -ride.dir;
+        ride.last = a;
+        ride.t += dt;
+        const v = c.chassis.getLinearVelocity();
+        if (ride.swept > Math.PI * 1.85 || ride.t > 4 || d > LOOP_R + 0.8 || !c.alive || (ride.swept < 0.6 && ride.t > 1.2)) {
+          this.rides[p] = null;
+          continue;
+        }
+        // Booster track: press into the wall and keep the speed up.
+        const nx = dx / Math.max(0.1, d), ny = dy / Math.max(0.1, d);
+        const tx = -ny * -ride.dir, ty = nx * -ride.dir;
+        const along = v.x * tx + v.y * ty;
+        for (const b of c.bodies) {
+          const mass = b.getMass();
+          b.applyForceToCenter(new Vec2(nx * mass * g * 1.25, ny * mass * g * 1.25), true);
+          if (along < 11) b.applyForceToCenter(new Vec2(tx * mass * 30, ty * mass * 30), true);
+        }
+      }
+    }
+    // ---- tractor beams pulse: on 2.6 s, off 1.6 s
+    if (this.beams.length) {
+      const cyc = this.time % 4.2;
+      this.beamOn = cyc < 2.6;
+      if (this.beamOn) {
+        for (const bm of this.beams) {
+          const lift = (bodies: Body[], scale: number) => {
+            const q = bodies[0].getWorldCenter();
+            if (Math.abs(q.x - bm.x) > bm.hw + 0.4 || q.y < bm.top - 0.5 || q.y > bm.bottom + 0.5) return false;
+            const nearTop = q.y < bm.top + 1.2;
+            for (const b of bodies) {
+              const mass = b.getMass();
+              const v = b.getLinearVelocity();
+              const up = nearTop ? g * 1.0 : v.y < -6 ? g * 1.0 : g * 1.45;
+              b.applyForceToCenter(new Vec2((bm.x - q.x) * mass * 2 * scale, -mass * up * b.getGravityScale()), true);
+              if (nearTop) b.setLinearVelocity(new Vec2(v.x * 0.97, v.y * 0.9));
+            }
+            return true;
+          };
+          for (const c of cars) if (lift(c.allBodies, 1) && this.time % 1 < dt) ev.push({ type: 'effect', player: c.player, effect: 'lift', x: c.position.x, y: c.position.y });
+          for (const b of loose) if (b.getType() === 'dynamic') lift([b], 1);
+          for (const b of this.balls) lift([b.body], 1);
+        }
+      }
+    }
+    // ---- goals
+    this.goalT += dt;
+    for (const b of this.balls) {
+      if (!b.home || this.ballReset.some((r) => r.ball === b)) continue;
+      const q = b.body.getPosition();
+      for (const gl of this.goals) {
+        if (q.x > gl.x0 && q.x < gl.x1 && q.y > gl.top && q.y < gl.bottom) {
+          ev.push({ type: 'goal', side: gl.side, x: q.x, y: q.y });
+          this.ballReset.push({ ball: b, t: 1.4 });
+          this.goalT = 0;
+        }
+      }
+    }
+    for (let i = this.ballReset.length - 1; i >= 0; i--) {
+      const r = this.ballReset[i];
+      r.t -= dt;
+      if (r.t > 0 || !r.ball.home) continue;
+      r.ball.body.setPosition(new Vec2(r.ball.home[0], r.ball.home[1]));
+      r.ball.body.setLinearVelocity(new Vec2(0, 0));
+      r.ball.body.setAngularVelocity(0);
+      this.ballReset.splice(i, 1);
+    }
+    return ev;
   }
 
   private spawnBalls() {
@@ -398,7 +649,14 @@ export class Arena {
       isSensor: true,
       filterCategoryBits: CAT.HAZARD,
       filterMaskBits: MASK.HAZARD,
-      userData: { kind: 'hazard', type: 'lava' } satisfies FixtureTag,
+      userData: { kind: 'hazard', type: kind === 'flood' ? 'water' : 'lava' } satisfies FixtureTag,
     });
+  }
+
+  /** Water surfaces: [x0, x1, top] (static water and a rising flood). */
+  waterSurfaces(): [number, number, number][] {
+    const out: [number, number, number][] = (this.def.water ?? []).map((w) => [w.x, w.x + w.w, w.y + 0.5]);
+    if (this.riseBody && this.riseKind === 'flood') out.push([-1e4, 1e4, this.riseY]);
+    return out;
   }
 }

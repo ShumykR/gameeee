@@ -124,23 +124,36 @@ export class Bot implements Controller {
     const facingFoe = Math.sign(dx) === Math.sign(me.forward().x);
     const level = Math.abs(me.angle) < 0.6;
     const behind = !facingFoe;
-    switch (me.ability.kind) {
+    const k = me.ability.kind;
+    switch (k) {
       case 'shoot': {
         const proj = me.ability.projectile;
-        const range = proj === 'fire' ? 4.5 : proj === 'water' ? 9 : proj === 'bubble' ? 10 : 16;
+        const range = proj === 'fire' || proj === 'tea' ? 4.5 : proj === 'water' || proj === 'hook' ? 9 : proj === 'bubble' || proj === 'ink' ? 10 : 16;
+        if (proj === 'seeker' || proj === 'bone') return dist < 14;
         return facingFoe && level && Math.abs(dx) < range && Math.abs(dy) < 4;
       }
-      case 'roar': return dist < 4.2;
+      case 'roar': case 'discharge': case 'puff': case 'slam': return dist < 4.2 || (k === 'slam' && me.inAir && Math.abs(dx) < 2 && dy > 0);
+      case 'stasis': return dist < 5.5;
+      case 'howl': return dist < 6.5;
+      case 'beam': return Math.abs(dx) < 3.4 && dy > -1.5 && dist < 8;
+      case 'storm': return dist < 18;
       case 'drop': return behind && dist < 7;
       case 'dump': return behind && dist < 9;
+      case 'tailwhip': return behind && dist < 4.2;
+      case 'punch': case 'kick': case 'scoop': return facingFoe && dist < 3.8;
       case 'phase': return dist < 3 || (foe.ability?.kind === 'shoot' && foe.abilityCd < 0.2 && dist < 10);
+      case 'reflect': return foe.ability?.kind === 'shoot' && facingFoe && dist < 12;
       case 'blink': return facingFoe && dist > 5 && dist < 12 && Math.abs(dy) < 2;
-      case 'jump': return dist < 4.5 && dy > -1.5;
-      case 'nitro':
-      case 'dash': return facingFoe && level && dist > 2.5 && dist < 10 && !me.inAir;
-      case 'slam': return dist < 4.5 || (me.inAir && Math.abs(dx) < 2 && dy > 0);
-      case 'fly': return dist < 6;
-      case 'shield': return dist < 3.2;
+      case 'swap': return dist > 6 && dist < 16 && me.position.y > foe.position.y + 1;
+      case 'recall': return me.upsideDown || me.position.y > game.map.killY - 10;
+      case 'icewall': return facingFoe && dist > 2.5 && dist < 7;
+      case 'jump': case 'stomp': case 'bounce': case 'rear': case 'ollie': case 'hydraulics': case 'backflip': case 'moonjump': case 'surprise':
+        return dist < 4.5 && dy > -1.5;
+      case 'pounce': return dist > 2 && dist < 8;
+      case 'nitro': case 'dash': case 'drs': case 'sting': case 'gore': case 'flip': case 'bump': case 'bite': case 'frenzy': case 'slide':
+        return facingFoe && level && dist > 2.5 && dist < 10 && !me.inAir;
+      case 'fly': case 'glide': return dist < 6 || (k === 'glide' && me.inAir);
+      case 'shield': case 'shell': case 'heavy': case 'invis': return dist < 3.2;
     }
     return false;
   }

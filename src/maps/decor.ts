@@ -6,7 +6,8 @@ import type { ItemKind, ProjectileKind } from '../cars/types';
 /*
  * Background props drawn from code: tombstones, spruces, palms, goals, lanterns…
  * Each grid's origin is its bottom-center so it can be planted on the ground.
- * Render-only: decor never collides.
+ * Some kinds are real objects too (see maps/arena.ts): portals teleport, the loop
+ * carries cars round, beams lift, goals score, umbrellas bounce, small props are pushable.
  */
 
 export const DECOR_PAL: (RGB | null)[] = [
@@ -442,13 +443,14 @@ export function decorGrid(kind: DecorKind, seed = 0): PixelGrid {
       return p.done();
     }
     case 'loop': {
-      const p = new Pen(56, 60);
-      p.ell(28, 28, 26, 26, C.OR, (dx, dy) => {
+      // Real loop-the-loop: inner track radius LOOP_R (4 m), drawn sitting on the ground.
+      const R = 62, inner = 56;
+      const p = new Pen(R * 2, R * 2);
+      p.ell(R, R, R, R, C.OR, (dx, dy) => {
         const d = Math.hypot(dx, dy);
-        if (d < 0.8) return null;
-        return d > 0.93 ? C.ORD : Math.abs(Math.atan2(dy, dx) * 6) % 1 < 0.15 ? C.Y : C.OR;
+        if (d < inner / R) return null;
+        return d > 0.97 ? C.ORD : Math.abs(Math.atan2(dy, dx) * 8) % 1 < 0.12 ? C.Y : C.OR;
       });
-      p.rect(26, 50, 4, 10, C.LG);
       return p.done();
     }
     case 'ghost': {
@@ -512,26 +514,34 @@ export function shotGrid(kind: ProjectileKind, r: number, ppm: number): PixelGri
   let p: Pen;
   switch (kind) {
     case 'laser':
+    case 'railgun':
     case 'zap': {
       p = new Pen(R * 8, D);
-      p.rect(0, 0, R * 8, D, kind === 'zap' ? C.Y : C.CY);
+      p.rect(0, 0, R * 8, D, kind === 'zap' ? C.Y : kind === 'railgun' ? C.PU : C.CY);
       if (kind === 'zap') for (let i = 0; i < 4; i++) p.rect(i * R * 2, (i % 2) * R, R * 2, R, C.W);
       else p.rect(1, Math.floor(R / 2), R * 8 - 2, Math.max(1, R), C.W);
       break;
     }
     case 'firework':
-    case 'missile': {
+    case 'missile':
+    case 'volley':
+    case 'seeker':
+    case 'torpedo': {
+      const body = kind === 'firework' ? C.R : kind === 'torpedo' ? C.DG : kind === 'seeker' ? C.W : C.LG;
       p = new Pen(R * 5, D);
-      p.rect(0, 0, R * 4, D, kind === 'missile' ? C.LG : C.R);
-      p.poly([[R * 4, 0], [R * 5, R], [R * 4, D]], kind === 'missile' ? C.R : C.Y);
-      p.rect(R, 0, 1, D, C.Y);
-      if (kind === 'missile') p.poly([[0, -1], [R, 0], [0, 1]], C.DG);
+      p.rect(0, 0, R * 4, D, body);
+      p.poly([[R * 4, 0], [R * 5, R], [R * 4, D]], kind === 'firework' ? C.Y : kind === 'seeker' ? C.LI : C.R);
+      p.rect(R, 0, 1, D, kind === 'torpedo' ? C.G : C.Y);
+      if (kind !== 'firework') p.poly([[0, -1], [R, 0], [0, 1]], C.DG);
       break;
     }
-    case 'harpoon': {
+    case 'harpoon':
+    case 'hook':
+    case 'quill': {
       p = new Pen(R * 9, D);
-      p.rect(0, R - 1, R * 7, 2, C.BR);
-      p.poly([[R * 7, 0], [R * 9, R], [R * 7, D]], C.LG);
+      p.rect(0, R - 1, R * 7, 2, kind === 'quill' ? C.CR : kind === 'hook' ? C.G : C.BR);
+      if (kind === 'hook') { p.rect(R * 7, 0, 2, D, C.LG); p.rect(R * 7, D - 2, R * 2, 2, C.LG); }
+      else p.poly([[R * 7, 0], [R * 9, R], [R * 7, D]], kind === 'quill' ? C.K : C.LG);
       break;
     }
     case 'toast': {
@@ -560,9 +570,11 @@ export function shotGrid(kind: ProjectileKind, r: number, ppm: number): PixelGri
       for (const x of [R * 0.7, R * 4.3]) for (const y of [R * 0.5, R * 1.5]) p.ell(x, y, R * 0.6, R * 0.6, C.CR);
       break;
     }
-    case 'water': {
+    case 'water':
+    case 'tea': {
+      const c = kind === 'tea' ? C.BR : C.B;
       p = new Pen(D + 2, D);
-      p.ell(R + 1, R, R + 1, R, C.B, (dx, dy) => (dx + dy < -0.5 ? C.W : C.B));
+      p.ell(R + 1, R, R + 1, R, c, (dx, dy) => (dx + dy < -0.5 ? C.W : c));
       break;
     }
     case 'ice': {
@@ -571,9 +583,29 @@ export function shotGrid(kind: ProjectileKind, r: number, ppm: number): PixelGri
       p.poly([[R, 2], [R + 2, R], [R, R]], C.W);
       break;
     }
-    case 'egg': {
-      p = new Pen(D, D + 2);
-      p.ell(R, R + 1, R * 0.85, R + 1, C.CR, (dx, dy) => (dx + dy > 0.6 ? C.SA : C.CR));
+    case 'atom':
+    case 'plasma': {
+      p = new Pen(D, D);
+      const glow = kind === 'atom' ? C.LI : C.PK;
+      p.ell(R, R, R, R, glow, (dx, dy) => {
+        const d = dx * dx + dy * dy;
+        if (kind === 'atom' && (Math.abs(dy - dx * 0.3) < 0.12 || Math.abs(dy + dx * 0.8) < 0.12)) return C.W;
+        return d < 0.2 ? C.W : d < 0.55 ? glow : kind === 'atom' ? C.GR : C.PU;
+      });
+      break;
+    }
+    case 'bat': {
+      p = new Pen(D * 2, D);
+      p.poly([[0, 1], [R, R], [D, R - 1], [D * 2, 1], [D + R, D - 1], [D, D], [R, D - 1]], C.K);
+      p.px(D - 1, R, C.R);
+      p.px(D + 1, R, C.R);
+      break;
+    }
+    case 'penguin': {
+      p = new Pen(D + 2, D);
+      p.ell(R + 1, R, R + 1, R, C.K);
+      p.ell(R + 1, R + 1, R * 0.8, R * 0.6, C.W);
+      p.rect(D, R - 1, 2, 2, C.OR);
       break;
     }
     case 'fire': {
@@ -593,13 +625,10 @@ export function shotGrid(kind: ProjectileKind, r: number, ppm: number): PixelGri
       p.rect(1, 2, D, 1, C.SA);
       break;
     }
-    case 'gift': {
-      p = new Pen(D, D + 2);
-      p.rect(0, 2, D, D, C.R);
-      p.rect(R - 1, 2, 2, D, C.Y);
-      p.rect(0, R + 1, D, 2, C.Y);
-      p.ell(R - 2, 1.5, 2, 1.5, C.Y);
-      p.ell(R + 2, 1.5, 2, 1.5, C.Y);
+    case 'fist': {
+      p = new Pen(D + R, D);
+      p.rect(0, R - 2, R, 4, C.LG);
+      p.ell(R + R * 0.9, R, R, R, C.R, (dx, dy) => (dx > 0.3 && Math.abs(dy) < 0.6 && Math.abs(dy % 0.4) < 0.08 ? C.RD : dx + dy < -0.6 ? C.W : C.R));
       break;
     }
     case 'burger': {
@@ -610,10 +639,9 @@ export function shotGrid(kind: ProjectileKind, r: number, ppm: number): PixelGri
       p.rect(1, R + 3, D, Math.max(1, R - 3), C.SAD);
       break;
     }
-    case 'icecream': {
-      p = new Pen(D, D + R);
-      p.poly([[1, R], [D - 1, R], [R, D + R]], C.SAD);
-      p.ell(R, R * 0.8, R, R * 0.8, C.PK, (dx, dy) => (dx + dy < -0.5 ? C.W : C.PK));
+    case 'ink': {
+      p = new Pen(D, D);
+      p.ell(R, R, R, R, C.K, (dx, dy) => (dx + dy < -0.7 ? C.PUD : Math.hypot(dx, dy) > 0.85 && (Math.atan2(dy, dx) * 4) % 1 < 0.4 ? null : C.K));
       break;
     }
     case 'golf': {
@@ -637,7 +665,7 @@ export function shotGrid(kind: ProjectileKind, r: number, ppm: number): PixelGri
     }
     default: {
       p = new Pen(D, D);
-      if (kind === 'snowball') p.ell(R, R, R, R, C.W, (dx, dy) => (dx + dy > 0.5 ? C.SN : C.W));
+      if (kind === 'snowball' || kind === 'bigsnow') p.ell(R, R, R, R, C.W, (dx, dy) => (dx + dy > 0.5 ? C.SN : C.W));
       else p.ell(R, R, R, R, C.DG, (dx, dy) => (dx + dy < -0.6 ? C.G : C.DG));
     }
   }
@@ -744,11 +772,64 @@ export function itemGrid(kind: ItemKind, w: number, h: number, ppm: number): Pix
       p.px(R + 1, H * 0.2, C.W);
       p.rect(W - 2, H * 0.24, 2, 1, C.OR);
       break;
-    case 'ice':
+    case 'icewall':
       p.rect(0, 0, W, H, C.CY);
       p.rect(1, 1, W - 3, 2, C.W);
       p.rect(1, 1, 1, H - 3, C.W);
+      for (let y = 6; y < H - 2; y += 7) p.line(2, y, W - 2, y + 2, C.W);
       break;
+    case 'icecream':
+      p.poly([[1, H * 0.42], [W - 1, H * 0.42], [R, H]], C.SAD);
+      p.ell(R, H * 0.3, R, H * 0.3, C.PK, (dx, dy) => (dx + dy < -0.5 ? C.W : C.PK));
+      break;
+    case 'coffin':
+      p.poly([[0, H * 0.5], [W * 0.18, 0], [W - 2, 0], [W, H * 0.5], [W - 2, H], [W * 0.18, H]], C.BRD);
+      p.rect(W * 0.18, 1, W * 0.8, 1, C.BR);
+      p.rect(W * 0.5, H * 0.2, 1, H * 0.6, C.GO);
+      p.rect(W * 0.45, H * 0.4, W * 0.11, 1, C.GO);
+      break;
+    case 'concrete':
+      p.ell(R, H / 2, R, H / 2, C.LG, (dx, dy) => (dx + dy < -0.5 ? C.W : dx + dy > 0.6 ? C.G : C.LG));
+      break;
+    case 'oil':
+      p.ell(R, H / 2, R, H / 2, C.K, (dx) => (dx < -0.3 && dx > -0.5 ? C.PU : C.K));
+      break;
+    case 'tar':
+      p.rect(0, 0, W, H, C.DG);
+      for (let x = 1; x < W - 1; x += 3) p.px(x, 0, C.G);
+      break;
+    case 'spikes':
+      p.rect(0, H - 1, W, 1, C.K);
+      for (let x = 0; x < W - 1; x += 2) p.poly([[x, H - 1], [x + 1, -1], [x + 2, H - 1]], C.LG);
+      break;
+    case 'sandbag':
+      p.ell(R, H / 2, R, H / 2, C.SAD, (dx, dy) => (dx + dy < -0.4 ? C.SA : C.SAD));
+      p.rect(R - 1, 0, 2, H, C.BR);
+      break;
+    case 'melon':
+      p.ell(R, R, R, R, C.GR, (dx) => (Math.abs(dx) % 0.4 < 0.12 ? C.GRD : C.GR));
+      break;
+    case 'tire':
+      p.ell(R, R, R, R, C.K, (dx, dy) => {
+        const d = Math.hypot(dx, dy);
+        return d < 0.4 ? C.LG : d < 0.55 ? C.DG : C.K;
+      });
+      break;
+    case 'flame':
+      for (let x = 0; x < W; x += 3) p.poly([[x, H], [x + 1.5, -2 - (x % 2) * 2], [x + 3, H]], x % 2 ? C.Y : C.OR);
+      break;
+    case 'cone':
+      p.poly([[R - 1, 0], [R + 1, 0], [W - 1, H - 2], [1, H - 2]], C.OR);
+      p.rect(R - 2, H * 0.4, 4, 2, C.W);
+      p.rect(0, H - 2, W, 2, C.ORD);
+      break;
+    case 'toyblock': {
+      const col = [C.R, C.B, C.Y, C.GR][Math.abs(Math.round(w * 100 + h * 10)) % 4];
+      p.rect(0, 0, W, H, col);
+      p.rect(1, 1, W - 3, 1, C.W);
+      p.ell(R, H / 2, W * 0.22, H * 0.22, C.W);
+      break;
+    }
     case 'peel':
       p.poly([[0, H], [W * 0.2, 0], [W * 0.4, H * 0.6], [W * 0.5, 0], [W * 0.6, H * 0.6], [W * 0.8, 0], [W, H]], C.Y);
       p.rect(W * 0.45, H - 1, 2, 1, C.BR);

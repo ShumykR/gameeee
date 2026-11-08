@@ -57,6 +57,51 @@ export class Car {
   readonly flail: Body | null = null;
   /** Diving after a mid-air slam; the shockwave fires on landing. */
   slamming = false;
+  /** Seconds before a stomp jump arms its landing shockwave. */
+  stompDelay = 0;
+  /** Strike window after a dash-type action: the first car hit gets `strikeFx`. */
+  strikeT = 0;
+  strikeFx: 'sting' | 'gore' | 'flip' | 'bump' | 'bite' | null = null;
+  /** Rubber body (jelly). */
+  bounceT = 0;
+  /** Queued hops (hydraulics) / dashes (frenzy). */
+  hops = 0;
+  hopT = 0;
+  hopKind: 'hydraulics' | 'frenzy' = 'hydraulics';
+  /** Moon gravity, gliding. */
+  lowGravT = 0;
+  glideT = 0;
+  /** DRS: more top speed and torque. */
+  turboT = 0;
+  /** Frictionless belly slide. */
+  slideT = 0;
+  /** Four times heavier chassis. */
+  heavyT = 0;
+  /** Hiding in the shell: no driving, heavy, can't lose the head. */
+  shellT = 0;
+  /** Shots bounce back. */
+  reflectT = 0;
+  /** Nearly invisible. */
+  invisT = 0;
+  /** Controls reversed (howl). */
+  confuseT = 0;
+  /** Frozen mid-air in a stasis field. */
+  stasisT = 0;
+  /** Engine strangled: ink / tar (speed multiplier while > 0). */
+  slowT = 0;
+  /** Flat tyres after a spike strip. */
+  flatT = 0;
+  /** Puffed up (blast fish), render scale. */
+  puffT = 0;
+  /** Medkit trait already used this round. */
+  medkitUsed = false;
+  /** Seconds to the next spilled item (spill trait). */
+  spillT = 1.5;
+  /** Seconds before a passive contact effect (quills / shock) can fire again. */
+  touchCd = 0;
+  /** Recent chassis positions for the time loop (one sample every 5 steps). */
+  history: { x: number; y: number; a: number }[] = [];
+  private histTick = 0;
   /** Previous-step transforms for render interpolation. */
   prev: BodyState[] = [];
   private readonly restAnchors: Vec2[] = [];
@@ -111,7 +156,7 @@ export class Car {
       wb.createFixture({
         shape: new Circle(wd.r),
         density: wd.density ?? 1.2,
-        friction: def.tireFriction,
+        friction: this.tireGrip,
         restitution: 0.1,
         filterGroupIndex: group,
         filterCategoryBits: CAT.CAR,
@@ -161,6 +206,15 @@ export class Car {
     this.snapshot();
   }
 
+  hasTrait(kind: NonNullable<CarDef['traits']>[number]['kind']): boolean {
+    return !!this.def.traits?.some((t) => t.kind === kind);
+  }
+
+  /** Tyre friction including the grip trait. */
+  get tireGrip(): number {
+    return this.def.tireFriction * (this.hasTrait('grip') ? 1.8 : 1);
+  }
+
   get bodies(): Body[] {
     return [this.chassis, ...this.wheels];
   }
@@ -172,7 +226,13 @@ export class Car {
 
   /** Gravity scale from flight / bubble / the car's own floatiness. */
   applyGravity() {
-    const g = this.liftT > 0 ? -0.18 : this.flyT > 0 ? -0.06 : this.def.float ?? 1;
+    const g = this.stasisT > 0 ? 0
+      : this.liftT > 0 ? -0.18
+      : this.flyT > 0 ? -0.06
+      : this.glideT > 0 ? 0.22
+      : this.lowGravT > 0 ? 0.3
+      : this.heavyT > 0 || this.shellT > 0 ? Math.max(1.6, this.def.float ?? 1)
+      : this.def.float ?? 1;
     for (const b of this.allBodies) b.setGravityScale(g);
   }
 
@@ -221,16 +281,92 @@ export class Car {
     this.shieldT = Math.max(0, this.shieldT - dt);
     this.nitroT = Math.max(0, this.nitroT - dt);
     this.stunT = Math.max(0, this.stunT - dt);
+    this.strikeT = Math.max(0, this.strikeT - dt);
+    this.turboT = Math.max(0, this.turboT - dt);
+    this.reflectT = Math.max(0, this.reflectT - dt);
+    this.invisT = Math.max(0, this.invisT - dt);
+    this.confuseT = Math.max(0, this.confuseT - dt);
+    this.slowT = Math.max(0, this.slowT - dt);
+    this.flatT = Math.max(0, this.flatT - dt);
+    this.puffT = Math.max(0, this.puffT - dt);
+    this.touchCd = Math.max(0, this.touchCd - dt);
     let regrav = false;
-    if (this.flyT > 0) {
-      this.flyT -= dt;
-      if (this.flyT <= 0) regrav = true;
+    const tick = (k: 'flyT' | 'liftT' | 'glideT' | 'lowGravT' | 'stasisT') => {
+      if (this[k] > 0) {
+        this[k] -= dt;
+        if (this[k] <= 0) { this[k] = 0; regrav = true; }
+      }
+    };
+    tick('flyT'); tick('liftT'); tick('glideT'); tick('lowGravT'); tick('stasisT');
+    if (this.heavyT > 0) {
+      this.heavyT -= dt;
+      if (this.heavyT <= 0) { this.heavyT = 0; this.setHeavy(false); regrav = true; }
     }
-    if (this.liftT > 0) {
-      this.liftT -= dt;
-      if (this.liftT <= 0) regrav = true;
+    if (this.shellT > 0) {
+      this.shellT -= dt;
+      if (this.shellT <= 0) { this.shellT = 0; this.setHeavy(false); regrav = true; }
+    }
+    if (this.slideT > 0) {
+      this.slideT -= dt;
+      if (this.slideT <= 0) { this.slideT = 0; this.setTireFriction(this.tireGrip); }
+    }
+    if (this.bounceT > 0) {
+      this.bounceT -= dt;
+      if (this.bounceT <= 0) { this.bounceT = 0; this.setBounce(this.def.restitution ?? 0.05); }
     }
     if (regrav) this.applyGravity();
+    if (++this.histTick % 5 === 0) {
+      const p = this.chassis.getPosition();
+      this.history.push({ x: p.x, y: p.y, a: this.chassis.getAngle() });
+      if (this.history.length > 30) this.history.shift();
+    }
+  }
+
+  /** Put the car back upright at (x, y), at rest (same layout as when it was built). */
+  reset(x: number, y: number) {
+    const f = this.facing;
+    this.chassis.setTransform(new Vec2(x, y), 0);
+    this.def.wheels.forEach((wd, i) => this.wheels[i].setTransform(new Vec2(x + wd.x * f, y + wd.y), 0));
+    if (this.flail && this.def.flail) {
+      const fl = this.def.flail;
+      this.flail.setTransform(new Vec2(x + fl.at[0] * f - 0.3 * f, y + fl.at[1] + fl.len * 0.9), 0);
+    }
+    for (const b of this.allBodies) {
+      b.setLinearVelocity(new Vec2(0, 0));
+      b.setAngularVelocity(0);
+    }
+    this.flipTimer = 0;
+    this.snapshot();
+  }
+
+  /** Make the chassis much heavier (or back to normal). */
+  setHeavy(on: boolean) {
+    for (let fx = this.chassis.getFixtureList(); fx; fx = fx.getNext()) {
+      if (fx.isSensor()) continue;
+      const base = (fx as unknown as { baseDensity?: number });
+      if (base.baseDensity === undefined) base.baseDensity = fx.getDensity();
+      fx.setDensity(on ? base.baseDensity * 4 : base.baseDensity);
+    }
+    this.chassis.resetMassData();
+    if (this.def.com) {
+      const f = this.facing;
+      const md = { mass: 0, center: new Vec2(), I: 0 };
+      this.chassis.getMassData(md);
+      const ic = md.I - md.mass * md.center.lengthSquared();
+      const center = new Vec2(md.center.x + this.def.com[0] * f, md.center.y + this.def.com[1]);
+      this.chassis.setMassData({ mass: md.mass, center, I: ic + md.mass * center.lengthSquared() });
+    }
+  }
+
+  setTireFriction(f: number) {
+    for (const w of this.wheels) for (let fx = w.getFixtureList(); fx; fx = fx.getNext()) fx.setFriction(f);
+    // Already-touching contacts keep their mixed friction until refreshed.
+    for (const w of this.wheels) for (let ce = w.getContactList(); ce; ce = ce.next!) ce.contact.resetFriction();
+  }
+
+  setBounce(r: number) {
+    for (const b of this.bodies) for (let fx = b.getFixtureList(); fx; fx = fx.getNext()) if (!fx.isSensor()) fx.setRestitution(r);
+    for (const b of this.bodies) for (let ce = b.getContactList(); ce; ce = ce.next!) ce.contact.resetRestitution();
   }
 
   /** Switch ghost mode collision filtering on/off. */
@@ -286,15 +422,20 @@ export class Car {
     this.snapshot();
     this.scanContacts();
     const d = this.def;
-    const dir = this.alive && this.stunT <= 0 ? this.input : 0;
+    const dir = this.alive && this.stunT <= 0 && this.shellT <= 0 && this.stasisT <= 0 ? this.input : 0;
+    const spd = (this.turboT > 0 ? 1.5 : 1) * (this.slowT > 0 ? 0.4 : 1) * (this.flatT > 0 ? 0.55 : 1);
+    const trq = (this.turboT > 0 ? 1.4 : 1) * (this.heavyT > 0 ? 2.6 : 1) * (this.slowT > 0 ? 0.6 : 1);
+    if (this.stasisT > 0) {
+      for (const b of this.allBodies) { b.setLinearVelocity(new Vec2(0, 0)); b.setAngularVelocity(b.getAngularVelocity() * 0.8); }
+    }
 
     // Motor: drive wheels toward target angular speed; light rolling brake when idle.
     for (let i = 0; i < this.wheels.length; i++) {
       const j = this.joints[i];
       const r = d.wheels[i].r;
       if (dir !== 0 && this.drive[i]) {
-        j.setMotorSpeed((dir * d.motor.speed) / r);
-        j.setMaxMotorTorque(d.motor.torque);
+        j.setMotorSpeed((dir * d.motor.speed * spd) / r);
+        j.setMaxMotorTorque(d.motor.torque * trq);
       } else {
         j.setMotorSpeed(0);
         j.setMaxMotorTorque(d.motor.torque * (this.locked ? 1.5 : 0.12));

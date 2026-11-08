@@ -3,7 +3,6 @@ import { group, o } from './util';
 
 export const RETRO = group('retro', [
   ['monster-truck', 'Monster Truck', 'Позашляховик на колесах вище за людину. Стрибає через усе.', 'monster', ['#d83a2e', '#ffd23f'], {
-    ab: 'jump|Бігфут-стрибок',
     art: (f) => [...flames(f.nose.x - 0.15, -0.9, -0.28, 0.32), bar(f.nose.x - 0.1, -0.05, f.nose.x + 0.15, 0.1, 'metal'), R(-0.2, f.roof.y - 0.08, 0.5, f.roof.y, 'light')],
   }],
   ['dragster', 'Dragster', 'Довгий болід для дрег-рейсингу. Тримай «вперед» — вмикається ракета.', 'dragster', ['#ffcc1a', '#1a1a2e'], {
@@ -11,21 +10,21 @@ export const RETRO = group('retro', [
     art: (f) => [O(0.6, 0.04, 0.17, 0.15, 'white'), R(0.55, -0.04, 0.65, 0.12, 'black'), ...checker(f.tail.x + 0.02, f.tail.y0 + 0.02, f.tail.x + 0.58, f.tail.y0 + 0.12, 5)],
   }],
   ['ambulance', 'Ambulance', 'Карета швидкої. Аптечка рятує голову водія від удару.', 'van', ['#f4f4f0', '#e83a3a'], {
-    parts: ['siren'], ab: 'shield|Аптечка',
+    parts: ['siren'],
     art: (f) => [R(f.tail.x, -0.08, f.nose.x, 0.02, 'rocket'), ...cross(-0.55, -0.4, 0.42)],
   }],
   ['go-kart', 'Go-Kart', 'Компактний гоночний карт: низький, легкий і верткий.', 'kart', ['#3ad15a', '#ffffff'], {
     art: () => [O(0.45, 0.08, 0.13, 0.11, 'white'), R(-0.95, 0.1, 0.9, 0.16, 'black'), bar(-0.6, -0.55, -0.38, 0.05, 'black')],
   }],
   ['timber-lorry', 'Timber Lorry', 'Лісовоз. Колоди лежать у кузові вільно й розлітаються на поворотах.', 'truck', ['#3a7a3a', '#c8a060'], {
-    cargo: ['log', 3], ab: 'dump:log|Скинути колоди',
+    cargo: ['log', 3],
     art: (f) => [tailgate(f.deck.x0, f.deck.y, 0.6, 'wood'), R(f.deck.x1 - 0.1, f.deck.y - 0.65, f.deck.x1 - 0.02, f.deck.y, 'wood'), R(-0.4, f.deck.y - 0.5, -0.32, f.deck.y, 'wood')],
   }],
   ['farm-tractor', 'Tractor', 'Колісний трактор: велетенське заднє колесо і страшна тяга.', 'tractor', ['#3aa84a', '#ffd23f'], {
     art: (f) => [R(f.nose.x - 0.12, -0.24, f.nose.x - 0.02, 0.16, 'dark'), ...slashes(1.0, 1.5, -0.22, 0.12, 3, 'dark', 0), O(f.nose.x - 0.05, -0.18, 0.08, 0.08, 'light')],
   }],
   ['garbage-truck', 'Garbage Truck', 'Сміттєвоз. Вивалює мішки сміття під колеса суперникові.', 'truck', ['#3a8a5a', '#c0c8d0'], {
-    parts: [['cargo', 1]], ab: 'dump:trash|Вивантажити сміття',
+    parts: [['cargo', 1]],
     art: (f) => [...slashes(f.deck.x0 + 0.2, f.deck.x1 - 0.2, f.deck.y - 0.7, f.deck.y - 0.1, 4, 'white', 0.2), R(f.deck.x0 - 0.12, f.deck.y - 0.85, f.deck.x0 + 0.05, f.deck.y + 0.1, 'dark')],
   }],
   ['minibus', 'Minibus', 'Пасажирський мікроавтобус на дев\'ять місць.', 'van', ['#f0c040', '#ffffff'], {
@@ -48,11 +47,10 @@ export const RETRO = group('retro', [
     art: () => [line([-0.9, -0.16], [-0.7, -0.95], 0.08), line([-0.7, -0.95], [0.1, -0.95], 0.08), R(1.45, -0.1, 1.7, 0.2, 'dark')],
   }],
   ['race-car-f1', 'Race Car F1', 'Болід Формули-1. DRS відкриває заднє крило для ривка.', 'formula', ['#e02020', '#ffffff'], {
-    ab: 'nitro|DRS',
     art: (f) => [O(-0.95, 0.06, 0.15, 0.13, 'white'), R(-1.0, 0.0, -0.9, 0.12, 'black'), R(0.5, 0.0, f.nose.x - 0.2, 0.06, 'white'), R(f.nose.x - 0.3, 0.14, f.nose.x + 0.05, 0.22, 'dark')],
   }],
   ['banana-car', 'Banana Car', 'Машина-банан. Розкидає бананові шкірки, на яких суперники крутяться.', 'blob', ['#ffe23a', '#6a4a1a'], {
-    o: o({ shape: 'flat', len: 1.25 }), ab: 'drop:peel|Бананова шкірка', noLights: true,
+    o: o({ shape: 'flat', len: 1.25 }), noLights: true,
     art: (f) => [
       P([[f.nose.x - 0.25, -0.42], [f.nose.x + 0.05, -0.62], [f.nose.x + 0.18, -0.55], [f.nose.x - 0.05, -0.3]], 'accent'),
       P([[f.tail.x - 0.05, -0.2], [f.tail.x + 0.3, -0.38], [f.tail.x + 0.35, -0.1], [f.tail.x + 0.1, 0.0]], 'accent'),
@@ -78,11 +76,11 @@ export const RETRO = group('retro', [
     ],
   }],
   ['concrete-truck', 'Concrete Truck', 'Бетонозмішувач. Барабан крутиться, а бетон виливається назад брилами.', 'truck', ['#e0e0e0', '#ff8030'], {
-    parts: ['drum'], ab: 'dump:rock|Вилити бетон',
+    parts: ['drum'],
     art: (f) => [...slashes(f.deck.x0 + 0.3, f.deck.x1 - 0.2, f.deck.y - 0.75, f.deck.y - 0.12, 3, 'white', 0.3), line([f.deck.x0 + 0.05, f.deck.y - 0.2], [f.deck.x0 - 0.3, f.deck.y + 0.15], 0.1, 'metal')],
   }],
   ['excavator', 'Excavator', 'Будівельний екскаватор. Б\'є ковшем об землю — хвиля відкидає суперника.', 'digger', ['#ffc020', '#2a2a2a'], {
-    parts: ['bucketarm'], ab: 'slam|Удар ковшем',
+    parts: ['bucketarm'],
     art: (f) => [R(f.tail.x + 0.1, -0.15, 0.4, -0.08, 'dark'), ...slashes(0.5, 1.4, -0.16, 0.06, 4, 'black', 0.08)],
   }],
   ['antique-f1', 'Antique F1', 'Болід перших гран-прі: сигара на спицях і шкіряний шолом.', 'formula', ['#2a8a4a', '#e0d0a0'], {
@@ -98,7 +96,7 @@ export const RETRO = group('retro', [
     ],
   }],
   ['hot-rod', 'Hot Rod', 'Тюнінговане американське купе з вогняним малюнком і закисом азоту.', 'sports', ['#1a1a1a', '#ff5a1a'], {
-    parts: ['exhaust'], ab: 'nitro|Закис азоту',
+    parts: ['exhaust'],
     art: (f) => [...flames(f.nose.x - 0.1, -0.6, 0.0, 0.26), R(0.7, -0.38, 1.1, -0.2, 'metal'), R(0.75, -0.46, 1.05, -0.38, 'metal')],
   }],
   ['travel-trailer', 'Travel Trailer', 'Легковик із житловим причепом-кемпером на буксирі.', 'coupe', ['#4a8ad8', '#ffffff'], {
@@ -118,7 +116,7 @@ export const RETRO = group('retro', [
     art: () => [R(-0.9, -0.05, 0.9, 0.02, 'white'), O(0.8, -0.3, 0.1, 0.1, 'light')],
   }],
   ['landfill-truck', 'Landfill Truck', 'Кар\'єрний самоскид. Каміння в кузові висипається на ходу, а за командою — все одразу.', 'truck', ['#f0a020', '#3a3a3a'], {
-    o: o({ wheel: 1.3, wheels: 2 }), mass: 1.1, cargo: ['rock', 6], ab: 'dump:rock|Самоскид',
+    o: o({ wheel: 1.3, wheels: 2 }), mass: 1.1, cargo: ['rock', 6],
     art: (f) => [tailgate(f.deck.x0, f.deck.y, 0.45, 'body'), P([[f.deck.x0, f.deck.y - 0.45], [f.deck.x1, f.deck.y - 0.6], [f.deck.x1, f.deck.y], [f.deck.x0, f.deck.y]], 'body', { deco: true }), R(f.deck.x0, f.deck.y - 0.08, f.deck.x1, f.deck.y, 'dark')],
   }],
   ['limousine', 'Limousine', 'Подовжений лімузин: довгий, важкий, з тонованими вікнами.', 'sedan', ['#1a1a24', '#d0d0d8'], {
@@ -138,7 +136,7 @@ export const RETRO = group('retro', [
     art: (f) => [tailgate(f.deck.x0, f.deck.y, 0.26, 'body'), R(f.deck.x0, f.deck.y - 0.26, f.deck.x1, f.deck.y - 0.2, 'body', { deco: true })],
   }],
   ['motocross-bike', 'Motocross Bike', 'Кросовий мотоцикл: високі крила, шипи на шинах і трамплінний стрибок.', 'bike', ['#ff7a1a', '#2a2a2a'], {
-    o: o({ wheel: 1.1 }), arch: 'bouncy', ab: 'jump|Трамплін',
+    o: o({ wheel: 1.1 }), arch: 'bouncy',
     art: () => [P([[0.45, -0.32], [1.05, -0.24], [1.0, -0.16], [0.5, -0.2]], 'accent'), P([[-0.4, -0.25], [-1.0, -0.45], [-1.05, -0.38], [-0.45, -0.18]], 'accent'), O(0.15, -0.05, 0.13, 0.11, 'white')],
   }],
   ['car-carrier', 'Car Carrier', 'Двоярусний автовоз із машинками на палубах.', 'truck', ['#3a5ab0', '#e0e0e0'], {
@@ -150,7 +148,7 @@ export const RETRO = group('retro', [
     ],
   }],
   ['bumper-car', 'Bumper Car', 'Атракціонна машинка на штанзі. Гумовий бампер — і бамс!', 'blob', ['#ff3a5a', '#ffd23f'], {
-    s: 0.85, o: o({ shape: 'flat' }), parts: ['antenna'], bounce: 0.4, ab: 'dash|Бамс', noLights: true,
+    s: 0.85, o: o({ shape: 'flat' }), parts: ['antenna'], bounce: 0.4, noLights: true,
     art: () => [R(-1.3, -0.12, 1.3, 0.05, 'black'), ...star(0.6, -0.28, 0.14, 'gold')],
   }],
   ['forklift-truck', 'Forklift Truck', 'Складський навантажувач: вила підхоплюють суперника.', 'box', ['#ffc020', '#2a2a2a'], {
@@ -162,7 +160,7 @@ export const RETRO = group('retro', [
     art: () => [line([0.7, -0.2], [0.85, -0.85], 0.06, 'metal'), bar(0.7, -0.85, 0.95, 0.05), R(-0.55, 0.02, 0.1, 0.12, 'metal'), line([-0.2, 0.15], [-1.0, 0.1], 0.07, 'metal')],
   }],
   ['ice-cream-van', 'Ice Cream Van', 'Фургон морозива. Стріляє ріжками — суперник замерзає.', 'van', ['#ffb0d0', '#ffffff'], {
-    parts: ['cone'], ab: 'shoot:icecream|Морозиво',
+    parts: ['cone'],
     art: (f) => [R(-1.2, -0.62, 0.1, -0.2, 'dark'), R(-1.15, -0.25, 0.05, -0.18, 'white'), ...[-1.1, -0.8, -0.5, -0.2].map((x) => O(x, -0.62, 0.15, 0.08, 'white')), R(f.tail.x, 0.08, f.nose.x, 0.14, 'accent')],
   }],
   ['motorbike', 'Motorbike', 'Класичний швидкісний мотоцикл.', 'bike', ['#2a6ae0', '#ffffff'], {
@@ -170,11 +168,11 @@ export const RETRO = group('retro', [
     art: () => [P([[0.5, -0.2], [0.85, -0.3], [0.8, -0.05], [0.55, 0.0]], 'body'), R(-0.4, -0.08, 0.3, -0.02, 'accent'), line([-0.3, 0.15], [-0.95, 0.05], 0.06, 'metal')],
   }],
   ['fire-truck', 'Fire Truck', 'Пожежна машина з драбиною. Брандспойт збиває суперника струменем води.', 'truck', ['#e02a2a', '#f0f0f0'], {
-    parts: ['ladder', 'siren'], ab: 'shoot:water|Брандспойт',
+    parts: ['ladder', 'siren'],
     art: (f) => [R(f.tail.x, 0.0, f.nose.x, 0.06, 'white'), O(-0.6, f.deck.y + 0.14, 0.18, 0.18, 'metal'), O(-0.6, f.deck.y + 0.14, 0.07, 0.07, 'dark'), R(f.deck.x0 + 0.2, f.deck.y - 0.02, f.deck.x1 - 0.2, f.deck.y + 0.25, 'body')],
   }],
   ['police-car', 'Police Car', 'Патрульний седан. Сирена відкидає суперника звуковою хвилею.', 'sedan', ['#1a2a5a', '#ffffff'], {
-    parts: ['siren'], ab: 'roar|Сирена',
+    parts: ['siren'],
     art: (f) => [R(-0.95, -0.16, 0.75, 0.16, 'white'), ...star(-0.1, 0.0, 0.13, 'gold'), R(f.nose.x - 0.15, 0.16, f.nose.x + 0.08, 0.3, 'black')],
   }],
   ['cherry-picker', 'Cherry Picker', 'Автовишка з люлькою на стрілі.', 'truck', ['#f0f0f0', '#ff8a1a'], {
@@ -182,7 +180,7 @@ export const RETRO = group('retro', [
     art: (f) => [R(f.deck.x0 + 0.25, f.deck.y - 1.85, f.deck.x0 + 0.3, f.deck.y - 1.6, 'metal'), R(f.deck.x0 + 0.75, f.deck.y - 1.85, f.deck.x0 + 0.8, f.deck.y - 1.6, 'metal'), R(f.deck.x0 + 0.25, f.deck.y - 1.88, f.deck.x0 + 0.8, f.deck.y - 1.83, 'metal'), R(f.tail.x, 0.0, f.nose.x, 0.06, 'accent')],
   }],
   ['golf-cart', 'Golf Cart', 'Електричний гольф-кар. Б\'є м\'ячиком для гольфу точно в шолом.', 'buggy', ['#f0f0f0', '#3ab04a'], {
-    s: 0.85, ab: 'shoot:golf|Удар драйвером',
+    s: 0.85,
     art: (f) => [R(f.roof.x0 - 0.1, f.roof.y - 0.12, f.roof.x1 + 0.1, f.roof.y, 'accent'), R(f.tail.x + 0.05, -0.75, f.tail.x + 0.32, -0.08, 'dark'), line([f.tail.x + 0.1, -0.75], [f.tail.x + 0.05, -1.05], 0.04, 'metal'), line([f.tail.x + 0.25, -0.75], [f.tail.x + 0.35, -1.0], 0.04, 'metal')],
   }],
   ['baby-carriage', 'Baby Carriage', 'Дитячий візочок з каптуром і брязкальцем.', 'cart', ['#7ab0f0', '#ffffff'], {
@@ -210,11 +208,11 @@ export const RETRO = group('retro', [
     art: () => [...star(0.4, 0.04, 0.16), ...star(1.3, 0.08, 0.1)],
   }],
   ['toxic-truck', 'Toxic Waste Truck', 'Вантажівка з токсичними бочками. Скинута бочка вибухає від дотику.', 'truck', ['#3a3a3a', '#7aff3a'], {
-    cargo: ['barrel', 3], ab: 'drop:barrel|Токсична бочка',
+    cargo: ['barrel', 3],
     art: (f) => [tailgate(f.deck.x0, f.deck.y, 0.35, 'accent'), ...slashes(f.tail.x + 0.1, 1.0, 0.0, 0.25, 6, 'scoop', 0.12)],
   }],
   ['helmet-car', 'Helmet Car', 'Машина-шолом: візор, гребінь і шолом, який береже голову.', 'blob', ['#ffd23f', '#e02a2a'], {
-    o: o({ shape: 'egg' }), ab: 'shield|Шолом', noLights: true,
+    o: o({ shape: 'egg' }), noLights: true,
     art: () => [P([[0.1, -0.85], [0.92, -0.45], [0.95, -0.15], [0.2, -0.3]], 'glass'), R(-0.12, -1.3, 0.05, 0.15, 'accent'), R(-0.85, -0.1, 0.85, 0.0, 'accent')],
   }],
   ['muscle-car', 'Muscle Car', 'Потужне купе з подвійними гоночними смугами.', 'coupe', ['#ff8a1a', '#1a1a1a'], {
