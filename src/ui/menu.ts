@@ -13,7 +13,7 @@ import { mapThumb } from './thumbs';
 export type Mode = 'pvp' | 'bot';
 
 /** The vs-bot mode is hidden for now: the game focuses on local 2-player. Flip to re-enable. */
-export const SHOW_BOT_MODE = false;
+export const SHOW_BOT_MODE = true;
 
 export interface MenuHooks {
   start(mode: Mode): void;
