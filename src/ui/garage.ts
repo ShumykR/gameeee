@@ -3,6 +3,7 @@ import { ARCH_NAMES, CATEGORIES, CATEGORY_BY_ID, categoryOf, countByCategory, fi
 import { carPreviewCanvas } from '../cars/preview';
 import type { Archetype, CarDef } from '../cars/types';
 import { audio } from '../audio/audio';
+import { ABILITY_INFO, abilityLabel, abilityOf } from '../game/abilities';
 import { button, el, statBars } from './dom';
 
 const thumbCache = new Map<string, string>();
@@ -147,6 +148,7 @@ export function openCarBrowser(host: HTMLElement, o: BrowserOpts): CarBrowser {
     card.appendChild(el('div', 'car-name', `${def.name}`));
     card.appendChild(el('div', 'gd-tags', `<span class="chip on">${cat.icon} ${cat.name}</span><span class="chip">${ARCH_NAMES[def.archetype]}</span>`));
     card.appendChild(el('div', 'blurb', def.blurb));
+    card.appendChild(el('div', 'ability', `${abilityLabel(def)} — ${ABILITY_INFO[abilityOf(def).kind].blurb}`));
     card.appendChild(statBars(def));
     const row = el('div', 'row');
     if (o.onAssign) {

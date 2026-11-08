@@ -104,6 +104,31 @@ export class AudioEngine {
     const notes = win ? [523, 659, 784, 1047] : [392, 330, 262];
     notes.forEach((f, i) => this.tone(f, 0.18, 'square', 0.12, undefined, i * 0.13));
   }
+  ability(kind: string, proj?: string) {
+    switch (kind) {
+      case 'jump': this.tone(220, 0.18, 'square', 0.12, 660); break;
+      case 'nitro':
+      case 'dash': this.noiseBurst(0.45, 0.35, 900, 0.7, 2600); this.tone(110, 0.3, 'sawtooth', 0.08, 220); break;
+      case 'slam': this.tone(500, 0.25, 'square', 0.08, 120); break;
+      case 'fly': this.tone(330, 0.5, 'sine', 0.12, 880); this.noiseBurst(0.5, 0.12, 2400, 0.5, 4000); break;
+      case 'shield': [880, 1320, 1760].forEach((f, i) => this.tone(f, 0.14, 'triangle', 0.1, undefined, i * 0.05)); break;
+      case 'shoot':
+        if (proj === 'laser') this.tone(1800, 0.18, 'square', 0.09, 300);
+        else if (proj === 'snowball' || proj === 'ball') { this.noiseBurst(0.12, 0.3, 700, 1, 300); this.tone(240, 0.1, 'triangle', 0.15, 120); }
+        else if (proj === 'firework') { this.noiseBurst(0.5, 0.25, 3000, 0.6, 800); this.tone(600, 0.4, 'square', 0.05, 1600); }
+        else { this.noiseBurst(0.35, 0.55, 900, 0.6, 120); this.tone(80, 0.3, 'sine', 0.5, 40); }
+        break;
+    }
+  }
+  blast(kind: string) {
+    if (kind === 'firework') {
+      this.noiseBurst(0.6, 0.4, 3500, 0.4, 600);
+      for (let i = 0; i < 4; i++) this.tone(1200 + Math.random() * 1200, 0.08, 'square', 0.05, undefined, 0.05 + i * 0.07);
+    } else if (kind === 'bomb') this.explosion();
+    else { this.noiseBurst(0.5, 0.6, 500, 0.6, 60); this.tone(70, 0.5, 'sine', 0.6, 30); }
+  }
+  shieldBlock() { this.tone(1400, 0.2, 'triangle', 0.15, 700); }
+
   point() {
     [784, 988].forEach((f, i) => this.tone(f, 0.12, 'square', 0.1, undefined, i * 0.09));
   }

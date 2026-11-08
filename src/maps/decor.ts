@@ -478,6 +478,31 @@ export function ballGrid(r: number, ppm: number): PixelGrid {
   return g;
 }
 
+/** Projectile sprites (origin at the center; lasers/fireworks point along +x). */
+export function shotGrid(kind: 'cannon' | 'snowball' | 'ball' | 'laser' | 'firework', r: number, ppm: number): PixelGrid {
+  if (kind === 'ball') return ballGrid(r, ppm);
+  const R = Math.max(2, Math.round(r * ppm));
+  let p: Pen;
+  if (kind === 'laser') {
+    p = new Pen(R * 8, R * 2);
+    p.rect(0, 0, R * 8, R * 2, C.CY);
+    p.rect(1, Math.floor(R / 2), R * 8 - 2, Math.max(1, R), C.W);
+  } else if (kind === 'firework') {
+    p = new Pen(R * 5, R * 2);
+    p.rect(0, 0, R * 4, R * 2, C.R);
+    p.poly([[R * 4, 0], [R * 5, R], [R * 4, R * 2]], C.Y);
+    p.rect(R, 0, 1, R * 2, C.Y);
+  } else {
+    p = new Pen(R * 2, R * 2);
+    if (kind === 'snowball') p.ell(R, R, R, R, C.W, (dx, dy) => (dx + dy > 0.5 ? C.SN : C.W));
+    else p.ell(R, R, R, R, C.DG, (dx, dy) => (dx + dy < -0.6 ? C.G : C.DG));
+  }
+  const g = p.done();
+  g.ox = g.w / 2;
+  g.oy = g.h / 2;
+  return g;
+}
+
 /** Highest solid surface at x (world y, y grows down), or null. */
 export function groundY(map: MapDef, x: number): number | null {
   let best: number | null = null;

@@ -1,9 +1,10 @@
-import { World, Vec2, Contact, Fixture } from 'planck';
-import { DEFAULT_GRAVITY, POSITION_ITERS, STEP_DT, VELOCITY_ITERS } from '../physics/constants';
+import { World, Vec2, Contact, Fixture, Body, Circle } from 'planck';
+import { CAT, DEFAULT_GRAVITY, MASK, POSITION_ITERS, STEP_DT, VELOCITY_ITERS } from '../physics/constants';
 import { FixedStepper } from '../physics/stepper';
 import { tagOf, FixtureTag } from '../physics/tags';
 import { Car } from '../cars/car';
-import type { CarDef } from '../cars/types';
+import type { AbilityKind, CarDef, ProjectileKind } from '../cars/types';
+import { ABILITY_INFO, PROJECTILES } from './abilities';
 import { Arena } from '../maps/arena';
 import type { MapDef } from '../maps/types';
 import { MatchState, DeathResolver, RoundResult } from './match';
@@ -16,6 +17,10 @@ export type GameEvent =
   | { type: 'countdown'; n: number }
   | { type: 'go' }
   | { type: 'impact'; x: number; y: number; strength: number; carCar: boolean }
+  | { type: 'ability'; player: number; kind: AbilityKind; x: number; y: number }
+  | { type: 'blast'; x: number; y: number; r: number; kind: 'slam' | 'firework' | 'bomb' }
+  | { type: 'shieldBlock'; player: number; x: number; y: number }
+  | { type: 'shotHit'; x: number; y: number; proj: ProjectileKind }
   | { type: 'death'; player: number; x: number; y: number; cause: 'hit' | 'hazard' | 'fall' | 'ground' }
   | { type: 'pad'; x: number; y: number }
   | { type: 'suddenDeath' }
@@ -25,6 +30,17 @@ export type GameEvent =
 export interface Controller {
   /** Return -1/0/1 for this step. */
   decide(game: Game, player: number, dt: number): -1 | 0 | 1;
+  /** Hold the action button this step? */
+  action?(game: Game, player: number): boolean;
+}
+
+export interface Shot {
+  id: number;
+  body: Body;
+  owner: number;
+  proj: ProjectileKind;
+  born: number;
+  dead: boolean;
 }
 
 export interface GameConfig {
@@ -66,6 +82,12 @@ export class Game {
   slowmo = 0;
   readonly controllers: (Controller | null)[] = [null, null];
   readonly inputs: (-1 | 0 | 1)[] = [0, 0];
+  /** Action button held (humans); edge-triggered. */
+  readonly actions: boolean[] = [false, false];
+  private prevAction = [false, false];
+  shots: Shot[] = [];
+  private shotId = 0;
+  time = 0;
   private listeners: ((e: GameEvent) => void)[] = [];
   private contactQueue: [Fixture, Fixture, Contact][] = [];
   private impactCooldown = 0;
@@ -119,6 +141,8 @@ export class Game {
       return new Car(this.world, this.roundCars[p], p, x, y, p === 0 ? 1 : -1);
     });
     this.ragdolls = [];
+    this.shots = [];
+    this.prevAction = [false, false];
     this.resolver.reset();
     this.phase = 'countdown';
     this.phaseTime = 0;
@@ -165,17 +189,29 @@ export class Game {
       }
     }
 
+    this.time += dt;
     for (let p = 0; p < 2; p++) {
       const ctrl = this.controllers[p];
       const dir = ctrl ? ctrl.decide(this, p, dt) : this.inputs[p];
       this.cars[p].input = this.phase === 'countdown' ? 0 : dir;
       this.cars[p].locked = this.phase === 'countdown';
+      const act = ctrl ? (ctrl.action?.(this, p) ?? false) : this.actions[p];
+      if (act && !this.prevAction[p]) this.useAbility(p);
+      this.prevAction[p] = act;
+      this.cars[p].tickAbility(dt);
     }
     for (const c of this.cars) c.preStep(dt);
     for (const r of this.ragdolls) r.snapshot();
     this.arena.step(dt);
     this.world.step(dt, VELOCITY_ITERS, POSITION_ITERS);
     this.processContacts();
+    this.stepShots();
+    for (const c of this.cars) {
+      if (c.slamming && (c.wheelsOnGround > 0 || c.chassisTouching)) {
+        c.slamming = false;
+        this.shockwave(c.player, 5.5, 1);
+      }
+    }
 
     // falling out of the world
     for (const c of this.cars) {
@@ -237,10 +273,17 @@ export class Game {
       const car = this.cars[a.player];
       if (!car.alive || !car.headFixture) return;
       if ((b.kind === 'car' || b.kind === 'head') && b.player !== a.player) this.kill(a.player, 'hit', b.player);
+      else if (b.kind === 'shot' && b.owner !== a.player) this.kill(a.player, 'hit', b.owner);
       else if (b.kind === 'hazard') this.kill(a.player, 'hazard');
       // Head touching the ground (usually after a flip) loses the round.
       else if (b.kind === 'terrain' || b.kind === 'platform') this.kill(a.player, 'ground');
       else if (b.kind === 'block' && b.body.getLinearVelocity().length() > 4) this.kill(a.player, 'hazard');
+    } else if (a.kind === 'shot') {
+      // Lasers and fireworks pop on the first thing they touch.
+      if ((a.proj === 'laser' || a.proj === 'firework') && b.kind !== 'pad') {
+        const s = this.shots.find((x) => x.id === a.id);
+        if (s) s.dead = true;
+      }
     } else if (a.kind === 'car') {
       if (b.kind === 'hazard' && b.type === 'lava') this.kill(a.player, 'hazard');
       if (b.kind === 'pad') {
@@ -261,10 +304,123 @@ export class Game {
     }
   }
 
+  /** Fire the player's special action if it is charged. */
+  useAbility(p: number) {
+    const car = this.cars[p];
+    if (!car.alive || car.abilityCd > 0 || this.phase !== 'play') return;
+    const kind = car.ability.kind;
+    car.abilityCd = ABILITY_INFO[kind].cd;
+    const fwd = car.forward();
+    switch (kind) {
+      case 'jump':
+        car.kick(0, -9);
+        break;
+      case 'nitro':
+        car.kick(fwd.x * 10, fwd.y * 10 - 1);
+        car.nitroT = 0.45;
+        break;
+      case 'dash':
+        car.kick((Math.sign(fwd.x) || car.facing) * 12, -1.5);
+        break;
+      case 'slam':
+        if (car.inAir) {
+          car.slamming = true;
+          car.kick(0, 16);
+        } else {
+          car.kick(0, -3);
+          this.shockwave(p, 5.5, 1);
+        }
+        break;
+      case 'shoot':
+        this.fire(p);
+        break;
+      case 'fly':
+        car.flyT = 2.2;
+        for (const b of car.bodies) b.setGravityScale(-0.06);
+        car.kick(0, -4);
+        break;
+      case 'shield':
+        car.shieldT = 1.6;
+        break;
+    }
+    const pos = car.position;
+    this.emit({ type: 'ability', player: p, kind, x: pos.x, y: pos.y });
+  }
+
+  /** Push everything near player p away (slam, fireworks, bombs). */
+  shockwave(p: number, r: number, power: number, at?: { x: number; y: number }, kind: 'slam' | 'firework' | 'bomb' = 'slam') {
+    const c = at ?? this.cars[p].position;
+    const push = (bodies: Body[], scale: number) => {
+      const pos = bodies[0].getWorldCenter();
+      const dx = pos.x - c.x, dy = pos.y - c.y;
+      const d = Math.hypot(dx, dy);
+      if (d > r || d < 1e-3) return;
+      const k = (1 - d / r) * power * scale;
+      const vx = (dx / d) * (4 + 9 * k), vy = (dy / d) * (4 + 9 * k) - 6 * k;
+      for (const b of bodies) {
+        const v = b.getLinearVelocity();
+        b.setLinearVelocity(new Vec2(v.x + vx, v.y + vy));
+      }
+    };
+    for (const car of this.cars) if (car.player !== p) push(car.bodies, 1);
+    for (const b of this.arena.balls) push([b.body], 1.4);
+    for (const b of this.arena.blocks) push([b.body], 1.2);
+    this.emit({ type: 'blast', x: c.x, y: c.y, r, kind });
+  }
+
+  private fire(p: number) {
+    const car = this.cars[p];
+    const kind = car.ability.projectile ?? 'cannon';
+    const pr = PROJECTILES[kind];
+    const def = car.def;
+    let front = 0;
+    for (const poly of def.body) for (const q of poly.pts) front = Math.max(front, q[0]);
+    const muzzle = car.chassis.getWorldPoint(new Vec2((front + pr.r + 0.15) * car.facing, Math.min(-0.2, def.head.y * 0.6)));
+    const f = car.forward();
+    // aim a little above the nose
+    const up = 0.12 * car.facing;
+    const dir = new Vec2(f.x * Math.cos(up) + f.y * Math.sin(up), -f.x * Math.sin(up) + f.y * Math.cos(up));
+    const body = this.world.createBody({ type: 'dynamic', position: muzzle, bullet: true, gravityScale: pr.gravity });
+    const id = ++this.shotId;
+    body.createFixture({
+      shape: new Circle(pr.r),
+      density: pr.density,
+      friction: 0.4,
+      restitution: pr.bounce,
+      filterGroupIndex: -(p + 1),
+      filterCategoryBits: CAT.DEBRIS,
+      filterMaskBits: MASK.DEBRIS,
+      userData: { kind: 'shot', owner: p, proj: kind, id } satisfies FixtureTag,
+    });
+    const cv = car.chassis.getLinearVelocity();
+    body.setLinearVelocity(new Vec2(dir.x * pr.speed + cv.x * 0.5, dir.y * pr.speed + cv.y * 0.5));
+    this.shots.push({ id, body, owner: p, proj: kind, born: this.time, dead: false });
+    car.kick(-dir.x * 1.6, -dir.y * 1.6);
+  }
+
+  private stepShots() {
+    for (let i = this.shots.length - 1; i >= 0; i--) {
+      const s = this.shots[i];
+      const pr = PROJECTILES[s.proj];
+      const pos = s.body.getPosition();
+      if (s.dead || this.time - s.born > pr.life || pos.y > this.map.killY) {
+        if (s.proj === 'firework') this.shockwave(s.owner, 2.6, 0.55, { x: pos.x, y: pos.y }, 'firework');
+        else if (s.dead) this.emit({ type: 'shotHit', x: pos.x, y: pos.y, proj: s.proj });
+        this.world.destroyBody(s.body);
+        this.shots.splice(i, 1);
+      }
+    }
+  }
+
   kill(player: number, cause: 'hit' | 'hazard' | 'fall' | 'ground', by?: number) {
     const car = this.cars[player];
     if (!car.alive) return;
     if (this.phase !== 'play' && this.phase !== 'countdown') return;
+    if (cause === 'hit' && car.shieldT > 0) {
+      const hp = car.headWorld();
+      this.emit({ type: 'shieldBlock', player, x: hp.x, y: hp.y });
+      return;
+    }
     car.alive = false;
     const hp = car.headWorld();
     car.ejectHead();

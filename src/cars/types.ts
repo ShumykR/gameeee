@@ -39,6 +39,16 @@ export interface CarPalette {
   light: string;
 }
 
+/** Special action on its own button. */
+export type AbilityKind = 'jump' | 'nitro' | 'dash' | 'slam' | 'shoot' | 'fly' | 'shield';
+export type ProjectileKind = 'cannon' | 'snowball' | 'ball' | 'laser' | 'firework';
+
+export interface AbilityDef {
+  kind: AbilityKind;
+  /** For 'shoot'. */
+  projectile?: ProjectileKind;
+}
+
 /** Collection a car belongs to (menu filter + themed arenas). */
 export type CategoryId =
   | 'originals' | 'retro' | 'halloween' | 'winter' | 'alien' | 'dome' | 'dino'
@@ -87,6 +97,8 @@ export interface CarDef {
   boost?: { accel: number; fuel: number; regen: number };
   /** Extra bounce on the chassis. */
   restitution?: number;
+  /** Special action (defaults by archetype, see game/abilities.ts). */
+  ability?: AbilityDef;
   /** Gravity scale for the whole car (<1 = floaty hover/flying vehicles). */
   float?: number;
 }

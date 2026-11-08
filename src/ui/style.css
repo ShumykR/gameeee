@@ -183,3 +183,5 @@ html, body {
   .gcar { min-height: 76px; }
   .gd-preview { max-height: 30vh; }
 }
+
+.ability { font-size: 11px; font-weight: 800; color: var(--gold); text-align: center; }

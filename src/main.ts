@@ -71,6 +71,10 @@ async function boot() {
       case 'impact': audio.impact(e.strength, e.carCar); break;
       case 'death': audio.explosion(); break;
       case 'pad': audio.pad(); break;
+      case 'ability': audio.ability(e.kind, game?.cars[e.player].ability.projectile); break;
+      case 'blast': audio.blast(e.kind); break;
+      case 'shieldBlock': audio.shieldBlock(); break;
+      case 'shotHit': audio.impact(2, false); break;
       case 'suddenDeath': audio.siren(); break;
       case 'roundEnd': if (e.result !== 'draw') audio.point(); break;
       case 'matchEnd':
@@ -190,6 +194,8 @@ async function boot() {
     if (state === 'play' || state === 'menu' || state === 'over') {
       game.inputs[0] = input.dir(0);
       game.inputs[1] = input.dir(1);
+      game.actions[0] = state === 'play' && input.action(0);
+      game.actions[1] = state === 'play' && input.action(1);
       game.frame(dt);
     }
     view.render(state === 'paused' ? 0 : dt);

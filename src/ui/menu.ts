@@ -8,6 +8,7 @@ import { audio } from '../audio/audio';
 import type { BotLevel } from '../ai/bot';
 import type { Settings } from './settings';
 import { mapThumb } from './thumbs';
+import { abilityLabel } from '../game/abilities';
 import { button, el, statBars, titleCanvas } from './dom';
 import { openCarBrowser, type CarBrowser } from './garage';
 
@@ -91,7 +92,7 @@ export class Menu {
     if (this.hooks.install) row.append(button('встановити', 'small gold', () => this.hooks.install?.()));
     col.appendChild(row);
     s.appendChild(col);
-    s.appendChild(el('div', 'hint', 'P1: <b>A</b> / <b>D</b> &nbsp; P2: <b>←</b> / <b>→</b> &nbsp;·&nbsp; на телефоні — кнопки в кутах'));
+    s.appendChild(el('div', 'hint', 'P1: <b>A</b> / <b>D</b>, дія <b>W</b> &nbsp; P2: <b>←</b> / <b>→</b>, дія <b>↑</b> &nbsp;·&nbsp; на телефоні — кнопки в кутах'));
     this.keyHandler = (e) => {
       if (e.code === 'Enter') this.hooks.start('pvp');
     };
@@ -210,6 +211,7 @@ export class Menu {
       panel.appendChild(stage);
       const cat = CATEGORY_BY_ID[categoryOf(def)];
       panel.appendChild(el('div', 'car-name', `${def.name} <small>${cat.icon} ${ARCH_NAMES[def.archetype]}</small>`));
+      panel.appendChild(el('div', 'ability', abilityLabel(def)));
       panel.appendChild(el('div', 'blurb', def.blurb));
       panel.appendChild(statBars(def));
       const row = el('div', 'row panel-actions');

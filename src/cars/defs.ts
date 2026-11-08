@@ -326,6 +326,7 @@ const ORIGINALS: CarDef[] = [
     name: 'Tankette',
     archetype: 'heavy',
     blurb: 'Чотири малі колеса і броньована башта позаду водія.',
+    ability: { kind: 'shoot', projectile: 'cannon' },
     palette: { body: '#7a8a4a', accent: '#d8c070', dark: '#262a18', glass: '#b0e0d0', light: '#fff0a0' },
     body: [
       box(-1.5, -0.3, 1.5, 0.22),

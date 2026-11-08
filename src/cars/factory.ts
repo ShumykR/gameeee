@@ -1,4 +1,4 @@
-import type { Archetype, CarDef, CarMat, CarPoly, CategoryId, Pt, WheelDef } from './types';
+import type { AbilityDef, Archetype, CarDef, CarMat, CarPoly, CategoryId, ProjectileKind, Pt, WheelDef } from './types';
 import { estimateMass } from './stats';
 
 /*
@@ -841,6 +841,8 @@ export interface CarSpec {
   arch?: Archetype;
   /** Uniform scale of the whole car. */
   s?: number;
+  /** Special action override (otherwise derived from parts/frame). */
+  ability?: AbilityDef;
   /** Air-control multiplier. */
   air?: number;
   /** Extra downward center-of-mass offset (m). */
@@ -880,6 +882,7 @@ export function buildCar(spec: CarSpec): CarDef {
     if (r.arch) arch = r.arch;
   }
   if (spec.arch) arch = spec.arch;
+  const ability = spec.ability ?? abilityFor(spec, f);
   const s = spec.s ?? 1;
   const pre = PRESETS[arch];
   const body = polys.map((p) => ({ ...p, pts: p.pts.map((q) => scalePt(q, s)) }));
@@ -909,6 +912,7 @@ export function buildCar(spec: CarSpec): CarDef {
     com: f.com ? scalePt(f.com, s) : [0, 0.08],
   };
   if (boost) def.boost = { accel: 9, fuel: 1.3, regen: 0.35 };
+  if (ability) def.ability = ability;
   if (spec.float ?? f.float) def.float = spec.float ?? f.float;
   if (spec.bounce) def.restitution = spec.bounce;
   // Normalize chassis density so the car hits its target mass, then torque for target accel.
@@ -949,6 +953,26 @@ export function buildCar(spec: CarSpec): CarDef {
   def.motor.torque = +((accel * mass) / inv).toFixed(2);
   if (def.motor.speed > 18 && mass >= 5) def.motor.speed = 17.5;
   return def;
+}
+
+const SHOT_BY_CAT: Partial<Record<CategoryId, ProjectileKind>> = {
+  winter: 'snowball', soccer: 'ball', cny: 'firework', robo: 'laser', rift: 'laser',
+};
+
+/** Pick a special action from what is bolted on: guns shoot, rockets boost, saucers fly… */
+function abilityFor(spec: CarSpec, f: Frame): AbilityDef | undefined {
+  const ids = new Set((spec.parts ?? []).map((p) => (Array.isArray(p) ? p[0] : p)));
+  const has = (...xs: PartId[]) => xs.some((x) => ids.has(x));
+  if (has('launcher')) return { kind: 'shoot', projectile: 'firework' };
+  if (has('dish')) return { kind: 'shoot', projectile: 'laser' };
+  if (has('cannon', 'twincannon', 'gun')) return { kind: 'shoot', projectile: SHOT_BY_CAT[spec.cat] ?? 'cannon' };
+  if (spec.cat === 'soccer') return { kind: 'shoot', projectile: 'ball' };
+  if (has('booster', 'jets')) return { kind: 'nitro' };
+  if (spec.float || f.float || has('wings', 'sail', 'propeller')) return { kind: 'fly' };
+  if (has('ram', 'blade', 'roller', 'spikes', 'saw', 'drill', 'claw', 'horns', 'mace')) return { kind: 'dash' };
+  if (has('scoop', 'bucketarm', 'forks', 'plow')) return { kind: 'slam' };
+  if (has('crystals', 'tentacles', 'skull', 'cage', 'tank')) return { kind: 'shield' };
+  return undefined;
 }
 
 function centroidX(pts: Pt[]): [number, number] {

@@ -7,7 +7,8 @@ import { carPalette, driverPalette, generateCarGrid, generateHeadGrid, generateT
 import { generateLayer, generateSky, generateTerrain, THEMES } from '../maps/art';
 import type { MapDef } from '../maps/types';
 import { PROP_PAL, crateGrid, lavaGrid, lavaSurfaceGrid, padGrid, plateGrid, sawGrid, spikesGrid, waterGrid, waterSurfaceGrid } from '../maps/props';
-import { DECOR_PAL, ballGrid, decorGrid, placedDecor } from '../maps/decor';
+import { DECOR_PAL, ballGrid, decorGrid, placedDecor, shotGrid } from '../maps/decor';
+import { PROJECTILES } from '../game/abilities';
 import { Cam, fitCamera, lerpCam } from './camera';
 import { Particles } from './particles';
 import { pixelText } from './pixeltext';
@@ -145,7 +146,9 @@ export class GameView {
   private fxLayer = new Container();
   private flash = new Graphics();
   private ringGfx = new Graphics();
-  private rings: { x: number; y: number; t: number }[] = [];
+  private rings: { x: number; y: number; t: number; r?: number; color?: number }[] = [];
+  private fxGfx = new Graphics();
+  private shotSprites = new Map<number, Sprite>();
   private carViews: CarView[] = [];
   private ragdollSprites: { head: Sprite; torso: Sprite }[] = [];
   private platforms: Sprite[] = [];
@@ -176,7 +179,7 @@ export class GameView {
   private debugGfx = new Graphics();
 
   constructor(readonly app: Application, readonly input: InputManager) {
-    this.world.addChild(this.mapLayer, this.dynLayer, this.carLayer, this.particles.container, this.ringGfx, this.fxLayer, this.debugGfx);
+    this.world.addChild(this.mapLayer, this.dynLayer, this.carLayer, this.particles.container, this.ringGfx, this.fxGfx, this.fxLayer, this.debugGfx);
     app.stage.addChild(this.bgLayer, this.world, this.flash, this.hud, this.touchLayer, this.touchLabels);
     for (let i = 0; i < 3; i++) {
       const s = new Sprite();
@@ -241,6 +244,36 @@ export class GameView {
       case 'suddenDeath':
         this.setCenter('РАПТОВА СМЕРТЬ', 1.8, 'лава піднімається!');
         break;
+      case 'ability': {
+        const col = toHex(hex(PLAYER_COLORS[e.player]));
+        const car = g.cars[e.player];
+        if (e.kind === 'jump') this.particles.burst(e.x, e.y + 0.6, 16, { speed: 5, colors: [0xffffff, col], life: 0.4, size: 0.14, dir: Math.PI / 2, spread: 1.6, g: 4 });
+        else if (e.kind === 'nitro' || e.kind === 'dash') {
+          const f = car.forward();
+          this.particles.burst(e.x - f.x * 1.6, e.y - f.y * 1.6, 22, { speed: 7, colors: [0xffd040, 0xff7020, 0xffffff], life: 0.35, size: 0.16, dir: Math.atan2(-f.y, -f.x), spread: 0.7, g: 0 });
+        } else if (e.kind === 'shield') this.rings.push({ x: e.x, y: e.y - 0.6, t: 0, r: 1.6, color: 0x7fe0ff });
+        else if (e.kind === 'fly') this.particles.burst(e.x, e.y + 0.4, 20, { speed: 4, colors: [0xffffff, 0xc8f0ff], life: 0.6, size: 0.18, dir: Math.PI / 2, spread: 2, g: -1 });
+        else if (e.kind === 'shoot') {
+          const f = car.forward();
+          this.particles.burst(e.x + f.x * 1.8, e.y + f.y * 1.8 - 0.3, 10, { speed: 4, colors: [0xffffff, 0xd0d0d8, 0xfff0a0], life: 0.35, size: 0.2, dir: Math.atan2(f.y, f.x), spread: 0.9, g: -1 });
+          this.trauma = Math.min(1, this.trauma + 0.08);
+        }
+        break;
+      }
+      case 'blast': {
+        const cols = e.kind === 'firework' ? [0xff3a5a, 0xffd23f, 0x5ef0ff, 0xffffff] : e.kind === 'bomb' ? [0xffffff, 0xffd040, 0xff7020, 0x403a48] : [0xd8c8a8, 0xa89880, 0xffffff];
+        this.particles.burst(e.x, e.y, e.kind === 'slam' ? 34 : 40, { speed: e.r * 2.2, colors: cols, life: 0.55, size: 0.2, g: e.kind === 'slam' ? 8 : 4, drag: 2 });
+        this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: e.kind === 'slam' ? 0xffffff : 0xffd060 });
+        this.trauma = Math.min(1, this.trauma + (e.kind === 'firework' ? 0.2 : 0.45));
+        break;
+      }
+      case 'shieldBlock':
+        this.rings.push({ x: e.x, y: e.y, t: 0, r: 1.2, color: 0x7fe0ff });
+        this.particles.burst(e.x, e.y, 16, { speed: 6, colors: [0x7fe0ff, 0xffffff], life: 0.35, size: 0.12, g: 0 });
+        break;
+      case 'shotHit':
+        this.particles.burst(e.x, e.y, 12, { speed: 5, colors: e.proj === 'laser' ? [0x5ef0ff, 0xffffff] : [0xffffff, 0xd0d8e8], life: 0.3, size: 0.12, g: 6 });
+        break;
       case 'roundEnd': {
         const r = e.result;
         if (r === 'draw') this.setCenter('НІЧИЯ', 2.4);
@@ -251,6 +284,62 @@ export class GameView {
         this.setCenter(`ПЕРЕМОГА ${PLAYER_NAMES[e.winner]}!`, 999, `${g.match.scores[0]} : ${g.match.scores[1]}`, PLAYER_COLORS[e.winner]);
         break;
     }
+  }
+
+  /** Projectiles, shields, flight sparkles and the ability charge bar over each car. */
+  private renderAbilities(alpha: number, simDt: number) {
+    const g = this.game!;
+    const live = new Set<number>();
+    for (const sh of g.shots) {
+      live.add(sh.id);
+      let sp = this.shotSprites.get(sh.id);
+      if (!sp) {
+        const pr = PROJECTILES[sh.proj];
+        const grid = shotGrid(sh.proj, pr.r, ART_PPM);
+        sp = new Sprite(cached(`shot:${sh.proj}`, () => gridTexture(grid, DECOR_PAL)));
+        sp.anchor.set(0.5);
+        sp.scale.set(1 / ART_PPM);
+        this.dynLayer.addChild(sp);
+        this.shotSprites.set(sh.id, sp);
+      }
+      const p = sh.body.getPosition(), v = sh.body.getLinearVelocity();
+      sp.position.set(p.x, p.y);
+      sp.rotation = sh.proj === 'laser' || sh.proj === 'firework' ? Math.atan2(v.y, v.x) : sh.body.getAngle();
+      if (sh.proj === 'firework' && Math.random() < 0.8) this.particles.spawn(p.x, p.y, { vx: -v.x * 0.1, vy: -v.y * 0.1, life: 0.3, size: 0.12, color: Math.random() > 0.5 ? 0xffd040 : 0xff5020 });
+      if (sh.proj === 'laser' && Math.random() < 0.5) this.particles.spawn(p.x, p.y, { life: 0.15, size: 0.1, color: 0x5ef0ff });
+    }
+    for (const [id, sp] of this.shotSprites) if (!live.has(id)) {
+      sp.destroy();
+      this.shotSprites.delete(id);
+    }
+    const fx = this.fxGfx;
+    fx.clear();
+    for (const c of g.cars) {
+      if (!c.alive) continue;
+      const hp = c.headWorld();
+      if (c.shieldT > 0) {
+        const a = 0.35 + 0.25 * Math.sin(this.time * 18);
+        fx.circle(hp.x, hp.y, c.def.head.r + 0.35).fill({ color: 0x7fe0ff, alpha: a * 0.5 }).stroke({ color: 0xc8f4ff, width: 0.08, alpha: a + 0.3 });
+      }
+      if (c.flyT > 0 && Math.random() < 0.6) {
+        const p = c.position;
+        this.particles.spawn(p.x + (Math.random() - 0.5) * 2, p.y + 0.8, { vy: 2, life: 0.4, size: 0.12, color: 0xffffff });
+      }
+      if (c.slamming) {
+        const p = c.position;
+        this.particles.spawn(p.x + (Math.random() - 0.5), p.y - 0.5, { vy: -4, life: 0.25, size: 0.2, color: 0xfff0c0 });
+      }
+      // charge bar under the P1/P2 marker
+      const view = this.carViews[c.player];
+      if (!view) continue;
+      const mx = view.marker.x, my = view.marker.y + 0.18;
+      const k = c.abilityCharge;
+      const col = toHex(hex(PLAYER_COLORS[c.player]));
+      fx.rect(mx - 0.6, my, 1.2, 0.16).fill({ color: 0x0c0914, alpha: 0.7 });
+      fx.rect(mx - 0.56, my + 0.04, 1.12 * k, 0.08).fill({ color: k >= 1 ? (Math.sin(this.time * 8) > 0 ? 0xffffff : col) : col, alpha: k >= 1 ? 1 : 0.6 });
+    }
+    void alpha;
+    void simDt;
   }
 
   private setCenter(text: string, dur: number, sub = '', color = '#ffffff') {
@@ -538,12 +627,13 @@ export class GameView {
       if (Math.random() < l.w * 0.01) this.particles.spawn(l.x + Math.random() * l.w, l.y, { vy: -3 - Math.random() * 3, g: 10, life: 0.6, size: 0.14, color: Math.random() > 0.5 ? 0xffd060 : 0xff7020 });
     }
 
+    this.renderAbilities(alpha, simDt);
     this.particles.update(simDt);
     this.ringGfx.clear();
     for (const r of this.rings) {
       r.t += simDt;
       const k = r.t / 0.45;
-      if (k < 1) this.ringGfx.circle(r.x, r.y, 0.5 + k * 4.5).stroke({ color: 0xfff6c0, width: 0.35 * (1 - k), alpha: 1 - k });
+      if (k < 1) this.ringGfx.circle(r.x, r.y, 0.5 + k * ((r.r ?? 5) - 0.5)).stroke({ color: r.color ?? 0xfff6c0, width: 0.35 * (1 - k), alpha: 1 - k });
     }
     this.rings = this.rings.filter((r) => r.t < 0.45);
     if (this.debug) drawPhysicsDebug(this.debugGfx, g.world);
@@ -641,6 +731,20 @@ export class GameView {
       t.roundRect(z.x + pad, z.y + pad, z.w - pad * 2, z.h - pad * 2, 14).stroke({ color: col, alpha: 0.55, width: 3 });
       const cx = z.x + z.w / 2, cy = z.y + z.h / 2;
       const s = Math.min(z.w, z.h) * 0.2;
+      if (z.btn === 'action') {
+        const car = this.game?.cars[z.player];
+        const k = car ? car.abilityCharge : 1;
+        const inner = z.h - pad * 2 - 6;
+        t.roundRect(z.x + pad + 3, z.y + pad + 3 + inner * (1 - k), z.w - pad * 2 - 6, inner * k, 10).fill({ color: col, alpha: k >= 1 ? 0.45 : 0.18 });
+        // star
+        const pts: number[] = [];
+        for (let i = 0; i < 10; i++) {
+          const a = -Math.PI / 2 + (i * Math.PI) / 5, rr = i % 2 ? s * 0.45 : s;
+          pts.push(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr);
+        }
+        t.poly(pts).fill({ color: 0xffffff, alpha: pressed || k >= 1 ? 0.95 : 0.45 });
+        continue;
+      }
       const d = z.btn === 'left' ? -1 : 1;
       t.poly([cx + d * s, cy, cx - d * s * 0.7, cy - s, cx - d * s * 0.7, cy + s]).fill({ color: 0xffffff, alpha: pressed ? 0.95 : 0.6 });
     }
