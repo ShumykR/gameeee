@@ -16,7 +16,7 @@ export type GameEvent =
   | { type: 'countdown'; n: number }
   | { type: 'go' }
   | { type: 'impact'; x: number; y: number; strength: number; carCar: boolean }
-  | { type: 'death'; player: number; x: number; y: number; cause: 'hit' | 'hazard' | 'fall' }
+  | { type: 'death'; player: number; x: number; y: number; cause: 'hit' | 'hazard' | 'fall' | 'ground' }
   | { type: 'pad'; x: number; y: number }
   | { type: 'suddenDeath' }
   | { type: 'roundEnd'; result: RoundResult }
@@ -238,6 +238,8 @@ export class Game {
       if (!car.alive || !car.headFixture) return;
       if ((b.kind === 'car' || b.kind === 'head') && b.player !== a.player) this.kill(a.player, 'hit', b.player);
       else if (b.kind === 'hazard') this.kill(a.player, 'hazard');
+      // Head touching the ground (usually after a flip) loses the round.
+      else if (b.kind === 'terrain' || b.kind === 'platform') this.kill(a.player, 'ground');
       else if (b.kind === 'block' && b.body.getLinearVelocity().length() > 4) this.kill(a.player, 'hazard');
     } else if (a.kind === 'car') {
       if (b.kind === 'hazard' && b.type === 'lava') this.kill(a.player, 'hazard');
@@ -259,7 +261,7 @@ export class Game {
     }
   }
 
-  kill(player: number, cause: 'hit' | 'hazard' | 'fall', by?: number) {
+  kill(player: number, cause: 'hit' | 'hazard' | 'fall' | 'ground', by?: number) {
     const car = this.cars[player];
     if (!car.alive) return;
     if (this.phase !== 'play' && this.phase !== 'countdown') return;

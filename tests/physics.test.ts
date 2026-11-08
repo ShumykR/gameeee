@@ -27,3 +27,25 @@ describe('physics sandbox', () => {
     expect(g.cars[0].position.x - x0).toBeGreaterThan(2);
   });
 });
+
+describe('head vs ground', () => {
+  it('a car flipped onto its roof loses the round (head hits the ground)', () => {
+    const g = mkGame();
+    for (let i = 0; i < 180; i++) g.step();
+    const deaths: string[] = [];
+    g.on((e) => { if (e.type === 'death') deaths.push(`${e.player}:${e.cause}`); });
+    const c = g.cars[0];
+    const p = c.chassis.getPosition();
+    // Turn the whole car upside down just above where it was standing.
+    for (const b of c.bodies) {
+      const q = b.getPosition();
+      const dx = q.x - p.x, dy = q.y - p.y;
+      b.setTransform({ x: p.x - dx, y: p.y - 1.2 - dy } as never, b.getAngle() + Math.PI);
+      b.setLinearVelocity({ x: 0, y: 0 } as never);
+      b.setAngularVelocity(0);
+    }
+    for (let i = 0; i < 120 && !deaths.length; i++) g.step();
+    expect(deaths).toEqual(['0:ground']);
+    expect(c.alive).toBe(false);
+  });
+});
