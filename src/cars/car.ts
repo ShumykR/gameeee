@@ -119,6 +119,7 @@ export class Car {
       this.drive.push(wd.drive ?? true);
       this.restAnchors.push(new Vec2(wd.x * f, wd.y));
     }
+    if (def.float !== undefined) for (const b of this.bodies) b.setGravityScale(def.float);
     this.boostFuel = def.boost?.fuel ?? 0;
     this.snapshot();
   }
@@ -237,7 +238,9 @@ export class Car {
     }
     if (this.flipTimer > 0.8 && this.alive) {
       const k = Math.min(1, (this.flipTimer - 0.8) / 0.5);
-      if (Math.abs(w) < 3.5) this.chassis.applyTorque(this.flipDir * SELF_RIGHT * k * I, true);
+      // Still stuck after a while (e.g. propped on a wheel): push progressively harder.
+      const extra = Math.min(2, Math.max(0, this.flipTimer - 1.6));
+      if (Math.abs(w) < 3.5) this.chassis.applyTorque(this.flipDir * (SELF_RIGHT * k * I + extra * this.mass * DEFAULT_GRAVITY * 0.5), true);
       if (this.chassisTouching) this.chassis.applyForceToCenter(new Vec2(0, -this.mass * DEFAULT_GRAVITY * 0.75 * k), true);
     }
 

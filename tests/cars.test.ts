@@ -44,8 +44,12 @@ describe('sprite generator', () => {
     const counts = new Map<number, number>();
     for (const v of g.data) counts.set(v, (counts.get(v) ?? 0) + 1);
     expect(counts.get(P.OUTLINE) ?? 0).toBeGreaterThan(20);
-    expect((counts.get(P.BODY) ?? 0) + (counts.get(P.BODY_L) ?? 0) + (counts.get(P.BODY_D) ?? 0)).toBeGreaterThan(30);
-    expect(counts.get(P.HEAD_LIGHT) ?? 0).toBeGreaterThan(0);
+    // Hulls may be painted, wooden, bone, glass… any filled interior counts.
+    let filled = 0;
+    for (const [v, n] of counts) if (v !== P.NONE && v !== P.OUTLINE) filled += n;
+    expect(filled).toBeGreaterThan(30);
+    // Painted hulls get head lights.
+    if (def.body.some((p) => (p.mat ?? 'body') === 'body' && !p.deco)) expect(counts.get(P.HEAD_LIGHT) ?? 0).toBeGreaterThan(0);
     // origin lies inside the grid
     expect(g.ox).toBeGreaterThan(0);
     expect(g.ox).toBeLessThan(g.w);
