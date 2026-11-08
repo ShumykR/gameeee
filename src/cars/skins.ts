@@ -385,3 +385,48 @@ export function beast(f: Frame, o: { mat?: CarMat; belly?: CarMat; cx?: number; 
 }
 
 export { arc, circ, ell, path, seat, rect, rr, poly, blob, seg };
+
+// ---------------------------------------------------------------- creatures & robots
+
+/** Neck + head matching the creature frame's neck option. Returns the head centre too. */
+export function dinoHead(neck: 'long' | 'short' | 'raptor', L = 1, mat: CarMat = 'body'): { polys: CarPoly[]; eye: Pt; jaw: [number, number, number] } {
+  if (neck === 'long') {
+    return {
+      polys: [...path([[0.6 * L, -0.35], [1.0 * L, -0.8], [1.35 * L, -1.3]], 0.34, mat), blob([[1.2 * L, -1.45], [1.5 * L, -1.62], [1.85 * L, -1.5], [1.82 * L, -1.36], [1.3 * L, -1.3]], mat, {}, 1)],
+      eye: [1.52 * L, -1.52], jaw: [1.45 * L, 1.82 * L, -1.38],
+    };
+  }
+  if (neck === 'short') {
+    return {
+      polys: [...path([[0.7 * L, -0.4], [1.15 * L, -0.8]], 0.36, mat), blob([[1.0 * L, -1.0], [1.35 * L, -1.15], [1.7 * L, -1.0], [1.66 * L, -0.78], [1.1 * L, -0.75]], mat, {}, 1)],
+      eye: [1.35 * L, -0.98], jaw: [1.3 * L, 1.66 * L, -0.82],
+    };
+  }
+  return {
+    polys: [...path([[0.75 * L, -0.4], [1.15 * L, -0.65]], 0.36, mat), blob([[1.0 * L, -0.85], [1.4 * L, -0.92], [1.8 * L, -0.75], [1.8 * L, -0.48], [1.25 * L, -0.42], [1.05 * L, -0.5]], mat, {}, 1)],
+    eye: [1.38 * L, -0.74], jaw: [1.35 * L, 1.8 * L, -0.58],
+  };
+}
+
+/** Tapering tail off the back. */
+export function tail(x: number, y: number, len: number, mat: CarMat = 'body', up = 0.2): CarPoly {
+  return blob([[x + 0.25, y - 0.22], [x - len * 0.5, y - up - 0.05], [x - len, y - up * 1.6], [x - len * 0.5, y - up + 0.08], [x + 0.25, y + 0.18]], mat, {}, 1);
+}
+
+/** Boxy robot torso standing on a wheel base, with shoulder arms and a face plate. */
+export function robot(f: Frame, o: { mat?: CarMat; face?: CarMat; arms?: boolean } = {}): CarPoly[] {
+  const m = o.mat ?? 'body';
+  const top = f.roof.y, hw = f.roof.x1;
+  const out: CarPoly[] = [
+    rr(f.wheels[0].x - 0.15, -0.05, f.wheels[f.wheels.length - 1].x + 0.15, 0.24, 0.08, 'dark'),
+    rr(-hw * 0.5, -0.2, hw * 0.5, 0.05, 0.04, 'grey'),
+    rr(-hw, top, hw, -0.1, 0.14, m),
+    rr(-hw + 0.12, top + 0.18, hw - 0.12, top + 0.55, 0.08, o.face ?? 'black'),
+    rect(-hw + 0.1, top + 0.7, hw - 0.1, top + 0.76, 'dark', { flat: true }),
+  ];
+  if (o.arms !== false) {
+    out.push(circ(-hw - 0.05, top + 0.3, 0.18, 'grey'), circ(hw + 0.05, top + 0.3, 0.18, 'grey'));
+    out.push(rr(-hw - 0.35, top + 0.25, -hw - 0.05, top + 0.85, 0.1, 'chrome'), rr(hw + 0.05, top + 0.25, hw + 0.35, top + 0.85, 0.1, 'chrome'));
+  }
+  return out;
+}
