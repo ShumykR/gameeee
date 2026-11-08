@@ -1,4 +1,4 @@
-import type { AbilityDef, Archetype, CarDef, CarMat, CarPoly, CategoryId, ProjectileKind, Pt, WheelDef } from './types';
+import type { AbilityDef, AbilityKind, Archetype, CarDef, CarMat, CarPoly, CategoryId, FlailDef, ItemKind, ProjectileKind, Pt, WheelDef } from './types';
 import { estimateMass } from './stats';
 
 /*
@@ -13,11 +13,11 @@ import { estimateMass } from './stats';
 
 // ---------------------------------------------------------------- geometry helpers
 
-const P = (pts: Pt[], mat: CarMat = 'body', extra: Partial<CarPoly> = {}): CarPoly => ({ pts, mat, ...extra });
-const R = (x0: number, y0: number, x1: number, y1: number, mat: CarMat = 'body', extra: Partial<CarPoly> = {}): CarPoly =>
+export const P = (pts: Pt[], mat: CarMat = 'body', extra: Partial<CarPoly> = {}): CarPoly => ({ pts, mat, ...extra });
+export const R = (x0: number, y0: number, x1: number, y1: number, mat: CarMat = 'body', extra: Partial<CarPoly> = {}): CarPoly =>
   P([[x0, y0], [x1, y0], [x1, y1], [x0, y1]], mat, extra);
 /** Ellipse approximated by an n-gon (n <= 8 keeps it a valid Box2D polygon). */
-const O = (cx: number, cy: number, rx: number, ry: number, mat: CarMat = 'body', extra: Partial<CarPoly> = {}, n = 8, rot = Math.PI / 8): CarPoly => {
+export const O = (cx: number, cy: number, rx: number, ry: number, mat: CarMat = 'body', extra: Partial<CarPoly> = {}, n = 8, rot = Math.PI / 8): CarPoly => {
   const pts: Pt[] = [];
   for (let i = 0; i < n; i++) {
     const a = rot + (i / n) * Math.PI * 2;
@@ -25,14 +25,14 @@ const O = (cx: number, cy: number, rx: number, ry: number, mat: CarMat = 'body',
   }
   return P(pts, mat, extra);
 };
-const T = (a: Pt, b: Pt, c: Pt, mat: CarMat = 'body', extra: Partial<CarPoly> = {}) => P([a, b, c], mat, extra);
+export const T = (a: Pt, b: Pt, c: Pt, mat: CarMat = 'body', extra: Partial<CarPoly> = {}) => P([a, b, c], mat, extra);
 const deco = { deco: true };
 
 // ---------------------------------------------------------------- frames
 
-interface Span { x0: number; x1: number; y: number }
+export interface Span { x0: number; x1: number; y: number }
 
-interface Frame {
+export interface Frame {
   arch: Archetype;
   polys: CarPoly[];
   windows: Pt[][];
@@ -841,8 +841,20 @@ export interface CarSpec {
   arch?: Archetype;
   /** Uniform scale of the whole car. */
   s?: number;
-  /** Special action override (otherwise derived from parts/frame). */
+  /**
+   * Special action, written 'kind', 'kind:arg' or 'kind:arg|Name'
+   * (e.g. 'shoot:toast|Тостомет', 'drop:mine', 'fly|Левітація'). Omitted = no action.
+   */
+  ab?: string;
   ability?: AbilityDef;
+  /** Loose cargo in the bed at round start. */
+  cargo?: [ItemKind, number];
+  /** Weight on a chain, hung from a frame anchor. */
+  flail?: { from: 'deck' | 'roof' | 'tail' | 'nose' | Pt; len: number; r: number; look: FlailDef['look'] };
+  /** Extra drawing on top of the frame (render-only unless a poly sets deco: false). */
+  art?: (f: Frame) => CarPoly[];
+  /** No head/tail light pixels (creatures, blobs…). */
+  noLights?: boolean;
   /** Air-control multiplier. */
   air?: number;
   /** Extra downward center-of-mass offset (m). */
@@ -882,7 +894,14 @@ export function buildCar(spec: CarSpec): CarDef {
     if (r.arch) arch = r.arch;
   }
   if (spec.arch) arch = spec.arch;
-  const ability = spec.ability ?? abilityFor(spec, f);
+  if (spec.art) {
+    for (const p of spec.art(f)) {
+      const q = { ...p, deco: p.deco ?? true };
+      if (!q.deco && (inPoly(q.pts, f.head.x, f.head.y) || inPoly(q.pts, f.head.x, f.head.y - f.head.r * 0.7))) q.deco = true;
+      polys.push(q);
+    }
+  }
+  const ability = spec.ability ?? (spec.ab ? parseAbility(spec.ab) : undefined);
   const s = spec.s ?? 1;
   const pre = PRESETS[arch];
   const body = polys.map((p) => ({ ...p, pts: p.pts.map((q) => scalePt(q, s)) }));
@@ -912,6 +931,20 @@ export function buildCar(spec: CarSpec): CarDef {
     com: f.com ? scalePt(f.com, s) : [0, 0.08],
   };
   if (boost) def.boost = { accel: 9, fuel: 1.3, regen: 0.35 };
+  if (spec.noLights) def.lights = false;
+  if (spec.cargo) {
+    const [kind, n] = spec.cargo;
+    def.cargo = { kind, n, at: [+(f.deck.x0 * s).toFixed(3), +(f.deck.x1 * s).toFixed(3), +(f.deck.y * s).toFixed(3)] };
+  }
+  if (spec.flail) {
+    const fl = spec.flail;
+    const at: Pt = Array.isArray(fl.from) ? fl.from
+      : fl.from === 'deck' ? [f.deck.x0 + 0.15, f.deck.y]
+      : fl.from === 'roof' ? [f.roof.x1 - 0.1, f.roof.y]
+      : fl.from === 'tail' ? [f.tail.x, (f.tail.y0 + f.tail.y1) / 2]
+      : [f.nose.x, f.nose.y0];
+    def.flail = { at: scalePt(at, s), len: fl.len * s, r: fl.r * s, look: fl.look };
+  }
   if (ability) def.ability = ability;
   if (spec.float ?? f.float) def.float = spec.float ?? f.float;
   if (spec.bounce) def.restitution = spec.bounce;
@@ -955,24 +988,19 @@ export function buildCar(spec: CarSpec): CarDef {
   return def;
 }
 
-const SHOT_BY_CAT: Partial<Record<CategoryId, ProjectileKind>> = {
-  winter: 'snowball', soccer: 'ball', cny: 'firework', robo: 'laser', rift: 'laser',
-};
+const KINDS: AbilityKind[] = ['jump', 'nitro', 'dash', 'slam', 'shoot', 'fly', 'shield', 'roar', 'drop', 'phase', 'blink', 'dump'];
 
-/** Pick a special action from what is bolted on: guns shoot, rockets boost, saucers fly… */
-function abilityFor(spec: CarSpec, f: Frame): AbilityDef | undefined {
-  const ids = new Set((spec.parts ?? []).map((p) => (Array.isArray(p) ? p[0] : p)));
-  const has = (...xs: PartId[]) => xs.some((x) => ids.has(x));
-  if (has('launcher')) return { kind: 'shoot', projectile: 'firework' };
-  if (has('dish')) return { kind: 'shoot', projectile: 'laser' };
-  if (has('cannon', 'twincannon', 'gun')) return { kind: 'shoot', projectile: SHOT_BY_CAT[spec.cat] ?? 'cannon' };
-  if (spec.cat === 'soccer') return { kind: 'shoot', projectile: 'ball' };
-  if (has('booster', 'jets')) return { kind: 'nitro' };
-  if (spec.float || f.float || has('wings', 'sail', 'propeller')) return { kind: 'fly' };
-  if (has('ram', 'blade', 'roller', 'spikes', 'saw', 'drill', 'claw', 'horns', 'mace')) return { kind: 'dash' };
-  if (has('scoop', 'bucketarm', 'forks', 'plow')) return { kind: 'slam' };
-  if (has('crystals', 'tentacles', 'skull', 'cage', 'tank')) return { kind: 'shield' };
-  return undefined;
+/** 'shoot:toast|Тостомет' → { kind: 'shoot', projectile: 'toast', name: 'Тостомет' } */
+export function parseAbility(src: string): AbilityDef {
+  const [main, name] = src.split('|');
+  const [kind, arg] = main.split(':');
+  if (!KINDS.includes(kind as AbilityKind)) throw new Error(`unknown ability ${src}`);
+  const a: AbilityDef = { kind: kind as AbilityKind };
+  if (kind === 'shoot') a.projectile = (arg ?? 'cannon') as ProjectileKind;
+  else if ((kind === 'drop' || kind === 'dump') && arg) a.item = arg as ItemKind;
+  else if (kind === 'roar' && arg === 'stun') a.stun = true;
+  if (name) a.name = name;
+  return a;
 }
 
 function centroidX(pts: Pt[]): [number, number] {

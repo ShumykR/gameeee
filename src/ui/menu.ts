@@ -9,7 +9,7 @@ import { music } from '../audio/music';
 import type { BotLevel } from '../ai/bot';
 import type { Settings } from './settings';
 import { mapThumb } from './thumbs';
-import { abilityLabel } from '../game/abilities';
+import { abilityBlurb, abilityLabel, abilityOf } from '../game/abilities';
 import { button, el, statBars, titleCanvas } from './dom';
 import { openCarBrowser, type CarBrowser } from './garage';
 
@@ -213,7 +213,9 @@ export class Menu {
       panel.appendChild(stage);
       const cat = CATEGORY_BY_ID[categoryOf(def)];
       panel.appendChild(el('div', 'car-name', `${def.name} <small>${cat.icon} ${ARCH_NAMES[def.archetype]}</small>`));
-      panel.appendChild(el('div', 'ability', abilityLabel(def)));
+      const ab = el('div', `ability ${abilityOf(def) ? '' : 'none'}`, abilityLabel(def));
+      ab.title = abilityBlurb(def);
+      panel.appendChild(ab);
       panel.appendChild(el('div', 'blurb', def.blurb));
       panel.appendChild(statBars(def));
       const row = el('div', 'row panel-actions');

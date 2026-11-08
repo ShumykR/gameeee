@@ -1,6 +1,7 @@
 import type { RGB } from '../render/color';
 import { PixelGrid, makeGrid, gget, gset, fillPoly } from '../render/grid';
 import type { DecorKind, MapDef, Pt } from './types';
+import type { ItemKind, ProjectileKind } from '../cars/types';
 
 /*
  * Background props drawn from code: tombstones, spruces, palms, goals, lanterns…
@@ -496,29 +497,268 @@ export function ballGrid(r: number, ppm: number): PixelGrid {
   return g;
 }
 
-/** Projectile sprites (origin at the center; lasers/fireworks point along +x). */
-export function shotGrid(kind: 'cannon' | 'snowball' | 'ball' | 'laser' | 'firework', r: number, ppm: number): PixelGrid {
-  if (kind === 'ball') return ballGrid(r, ppm);
-  const R = Math.max(2, Math.round(r * ppm));
-  let p: Pen;
-  if (kind === 'laser') {
-    p = new Pen(R * 8, R * 2);
-    p.rect(0, 0, R * 8, R * 2, C.CY);
-    p.rect(1, Math.floor(R / 2), R * 8 - 2, Math.max(1, R), C.W);
-  } else if (kind === 'firework') {
-    p = new Pen(R * 5, R * 2);
-    p.rect(0, 0, R * 4, R * 2, C.R);
-    p.poly([[R * 4, 0], [R * 5, R], [R * 4, R * 2]], C.Y);
-    p.rect(R, 0, 1, R * 2, C.Y);
-  } else {
-    p = new Pen(R * 2, R * 2);
-    if (kind === 'snowball') p.ell(R, R, R, R, C.W, (dx, dy) => (dx + dy > 0.5 ? C.SN : C.W));
-    else p.ell(R, R, R, R, C.DG, (dx, dy) => (dx + dy < -0.6 ? C.G : C.DG));
-  }
+const centered = (p: Pen) => {
   const g = p.done();
   g.ox = g.w / 2;
   g.oy = g.h / 2;
   return g;
+};
+
+/** Projectile sprites (origin at the center; long shots point along +x). */
+export function shotGrid(kind: ProjectileKind, r: number, ppm: number): PixelGrid {
+  if (kind === 'ball') return ballGrid(r, ppm);
+  const R = Math.max(2, Math.round(r * ppm));
+  const D = R * 2;
+  let p: Pen;
+  switch (kind) {
+    case 'laser':
+    case 'zap': {
+      p = new Pen(R * 8, D);
+      p.rect(0, 0, R * 8, D, kind === 'zap' ? C.Y : C.CY);
+      if (kind === 'zap') for (let i = 0; i < 4; i++) p.rect(i * R * 2, (i % 2) * R, R * 2, R, C.W);
+      else p.rect(1, Math.floor(R / 2), R * 8 - 2, Math.max(1, R), C.W);
+      break;
+    }
+    case 'firework':
+    case 'missile': {
+      p = new Pen(R * 5, D);
+      p.rect(0, 0, R * 4, D, kind === 'missile' ? C.LG : C.R);
+      p.poly([[R * 4, 0], [R * 5, R], [R * 4, D]], kind === 'missile' ? C.R : C.Y);
+      p.rect(R, 0, 1, D, C.Y);
+      if (kind === 'missile') p.poly([[0, -1], [R, 0], [0, 1]], C.DG);
+      break;
+    }
+    case 'harpoon': {
+      p = new Pen(R * 9, D);
+      p.rect(0, R - 1, R * 7, 2, C.BR);
+      p.poly([[R * 7, 0], [R * 9, R], [R * 7, D]], C.LG);
+      break;
+    }
+    case 'toast': {
+      p = new Pen(D + 2, D + 2);
+      p.rect(1, 2, D, D, C.SAD);
+      p.ell(R + 1, 3, R, 2.5, C.SAD);
+      p.rect(3, 4, D - 4, D - 4, C.SA);
+      break;
+    }
+    case 'bubble': {
+      p = new Pen(D, D);
+      p.ell(R, R, R, R, C.CY, (dx, dy) => (dx * dx + dy * dy > 0.7 ? C.CY : dx < -0.2 && dy < -0.2 && dx > -0.6 ? C.W : null));
+      break;
+    }
+    case 'pumpkin': {
+      p = new Pen(D, D + 3);
+      p.ell(R, R + 3, R, R * 0.85, C.OR, (dx) => (Math.abs(dx) > 0.25 && Math.abs(dx) < 0.4 ? C.ORD : C.OR));
+      p.rect(R - 1, 0, 2, 4, C.GRD);
+      p.poly([[R - 3, R + 1], [R - 1, R + 1], [R - 2, R - 1]], C.Y);
+      p.poly([[R + 1, R + 1], [R + 3, R + 1], [R + 2, R - 1]], C.Y);
+      break;
+    }
+    case 'bone': {
+      p = new Pen(R * 5, D);
+      p.rect(R, R - 1, R * 3, 3, C.CR);
+      for (const x of [R * 0.7, R * 4.3]) for (const y of [R * 0.5, R * 1.5]) p.ell(x, y, R * 0.6, R * 0.6, C.CR);
+      break;
+    }
+    case 'water': {
+      p = new Pen(D + 2, D);
+      p.ell(R + 1, R, R + 1, R, C.B, (dx, dy) => (dx + dy < -0.5 ? C.W : C.B));
+      break;
+    }
+    case 'ice': {
+      p = new Pen(D, D);
+      p.poly([[R, 0], [D, R], [R, D], [0, R]], C.CY);
+      p.poly([[R, 2], [R + 2, R], [R, R]], C.W);
+      break;
+    }
+    case 'egg': {
+      p = new Pen(D, D + 2);
+      p.ell(R, R + 1, R * 0.85, R + 1, C.CR, (dx, dy) => (dx + dy > 0.6 ? C.SA : C.CR));
+      break;
+    }
+    case 'fire': {
+      p = new Pen(D, D);
+      p.ell(R, R, R, R, C.OR, (dx, dy) => (dx * dx + dy * dy < 0.25 ? C.Y : dx * dx + dy * dy < 0.6 ? C.OR : C.R));
+      break;
+    }
+    case 'urn': {
+      p = new Pen(D, D + 2);
+      p.ell(R, R + 2, R, R * 0.9, C.BR, (_dx, dy) => (Math.abs(dy) < 0.15 ? C.GO : C.BR));
+      p.rect(R - R / 2, 0, R, 3, C.BRD);
+      break;
+    }
+    case 'cork': {
+      p = new Pen(D + 2, D);
+      p.rect(0, 1, D + 2, D - 2, C.SAD);
+      p.rect(1, 2, D, 1, C.SA);
+      break;
+    }
+    case 'gift': {
+      p = new Pen(D, D + 2);
+      p.rect(0, 2, D, D, C.R);
+      p.rect(R - 1, 2, 2, D, C.Y);
+      p.rect(0, R + 1, D, 2, C.Y);
+      p.ell(R - 2, 1.5, 2, 1.5, C.Y);
+      p.ell(R + 2, 1.5, 2, 1.5, C.Y);
+      break;
+    }
+    case 'burger': {
+      p = new Pen(D + 2, D);
+      p.ell(R + 1, R * 0.7, R + 1, R * 0.7, C.SAD);
+      p.rect(0, R - 1, D + 2, 2, C.GR);
+      p.rect(0, R + 1, D + 2, 2, C.BRD);
+      p.rect(1, R + 3, D, Math.max(1, R - 3), C.SAD);
+      break;
+    }
+    case 'icecream': {
+      p = new Pen(D, D + R);
+      p.poly([[1, R], [D - 1, R], [R, D + R]], C.SAD);
+      p.ell(R, R * 0.8, R, R * 0.8, C.PK, (dx, dy) => (dx + dy < -0.5 ? C.W : C.PK));
+      break;
+    }
+    case 'golf': {
+      p = new Pen(D, D);
+      p.ell(R, R, R, R, C.W, (dx, dy) => (dx + dy > 0.6 ? C.LG : C.W));
+      break;
+    }
+    case 'bullet': {
+      p = new Pen(R * 4, D);
+      p.rect(0, 0, R * 3, D, C.GO);
+      p.ell(R * 3, R, R, R, C.GO);
+      break;
+    }
+    case 'web': {
+      p = new Pen(D, D);
+      p.ell(R, R, R, R, C.W, (dx, dy) => {
+        const a = Math.atan2(dy, dx), d = Math.hypot(dx, dy);
+        return Math.abs(Math.sin(a * 3)) < 0.18 || Math.abs(d - 0.45) < 0.1 || Math.abs(d - 0.85) < 0.1 ? C.W : null;
+      });
+      break;
+    }
+    default: {
+      p = new Pen(D, D);
+      if (kind === 'snowball') p.ell(R, R, R, R, C.W, (dx, dy) => (dx + dy > 0.5 ? C.SN : C.W));
+      else p.ell(R, R, R, R, C.DG, (dx, dy) => (dx + dy < -0.6 ? C.G : C.DG));
+    }
+  }
+  return centered(p);
+}
+
+/** Weight on a chain (origin at the center). */
+export function flailGrid(look: 'wrecking' | 'mace' | 'anchor', r: number, ppm: number): PixelGrid {
+  const R = Math.max(3, Math.round(r * ppm));
+  const p = new Pen(R * 2 + 4, R * 2 + 4);
+  const c = R + 2;
+  if (look === 'mace') {
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      p.poly([[c + Math.cos(a - 0.3) * R * 0.8, c + Math.sin(a - 0.3) * R * 0.8], [c + Math.cos(a) * (R + 2), c + Math.sin(a) * (R + 2)], [c + Math.cos(a + 0.3) * R * 0.8, c + Math.sin(a + 0.3) * R * 0.8]], C.LG);
+    }
+    p.ell(c, c, R * 0.85, R * 0.85, C.CR, (dx, dy) => (dx + dy > 0.5 ? C.SAD : C.CR));
+  } else if (look === 'anchor') {
+    p.rect(c - 1, 1, 2, R * 2, C.G);
+    p.rect(c - R * 0.6, 2, R * 1.2, 2, C.G);
+    p.poly([[1, c], [c, R * 2 + 2], [R * 2 + 3, c], [R * 2, c + 2], [c, R * 2 - 1], [3, c + 2]], C.G);
+  } else p.ell(c, c, R, R, C.DG, (dx, dy) => (dx + dy < -0.7 ? C.G : dx + dy > 0.8 ? C.K : C.DG));
+  return centered(p);
+}
+
+/** Loose cargo / dropped items (origin at the center). */
+export function itemGrid(kind: ItemKind, w: number, h: number, ppm: number): PixelGrid {
+  const W = Math.max(3, Math.round(w * ppm)), H = Math.max(3, Math.round(h * ppm));
+  const R = Math.round(W / 2);
+  const p = new Pen(W, H);
+  switch (kind) {
+    case 'ball': return ballGrid(w / 2, ppm);
+    case 'snowball': return shotGrid('snowball', w / 2, ppm);
+    case 'pumpkin':
+      p.ell(R, R, R, R, C.OR, (dx) => (Math.abs(dx) > 0.25 && Math.abs(dx) < 0.42 ? C.ORD : C.OR));
+      p.rect(R - 1, 0, 2, 2, C.GRD);
+      break;
+    case 'rock':
+      p.poly([[1, H * 0.4], [W * 0.35, 0], [W, H * 0.3], [W - 1, H], [W * 0.2, H]], C.ST);
+      p.poly([[W * 0.4, H * 0.5], [W - 2, H * 0.4], [W - 2, H - 1], [W * 0.5, H - 1]], C.STD);
+      break;
+    case 'coal':
+      p.ell(R, R, R, R, C.K, (dx, dy) => (dx + dy < -0.5 ? C.DG : C.K));
+      break;
+    case 'egg':
+      p.ell(R, R, R * 0.85, R, C.CR, (dx, dy) => (Math.abs(dx - 0.2) < 0.12 && Math.abs(dy) < 0.4 ? C.GR : dx + dy > 0.6 ? C.SA : C.CR));
+      break;
+    case 'bomb':
+      p.ell(R, R, R, R, C.K, (dx, dy) => (dx + dy < -0.6 ? C.DG : C.K));
+      p.rect(R - 1, -2, 2, 3, C.BR);
+      p.px(R + 1, -3, C.Y);
+      break;
+    case 'log':
+      p.rect(0, 0, W, H, C.BR);
+      for (let x = 2; x < W - 3; x += 4) p.rect(x, 1 + (x % 3), 3, 1, C.BRD);
+      p.ell(W - 3, H / 2, 3, H / 2, C.SAD, (dx, dy) => (dx * dx + dy * dy < 0.3 ? C.BR : C.SAD));
+      break;
+    case 'barrel':
+      p.rect(0, 0, W, H, C.GR);
+      p.rect(0, 1, W, 1, C.DG);
+      p.rect(0, H - 2, W, 1, C.DG);
+      p.poly([[R - 2, H * 0.62], [R + 2, H * 0.62], [R, H * 0.3]], C.Y);
+      break;
+    case 'gift':
+      p.rect(0, 0, W, H, C.R);
+      p.rect(R - 1, 0, 2, H, C.Y);
+      p.rect(0, Math.round(H / 2) - 1, W, 2, C.Y);
+      break;
+    case 'trash':
+      p.poly([[1, H], [W - 1, H], [W, H * 0.4], [R + 1, 0], [R - 1, 0], [0, H * 0.4]], C.DG);
+      p.rect(R - 1, 0, 2, 2, C.Y);
+      p.px(R - 3, H * 0.6, C.G);
+      break;
+    case 'bone':
+      p.rect(2, Math.floor(H / 2) - 1, W - 4, 3, C.CR);
+      for (const x of [2, W - 2]) for (const y of [1, H - 2]) p.ell(x, y, 2, 2, C.CR);
+      break;
+    case 'crate':
+      p.rect(0, 0, W, H, C.SAD);
+      p.rect(1, 1, W - 2, H - 2, C.SA);
+      p.line(1, 1, W - 2, H - 2, C.SAD);
+      p.line(W - 2, 1, 1, H - 2, C.SAD);
+      break;
+    case 'hay':
+      p.rect(0, 0, W, H, C.Y);
+      for (let y = 1; y < H; y += 2) for (let x = (y % 4) - 1; x < W; x += 4) p.rect(x, y, 2, 1, C.SAD);
+      p.rect(Math.round(W * 0.3), 0, 1, H, C.BR);
+      p.rect(Math.round(W * 0.7), 0, 1, H, C.BR);
+      break;
+    case 'cow':
+      p.rect(1, 1, W - 4, H - 4, C.W);
+      p.ell(W * 0.3, H * 0.4, 2, 2, C.K);
+      p.ell(W * 0.6, H * 0.55, 2.5, 2, C.K);
+      p.rect(W - 4, 0, 4, 4, C.W);
+      p.rect(W - 1, 1, 1, 1, C.K);
+      p.rect(W - 3, 3, 3, 1, C.PK);
+      p.rect(2, H - 3, 1, 3, C.W);
+      p.rect(W - 6, H - 3, 1, 3, C.W);
+      break;
+    case 'penguin':
+      p.ell(R, H * 0.55, R, H * 0.45, C.K);
+      p.ell(R + 1, H * 0.6, R * 0.6, H * 0.32, C.W);
+      p.ell(R, H * 0.22, R * 0.8, H * 0.2, C.K);
+      p.px(R + 1, H * 0.2, C.W);
+      p.rect(W - 2, H * 0.24, 2, 1, C.OR);
+      break;
+    case 'ice':
+      p.rect(0, 0, W, H, C.CY);
+      p.rect(1, 1, W - 3, 2, C.W);
+      p.rect(1, 1, 1, H - 3, C.W);
+      break;
+    case 'peel':
+      p.poly([[0, H], [W * 0.2, 0], [W * 0.4, H * 0.6], [W * 0.5, 0], [W * 0.6, H * 0.6], [W * 0.8, 0], [W, H]], C.Y);
+      p.rect(W * 0.45, H - 1, 2, 1, C.BR);
+      break;
+    case 'mine':
+      p.ell(R, H, R, H, C.DG, (dx, dy) => (dy < -0.5 && Math.abs(dx) < 0.25 ? C.R : C.DG));
+      p.rect(1, H - 2, W - 2, 2, C.K);
+      break;
+  }
+  return centered(p);
 }
 
 /** Highest solid surface at x (world y, y grows down), or null. */

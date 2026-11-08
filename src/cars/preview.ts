@@ -3,6 +3,9 @@ import { gridToRGBA, PixelGrid } from '../render/grid';
 import type { RGB } from '../render/color';
 import { carPalette, driverPalette, generateCarGrid, generateHeadGrid, generateTorsoGrid, generateWheelGrid, wheelPalette } from './sprite';
 import type { CarDef, CarPalette } from './types';
+import { ITEMS, cargoSlots } from '../game/abilities';
+import { DECOR_PAL, flailGrid, itemGrid } from '../maps/decor';
+import { makeGrid, gset } from '../render/grid';
 
 function gridCanvas(g: PixelGrid, pal: (RGB | null)[]) {
   const c = document.createElement('canvas');
@@ -27,6 +30,22 @@ export function carPreviewCanvas(def: CarDef, palette: CarPalette, playerColor: 
   items.push({ g: body, c: gridCanvas(body, carPalette(palette)), x: -body.ox, y: -body.oy });
   items.push({ g: head, c: gridCanvas(head, dpal), x: def.head.x * ART_PPM - head.ox, y: def.head.y * ART_PPM - head.oy });
   def.wheels.forEach((w, i) => items.push({ g: wheels[i], c: gridCanvas(wheels[i], wheelPalette(palette)), x: w.x * ART_PPM - wheels[i].ox, y: w.y * ART_PPM - wheels[i].oy }));
+  if (def.cargo) {
+    const info = ITEMS[def.cargo.kind];
+    const ig = itemGrid(def.cargo.kind, info.w, info.h, ART_PPM);
+    const ic = gridCanvas(ig, DECOR_PAL);
+    for (const [x, y] of cargoSlots(def.cargo)) items.push({ g: ig, c: ic, x: x * ART_PPM - ig.ox, y: y * ART_PPM - ig.oy });
+  }
+  if (def.flail) {
+    const fl = def.flail;
+    const fg = flailGrid(fl.look, fl.r, ART_PPM);
+    const bx = fl.at[0] * ART_PPM, by = (fl.at[1] + fl.len) * ART_PPM;
+    const n = Math.max(1, Math.round(fl.len * ART_PPM - fl.r * ART_PPM));
+    const chain = makeGrid(2, n, 0, 0);
+    for (let i = 0; i < n; i++) { gset(chain, 0, i, i % 3 === 2 ? 1 : 4); gset(chain, 1, i, i % 3 === 2 ? 1 : 3); }
+    items.push({ g: chain, c: gridCanvas(chain, DECOR_PAL), x: bx - 1, y: fl.at[1] * ART_PPM });
+    items.push({ g: fg, c: gridCanvas(fg, DECOR_PAL), x: bx - fg.ox, y: by - fg.oy });
+  }
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const it of items) {
     x0 = Math.min(x0, it.x); y0 = Math.min(y0, it.y);

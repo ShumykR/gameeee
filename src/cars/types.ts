@@ -3,7 +3,7 @@ export type Pt = [number, number];
 /** Materials a car polygon can be drawn with (palette slot or special texture). */
 export type CarMat =
   | 'body' | 'accent' | 'dark' | 'metal' | 'spike' | 'scoop' | 'rocket' | 'wood' | 'glass'
-  | 'bone' | 'gold' | 'leaf' | 'white' | 'light';
+  | 'bone' | 'gold' | 'leaf' | 'white' | 'light' | 'black' | 'pink';
 
 export type Archetype =
   | 'allround' | 'heavy' | 'fast' | 'monster' | 'tiny' | 'long'
@@ -40,13 +40,45 @@ export interface CarPalette {
 }
 
 /** Special action on its own button. */
-export type AbilityKind = 'jump' | 'nitro' | 'dash' | 'slam' | 'shoot' | 'fly' | 'shield';
-export type ProjectileKind = 'cannon' | 'snowball' | 'ball' | 'laser' | 'firework';
+export type AbilityKind =
+  | 'jump' | 'nitro' | 'dash' | 'slam' | 'shoot' | 'fly' | 'shield'
+  | 'roar' | 'drop' | 'phase' | 'blink' | 'dump';
+export type ProjectileKind =
+  | 'cannon' | 'snowball' | 'ball' | 'laser' | 'firework' | 'toast' | 'harpoon' | 'bubble' | 'pumpkin'
+  | 'bone' | 'missile' | 'water' | 'ice' | 'egg' | 'fire' | 'urn' | 'zap' | 'cork' | 'gift' | 'burger' | 'web'
+  | 'icecream' | 'golf' | 'bullet';
+
+/** Loose things a car carries (start in the bed and spill out) or drops. */
+export type ItemKind =
+  | 'ball' | 'log' | 'barrel' | 'gift' | 'pumpkin' | 'snowball' | 'trash' | 'rock' | 'egg' | 'bone'
+  | 'crate' | 'hay' | 'cow' | 'penguin' | 'ice' | 'coal' | 'mine' | 'bomb' | 'peel';
 
 export interface AbilityDef {
   kind: AbilityKind;
   /** For 'shoot'. */
   projectile?: ProjectileKind;
+  /** For 'drop' / 'dump': what comes out. */
+  item?: ItemKind;
+  /** Car-specific name shown in menus ("Тостомет", "Сирена"…). */
+  name?: string;
+  /** For 'roar': stun instead of push. */
+  stun?: boolean;
+}
+
+export interface CargoDef {
+  kind: ItemKind;
+  n: number;
+  /** Bed span in car-local meters: x from..to, y = top of the bed. */
+  at: [number, number, number];
+}
+
+/** A weight hanging on a chain (wrecking ball, mace tail). */
+export interface FlailDef {
+  /** Car-local anchor. */
+  at: Pt;
+  len: number;
+  r: number;
+  look: 'wrecking' | 'mace' | 'anchor';
 }
 
 /** Collection a car belongs to (menu filter + themed arenas). */
@@ -97,8 +129,14 @@ export interface CarDef {
   boost?: { accel: number; fuel: number; regen: number };
   /** Extra bounce on the chassis. */
   restitution?: number;
-  /** Special action (defaults by archetype, see game/abilities.ts). */
+  /** Special action on the action button; cars without one just drive. */
   ability?: AbilityDef;
+  /** Loose cargo that sits in the bed at the start of each round. */
+  cargo?: CargoDef;
+  /** Swinging weight on a chain. */
+  flail?: FlailDef;
+  /** Draw head/tail lights (default true). */
+  lights?: boolean;
   /** Gravity scale for the whole car (<1 = floaty hover/flying vehicles). */
   float?: number;
 }

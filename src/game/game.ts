@@ -1,10 +1,10 @@
-import { World, Vec2, Contact, Fixture, Body, Circle } from 'planck';
+import { World, Vec2, Contact, Fixture, Body, Circle, Box, testOverlap } from 'planck';
 import { CAT, DEFAULT_GRAVITY, MASK, POSITION_ITERS, STEP_DT, VELOCITY_ITERS } from '../physics/constants';
 import { FixedStepper } from '../physics/stepper';
 import { tagOf, FixtureTag } from '../physics/tags';
 import { Car } from '../cars/car';
-import type { AbilityKind, CarDef, ProjectileKind } from '../cars/types';
-import { ABILITY_INFO, PROJECTILES } from './abilities';
+import type { AbilityKind, CarDef, ItemKind, ProjectileKind } from '../cars/types';
+import { ITEMS, PROJECTILES, abilityCd, cargoSlots } from './abilities';
 import { Arena } from '../maps/arena';
 import type { MapDef, SuddenDeathKind } from '../maps/types';
 import { SUDDEN_FALLBACK, suddenKindFor } from '../maps/sudden';
@@ -18,8 +18,9 @@ export type GameEvent =
   | { type: 'countdown'; n: number }
   | { type: 'go' }
   | { type: 'impact'; x: number; y: number; strength: number; carCar: boolean }
-  | { type: 'ability'; player: number; kind: AbilityKind; x: number; y: number }
-  | { type: 'blast'; x: number; y: number; r: number; kind: 'slam' | 'firework' | 'bomb' }
+  | { type: 'ability'; player: number; kind: AbilityKind; x: number; y: number; from?: { x: number; y: number } }
+  | { type: 'blast'; x: number; y: number; r: number; kind: 'slam' | 'firework' | 'bomb' | 'roar' | 'zap' }
+  | { type: 'effect'; player: number; effect: 'freeze' | 'stun' | 'lift' | 'pull' | 'push' | 'web'; x: number; y: number }
   | { type: 'shieldBlock'; player: number; x: number; y: number }
   | { type: 'shotHit'; x: number; y: number; proj: ProjectileKind }
   | { type: 'death'; player: number; x: number; y: number; cause: 'hit' | 'hazard' | 'fall' | 'ground' }
@@ -42,6 +43,23 @@ export interface Shot {
   proj: ProjectileKind;
   born: number;
   dead: boolean;
+  /** Effect already applied to a car. */
+  used?: boolean;
+}
+
+export interface Item {
+  id: number;
+  body: Body;
+  kind: ItemKind;
+  owner: number;
+  born: number;
+  /** Seconds to live (Infinity for cargo). */
+  ttl: number;
+  /** Mines, bombs and toxic barrels go off. */
+  explosive: boolean;
+  /** Bombs: seconds until they blow. */
+  fuse?: number;
+  dead?: boolean;
 }
 
 export interface GameConfig {
@@ -88,6 +106,10 @@ export class Game {
   private prevAction = [false, false];
   shots: Shot[] = [];
   private shotId = 0;
+  items: Item[] = [];
+  private itemId = 0;
+  /** Extra ghost time spent waiting to get clear of the other car. */
+  private phaseExtra = [0, 0];
   time = 0;
   private listeners: ((e: GameEvent) => void)[] = [];
   private contactQueue: [Fixture, Fixture, Contact][] = [];
@@ -143,6 +165,9 @@ export class Game {
     });
     this.ragdolls = [];
     this.shots = [];
+    this.items = [];
+    this.phaseExtra = [0, 0];
+    for (const c of this.cars) this.loadCargo(c);
     this.prevAction = [false, false];
     this.resolver.reset();
     this.phase = 'countdown';
@@ -212,6 +237,8 @@ export class Game {
     this.world.step(dt, VELOCITY_ITERS, POSITION_ITERS);
     this.processContacts();
     this.stepShots();
+    this.stepItems(dt);
+    this.stepPhase(dt);
     for (const d of this.arena.detonations) this.shockwave(-1, 3.8, 1.3, d, 'bomb');
     this.arena.detonations = [];
     if (this.arena.wind) for (const c of this.cars) for (const b of c.bodies) b.applyForceToCenter(new Vec2(this.arena.wind * b.getMass(), 0), true);
@@ -282,16 +309,39 @@ export class Game {
       const car = this.cars[a.player];
       if (!car.alive || !car.headFixture) return;
       if ((b.kind === 'car' || b.kind === 'head') && b.player !== a.player) this.kill(a.player, 'hit', b.player);
-      else if (b.kind === 'shot' && b.owner !== a.player) this.kill(a.player, 'hit', b.owner);
+      else if (b.kind === 'shot' && b.owner !== a.player) {
+        const pr = PROJECTILES[b.proj];
+        if (!pr.harmless) this.kill(a.player, 'hit', b.owner);
+        else this.shotEffect(b.id, a.player);
+      } else if (b.kind === 'item' && b.owner !== a.player) {
+        const it = this.items.find((x) => x.id === b.id);
+        if (it?.explosive && it.kind === 'mine') this.explode(it);
+        else if (it && it.body.getLinearVelocity().length() > 4.5) this.kill(a.player, 'hit', b.owner);
+      }
       else if (b.kind === 'hazard') this.kill(a.player, 'hazard');
       // Head touching the ground (usually after a flip) loses the round.
       else if (b.kind === 'terrain' || b.kind === 'platform') this.kill(a.player, 'ground');
       else if (b.kind === 'block' && b.body.getLinearVelocity().length() > 4) this.kill(a.player, 'hazard');
     } else if (a.kind === 'shot') {
-      // Lasers and fireworks pop on the first thing they touch.
-      if ((a.proj === 'laser' || a.proj === 'firework') && b.kind !== 'pad') {
+      if (b.kind === 'pad' || (b.kind === 'shot' && b.owner === a.owner)) return;
+      if (b.kind === 'car' && b.player !== a.owner) this.shotEffect(a.id, b.player);
+      // Lasers, fireworks, snowballs… pop on the first thing they touch.
+      if (PROJECTILES[a.proj].pop) {
         const s = this.shots.find((x) => x.id === a.id);
         if (s) s.dead = true;
+      }
+    } else if (a.kind === 'item') {
+      if (b.kind === 'car' && b.player !== a.owner) {
+        const it = this.items.find((x) => x.id === a.id);
+        if (it?.explosive && (it.kind === 'mine' || it.kind === 'barrel')) this.explode(it);
+        else if (it?.kind === 'peel' && !it.dead) {
+          // Slip: spin out and lose the engine for a moment.
+          it.dead = true;
+          const c = this.cars[b.player];
+          this.stun(b.player, 0.8, 'web');
+          c.chassis.setAngularVelocity(c.chassis.getAngularVelocity() + (this.rand() > 0.5 ? 5 : -5));
+          c.kick(0, -4);
+        }
       }
     } else if (a.kind === 'car') {
       if (b.kind === 'hazard' && b.type === 'lava') this.kill(a.player, 'hazard');
@@ -316,10 +366,12 @@ export class Game {
   /** Fire the player's special action if it is charged. */
   useAbility(p: number) {
     const car = this.cars[p];
-    if (!car.alive || car.abilityCd > 0 || this.phase !== 'play') return;
-    const kind = car.ability.kind;
-    car.abilityCd = ABILITY_INFO[kind].cd;
+    const ab = car.ability;
+    if (!ab || !car.alive || car.abilityCd > 0 || car.stunT > 0 || this.phase !== 'play') return;
+    const kind = ab.kind;
+    car.abilityCd = abilityCd(ab);
     const fwd = car.forward();
+    const from = { x: car.position.x, y: car.position.y };
     switch (kind) {
       case 'jump':
         car.kick(0, -9);
@@ -340,24 +392,66 @@ export class Game {
           this.shockwave(p, 5.5, 1);
         }
         break;
+      case 'roar':
+        if (ab.stun) {
+          const o = this.cars[1 - p];
+          if (o.alive && Vec2.distance(o.position, car.position) < 4.5) this.stun(1 - p, 1.1, 'zap');
+          this.emit({ type: 'blast', x: from.x, y: from.y, r: 4.5, kind: 'zap' });
+        } else this.shockwave(p, 6, 0.9, undefined, 'roar');
+        break;
       case 'shoot':
         this.fire(p);
         break;
       case 'fly':
         car.flyT = 2.2;
-        for (const b of car.bodies) b.setGravityScale(-0.06);
+        car.applyGravity();
         car.kick(0, -4);
         break;
       case 'shield':
         car.shieldT = 1.6;
         break;
+      case 'phase':
+        car.phaseT = 1.6;
+        this.phaseExtra[p] = 0;
+        car.setPhased(true);
+        break;
+      case 'blink':
+        if (!this.blink(car)) car.abilityCd = 0.4;
+        break;
+      case 'drop': {
+        const item = ab.item ?? 'mine';
+        const tail = this.carEnd(car, -1);
+        const at = car.chassis.getWorldPoint(new Vec2((tail - ITEMS[item].w * 0.6 - 0.1) * car.facing, -0.1));
+        const v = car.chassis.getLinearVelocity();
+        this.spawnItem(item, p, at, new Vec2(v.x * 0.3 - fwd.x * 2, v.y * 0.3 - 1), item === 'mine' || item === 'peel' ? 20 : 12, item === 'mine' || item === 'bomb' || item === 'barrel');
+        break;
+      }
+      case 'dump': {
+        const item = ab.item ?? car.def.cargo?.kind ?? 'crate';
+        const tail = this.carEnd(car, -1);
+        const deckY = car.def.cargo?.at[2] ?? -0.4;
+        const v = car.chassis.getLinearVelocity();
+        for (let i = 0; i < 4; i++) {
+          const at = car.chassis.getWorldPoint(new Vec2((tail + 0.2 + i * 0.25) * car.facing, deckY - 0.4 - (i % 2) * 0.35));
+          const sp = 5 + this.rand() * 3;
+          this.spawnItem(item, p, at, new Vec2(v.x * 0.5 - fwd.x * sp, v.y * 0.5 - 3 - this.rand() * 2), 12, false);
+        }
+        break;
+      }
     }
     const pos = car.position;
-    this.emit({ type: 'ability', player: p, kind, x: pos.x, y: pos.y });
+    this.emit({ type: 'ability', player: p, kind, x: pos.x, y: pos.y, from: kind === 'blink' ? from : undefined });
+  }
+
+  /** Car-local x of the front (+1) or back (-1) end of the hull. */
+  private carEnd(car: Car, side: 1 | -1) {
+    let v = 0;
+    for (const poly of car.def.body) for (const q of poly.pts) v = side > 0 ? Math.max(v, q[0]) : Math.min(v, q[0]);
+    return v;
   }
 
   /** Push everything near player p away (slam, fireworks, bombs). */
-  shockwave(p: number, r: number, power: number, at?: { x: number; y: number }, kind: 'slam' | 'firework' | 'bomb' = 'slam') {
+  shockwave(p: number, r: number, power: number, at?: { x: number; y: number }, kind: 'slam' | 'firework' | 'bomb' | 'roar' = 'slam') {
     const c = at ?? this.cars[p].position;
     const push = (bodies: Body[], scale: number) => {
       const pos = bodies[0].getWorldCenter();
@@ -371,40 +465,98 @@ export class Game {
         b.setLinearVelocity(new Vec2(v.x + vx, v.y + vy));
       }
     };
-    for (const car of this.cars) if (car.player !== p) push(car.bodies, 1);
+    for (const car of this.cars) if (car.player !== p && car.phaseT <= 0) push(car.allBodies, 1);
     for (const b of this.arena.balls) push([b.body], 1.4);
     for (const b of this.arena.blocks) push([b.body], 1.2);
+    for (const it of this.items) if (!it.dead) push([it.body], 1.2);
     this.emit({ type: 'blast', x: c.x, y: c.y, r, kind });
+  }
+
+  private stun(p: number, t: number, look: 'ice' | 'zap' | 'web') {
+    const car = this.cars[p];
+    if (!car.alive || car.phaseT > 0) return;
+    car.stunT = Math.max(car.stunT, t);
+    car.stunLook = look;
+    const pos = car.position;
+    this.emit({ type: 'effect', player: p, effect: look === 'zap' ? 'stun' : look === 'web' ? 'web' : 'freeze', x: pos.x, y: pos.y });
+  }
+
+  /** A projectile touched player p's car: apply its special effect once. */
+  private shotEffect(id: number, p: number) {
+    const s = this.shots.find((x) => x.id === id);
+    if (!s || s.used) return;
+    s.used = true;
+    const car = this.cars[p];
+    if (!car.alive) return;
+    const pr = PROJECTILES[s.proj];
+    const v = s.body.getLinearVelocity();
+    const vl = Math.max(1e-3, v.length());
+    const pos = car.position;
+    switch (pr.effect) {
+      case 'freeze':
+        this.stun(p, s.proj === 'web' ? 1.4 : s.proj === 'icecream' ? 1.1 : 1.5, s.proj === 'web' ? 'web' : 'ice');
+        break;
+      case 'stun':
+        this.stun(p, 1.0, 'zap');
+        break;
+      case 'lift':
+        car.liftT = 1.3;
+        car.applyGravity();
+        car.kick(0, -3);
+        this.emit({ type: 'effect', player: p, effect: 'lift', x: pos.x, y: pos.y });
+        break;
+      case 'push':
+        car.kick((v.x / vl) * 1.6, (v.y / vl) * 1.6 - 0.4);
+        if (!this.shots.some((o) => o.owner === s.owner && o.proj === s.proj && o.used && o !== s && this.time - o.born < 0.1)) this.emit({ type: 'effect', player: p, effect: 'push', x: pos.x, y: pos.y });
+        break;
+      case 'pull': {
+        const o = this.cars[s.owner].position;
+        const dx = o.x - pos.x, dy = o.y - pos.y;
+        const d = Math.max(1, Math.hypot(dx, dy));
+        car.kick((dx / d) * 11, (dy / d) * 11 - 3);
+        this.emit({ type: 'effect', player: p, effect: 'pull', x: pos.x, y: pos.y });
+        break;
+      }
+      case 'boom':
+        s.dead = true;
+        break;
+    }
   }
 
   private fire(p: number) {
     const car = this.cars[p];
-    const kind = car.ability.projectile ?? 'cannon';
+    const kind = car.ability?.projectile ?? 'cannon';
     const pr = PROJECTILES[kind];
     const def = car.def;
-    let front = 0;
-    for (const poly of def.body) for (const q of poly.pts) front = Math.max(front, q[0]);
+    const front = this.carEnd(car, 1);
     const muzzle = car.chassis.getWorldPoint(new Vec2((front + pr.r + 0.15) * car.facing, Math.min(-0.2, def.head.y * 0.6)));
     const f = car.forward();
-    // aim a little above the nose
-    const up = 0.12 * car.facing;
-    const dir = new Vec2(f.x * Math.cos(up) + f.y * Math.sin(up), -f.x * Math.sin(up) + f.y * Math.cos(up));
-    const body = this.world.createBody({ type: 'dynamic', position: muzzle, bullet: true, gravityScale: pr.gravity });
-    const id = ++this.shotId;
-    body.createFixture({
-      shape: new Circle(pr.r),
-      density: pr.density,
-      friction: 0.4,
-      restitution: pr.bounce,
-      filterGroupIndex: -(p + 1),
-      filterCategoryBits: CAT.DEBRIS,
-      filterMaskBits: MASK.DEBRIS,
-      userData: { kind: 'shot', owner: p, proj: kind, id } satisfies FixtureTag,
-    });
+    const n = pr.count ?? 1;
     const cv = car.chassis.getLinearVelocity();
-    body.setLinearVelocity(new Vec2(dir.x * pr.speed + cv.x * 0.5, dir.y * pr.speed + cv.y * 0.5));
-    this.shots.push({ id, body, owner: p, proj: kind, born: this.time, dead: false });
-    car.kick(-dir.x * 1.6, -dir.y * 1.6);
+    let dir = f;
+    for (let i = 0; i < n; i++) {
+      // aim a little above the nose; pellets fan out
+      const off = n > 1 ? ((i / (n - 1)) - 0.5) * (pr.spread ?? 0) : 0;
+      const up = (0.12 + off) * car.facing;
+      dir = new Vec2(f.x * Math.cos(up) + f.y * Math.sin(up), -f.x * Math.sin(up) + f.y * Math.cos(up));
+      const body = this.world.createBody({ type: 'dynamic', position: muzzle, bullet: true, gravityScale: pr.gravity, angle: car.chassis.getAngle() });
+      const id = ++this.shotId;
+      body.createFixture({
+        shape: new Circle(pr.r),
+        density: pr.density,
+        friction: 0.4,
+        restitution: pr.bounce,
+        filterGroupIndex: -(p + 1),
+        filterCategoryBits: CAT.DEBRIS,
+        filterMaskBits: MASK.DEBRIS,
+        userData: { kind: 'shot', owner: p, proj: kind, id } satisfies FixtureTag,
+      });
+      const sp = pr.speed * (n > 1 ? 0.92 + 0.16 * this.rand() : 1);
+      body.setLinearVelocity(new Vec2(dir.x * sp + cv.x * 0.5, dir.y * sp + cv.y * 0.5));
+      this.shots.push({ id, body, owner: p, proj: kind, born: this.time, dead: false });
+    }
+    const recoil = pr.harmless ? 0.6 : 1.6;
+    car.kick(-dir.x * recoil, -dir.y * recoil);
   }
 
   private stepShots() {
@@ -413,12 +565,139 @@ export class Game {
       const pr = PROJECTILES[s.proj];
       const pos = s.body.getPosition();
       if (s.dead || this.time - s.born > pr.life || pos.y > this.map.killY) {
-        if (s.proj === 'firework') this.shockwave(s.owner, 2.6, 0.55, { x: pos.x, y: pos.y }, 'firework');
+        if (pr.effect === 'boom') this.shockwave(s.owner, s.proj === 'firework' ? 2.6 : 3.2, s.proj === 'firework' ? 0.55 : 0.8, { x: pos.x, y: pos.y }, s.proj === 'firework' ? 'firework' : 'bomb');
         else if (s.dead) this.emit({ type: 'shotHit', x: pos.x, y: pos.y, proj: s.proj });
         this.world.destroyBody(s.body);
         this.shots.splice(i, 1);
       }
     }
+  }
+
+  /** Put a car's cargo into its bed. */
+  private loadCargo(car: Car) {
+    const cg = car.def.cargo;
+    if (!cg) return;
+    for (const [lx, ly] of cargoSlots(cg)) {
+      const at = car.chassis.getWorldPoint(new Vec2(lx * car.facing, ly));
+      this.spawnItem(cg.kind, car.player, at, new Vec2(0, 0), Infinity, false);
+    }
+  }
+
+  spawnItem(kind: ItemKind, owner: number, at: Vec2, vel: Vec2, ttl: number, explosive: boolean): Item {
+    const info = ITEMS[kind];
+    const body = this.world.createBody({ type: 'dynamic', position: at, angularDamping: 0.3 });
+    const id = ++this.itemId;
+    body.createFixture({
+      shape: info.shape === 'circle' ? new Circle(info.w / 2) : new Box(info.w / 2, info.h / 2),
+      density: info.density,
+      friction: kind === 'mine' ? 1.2 : 0.6,
+      restitution: info.bounce,
+      filterCategoryBits: CAT.DEBRIS,
+      filterMaskBits: MASK.DEBRIS,
+      userData: { kind: 'item', owner, item: kind, id } satisfies FixtureTag,
+    });
+    body.setLinearVelocity(vel);
+    const item: Item = { id, body, kind, owner, born: this.time, ttl, explosive, fuse: kind === 'bomb' ? 1.5 : undefined };
+    this.items.push(item);
+    // Keep the arena from filling up: drop the oldest throwaway items.
+    const loose = this.items.filter((x) => x.ttl !== Infinity && !x.dead);
+    if (loose.length > 28) loose[0].dead = true;
+    return item;
+  }
+
+  private explode(it: Item) {
+    if (it.dead) return;
+    it.dead = true;
+    const pos = it.body.getPosition();
+    this.shockwave(it.owner, it.kind === 'mine' ? 3.4 : 3.8, 1.25, { x: pos.x, y: pos.y }, 'bomb');
+  }
+
+  private stepItems(dt: number) {
+    for (let i = this.items.length - 1; i >= 0; i--) {
+      const it = this.items[i];
+      if (it.fuse !== undefined && !it.dead) {
+        it.fuse -= dt;
+        if (it.fuse <= 0) this.explode(it);
+      }
+      const pos = it.body.getPosition();
+      if (it.dead || this.time - it.born > it.ttl || pos.y > this.map.killY) {
+        this.world.destroyBody(it.body);
+        this.items.splice(i, 1);
+      }
+    }
+  }
+
+  /** Ghost mode countdown; stays a ghost until it is clear of the other car. */
+  private stepPhase(dt: number) {
+    for (const car of this.cars) {
+      if (car.phaseT <= 0) continue;
+      car.phaseT -= dt;
+      if (car.phaseT > 0) continue;
+      const other = this.cars[1 - car.player];
+      if (this.phaseExtra[car.player] < 1.5 && this.carsOverlap(car, other)) {
+        car.phaseT = 0.05;
+        this.phaseExtra[car.player] += 0.05;
+        continue;
+      }
+      car.phaseT = 0;
+      car.setPhased(false);
+    }
+  }
+
+  private carsOverlap(a: Car, b: Car) {
+    for (const ba of a.allBodies) for (let fa = ba.getFixtureList(); fa; fa = fa.getNext()) {
+      for (const bb of b.allBodies) for (let fb = bb.getFixtureList(); fb; fb = fb.getNext()) {
+        const ra = fa.isSensor() ? 0.25 : 0, rb = fb.isSensor() ? 0.25 : 0;
+        const aa = fa.getAABB(0), ab = fb.getAABB(0);
+        if (aa.lowerBound.x - ra > ab.upperBound.x + rb || ab.lowerBound.x - rb > aa.upperBound.x + ra) continue;
+        if (aa.lowerBound.y - ra > ab.upperBound.y + rb || ab.lowerBound.y - rb > aa.upperBound.y + ra) continue;
+        if (fa.isSensor() || fb.isSensor() || testOverlap(fa.getShape(), 0, fb.getShape(), 0, ba.getTransform(), bb.getTransform())) return true;
+      }
+    }
+    return false;
+  }
+
+  /** Teleport forward if there is room. */
+  private blink(car: Car): boolean {
+    const f = car.forward();
+    const dirX = Math.sign(f.x) || car.facing;
+    for (const dist of [4.2, 3.2, 2.2]) {
+      const dx = dirX * dist, dy = -0.5;
+      if (!this.carFits(car, dx, dy)) continue;
+      for (const b of car.allBodies) {
+        const p = b.getPosition();
+        b.setPosition(new Vec2(p.x + dx, p.y + dy));
+      }
+      return true;
+    }
+    return false;
+  }
+
+  private carFits(car: Car, dx: number, dy: number) {
+    const b0 = this.map.bounds;
+    for (const b of car.allBodies) {
+      const xf = b.getTransform();
+      const moved = { p: new Vec2(xf.p.x + dx, xf.p.y + dy), q: xf.q };
+      if (moved.p.x < b0.x0 + 0.5 || moved.p.x > b0.x1 - 0.5) return false;
+      for (let fx = b.getFixtureList(); fx; fx = fx.getNext()) {
+        const shape = fx.getShape();
+        let hit = false;
+        const aabb = fx.getAABB(0);
+        const q = { lowerBound: new Vec2(aabb.lowerBound.x + dx, aabb.lowerBound.y + dy), upperBound: new Vec2(aabb.upperBound.x + dx, aabb.upperBound.y + dy) };
+        this.world.queryAABB(q, (other) => {
+          const t = tagOf(other);
+          if (!t || (t.kind !== 'terrain' && t.kind !== 'platform' && t.kind !== 'hazard' && t.kind !== 'car' && t.kind !== 'head')) return true;
+          if (t.kind === 'car' || t.kind === 'head') { if (t.player === car.player) return true; }
+          const ob = other.getBody();
+          for (let ci = 0; ci < other.getShape().getChildCount(); ci++) {
+            if (testOverlap(shape, 0, other.getShape(), ci, moved, ob.getTransform())) { hit = true; return false; }
+          }
+          return true;
+        });
+        if (hit) return false;
+      }
+    }
+    return true;
   }
 
   kill(player: number, cause: 'hit' | 'hazard' | 'fall' | 'ground', by?: number) {

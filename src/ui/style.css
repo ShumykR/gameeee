@@ -185,3 +185,4 @@ html, body {
 }
 
 .ability { font-size: 11px; font-weight: 800; color: var(--gold); text-align: center; }
+.ability.none { color: #9a94b0; font-weight: 600; }

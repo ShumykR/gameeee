@@ -65,9 +65,10 @@ export function normalizedStats(def: CarDef, all: CarDef[]): CarStats {
 export function validateCar(def: CarDef): string[] {
   const errs: string[] = [];
   def.body.forEach((p, i) => {
-    if (p.pts.length < 3 || p.pts.length > 8) errs.push(`poly ${i}: ${p.pts.length} vertices (3..8 allowed)`);
+    // Render-only details can be tiny or concave; physics polygons must be valid Box2D shapes.
+    if (p.pts.length < 3 || p.pts.length > (p.deco ? 16 : 8)) errs.push(`poly ${i}: ${p.pts.length} vertices`);
     if (!p.deco && !isConvex(p.pts)) errs.push(`poly ${i}: not convex`);
-    if (polyArea(p.pts) < 0.005) errs.push(`poly ${i}: degenerate`);
+    if (polyArea(p.pts) < (p.deco ? 1e-4 : 0.005)) errs.push(`poly ${i}: degenerate`);
   });
   if (def.wheels.length < 2) errs.push('needs at least 2 wheels');
   if (!def.wheels.some((w) => w.drive ?? true)) errs.push('no driven wheel');

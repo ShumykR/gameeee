@@ -115,7 +115,7 @@ export class Bot implements Controller {
   /** Use the special action when the situation suits it. */
   action(game: Game, player: number): boolean {
     const me = game.cars[player], foe = game.cars[1 - player];
-    if (!me.alive || !foe.alive || me.abilityCd > 0 || game.phase !== 'play') return false;
+    if (!me.ability || !me.alive || !foe.alive || me.abilityCd > 0 || me.stunT > 0 || game.phase !== 'play') return false;
     const chance = this.level === 'easy' ? 0.01 : this.level === 'normal' ? 0.05 : 0.12;
     if (this.rng() > chance) return false;
     const p = me.position, f = foe.position;
@@ -123,8 +123,18 @@ export class Bot implements Controller {
     const dist = Math.hypot(dx, dy);
     const facingFoe = Math.sign(dx) === Math.sign(me.forward().x);
     const level = Math.abs(me.angle) < 0.6;
+    const behind = !facingFoe;
     switch (me.ability.kind) {
-      case 'shoot': return facingFoe && level && Math.abs(dx) < 16 && Math.abs(dy) < 4;
+      case 'shoot': {
+        const proj = me.ability.projectile;
+        const range = proj === 'fire' ? 4.5 : proj === 'water' ? 9 : proj === 'bubble' ? 10 : 16;
+        return facingFoe && level && Math.abs(dx) < range && Math.abs(dy) < 4;
+      }
+      case 'roar': return dist < 4.2;
+      case 'drop': return behind && dist < 7;
+      case 'dump': return behind && dist < 9;
+      case 'phase': return dist < 3 || (foe.ability?.kind === 'shoot' && foe.abilityCd < 0.2 && dist < 10);
+      case 'blink': return facingFoe && dist > 5 && dist < 12 && Math.abs(dy) < 2;
       case 'jump': return dist < 4.5 && dy > -1.5;
       case 'nitro':
       case 'dash': return facingFoe && level && dist > 2.5 && dist < 10 && !me.inAir;
@@ -132,6 +142,7 @@ export class Bot implements Controller {
       case 'fly': return dist < 6;
       case 'shield': return dist < 3.2;
     }
+    return false;
   }
 
   /** Raycast down a few meters ahead: true if there's lava or no ground (cliff). */
