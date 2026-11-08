@@ -2,11 +2,16 @@ export type Pt = [number, number];
 
 export type TerrainMat =
   | 'grass' | 'rock' | 'sand' | 'metal' | 'ice' | 'wood' | 'snow' | 'moon' | 'neon' | 'brick'
-  | 'grave' | 'basalt' | 'turf' | 'track' | 'void' | 'asphalt' | 'tile';
+  | 'grave' | 'basalt' | 'turf' | 'track' | 'void' | 'asphalt' | 'tile'
+  /** Cave stone, steel plates, glowing amber: shaded by distance to open air (rim light). */
+  | 'cave' | 'steel' | 'amber'
+  /** Lattice girder: solid to drive on, see-through between the struts. */
+  | 'girder';
 
 export type ThemeId =
   | 'meadow' | 'foundry' | 'sawmill' | 'sky' | 'ice' | 'neon' | 'desert' | 'moon'
-  | 'halloween' | 'winter' | 'alien' | 'dome' | 'volcano' | 'beach' | 'stadium' | 'cny' | 'rift' | 'toys';
+  | 'halloween' | 'winter' | 'alien' | 'dome' | 'volcano' | 'beach' | 'stadium' | 'cny' | 'rift' | 'toys'
+  | 'cavern' | 'catacomb' | 'grotto' | 'mine' | 'chasm' | 'bunker' | 'crypt' | 'amber';
 
 export type DecorKind =
   | 'tombstone' | 'cross' | 'pumpkin' | 'deadtree' | 'spruce' | 'snowman' | 'gift' | 'ufo' | 'beam' | 'cow' | 'haybale'
@@ -65,6 +70,21 @@ export interface SawDef {
   x: number; y: number; r: number;
   path?: Pt[];
   speed?: number;
+  /** Pendulum: (x, y) is the pivot, the blade hangs `len` below and swings ±`amp` rad. */
+  swing?: { len: number; amp: number; period: number };
+}
+
+/**
+ * Energy field. `lift` pushes everything inside upward (blue), `bounce` is a solid
+ * springy barrier (green), `laser` is a deadly beam for heads that switches on and off (red).
+ */
+export interface FieldDef {
+  kind: 'lift' | 'bounce' | 'laser';
+  x: number; y: number; w: number; h: number;
+  /** Seconds on, seconds off (laser; lift pulses too when given). */
+  cycle?: [number, number];
+  /** Phase offset, seconds. */
+  phase?: number;
 }
 
 export interface SpikesDef { x: number; y: number; w: number }
@@ -106,4 +126,8 @@ export interface MapDef {
   water?: LavaDef[];
   /** Loose balls the cars can push around. */
   balls?: BallDef[];
+  /** Energy fields (lift beams, bouncy barriers, lasers). */
+  fields?: FieldDef[];
+  /** Dark back wall drawn behind the play area (caves): outlines in world meters, no physics. */
+  backdrop?: Pt[][];
 }

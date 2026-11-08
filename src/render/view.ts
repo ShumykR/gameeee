@@ -215,7 +215,7 @@ export class GameView {
   private riseLava: TilingSprite | null = null;
   private riseTop: TilingSprite | null = null;
   private lavaTiles: TilingSprite[] = [];
-  private bgSprites: { sprite: TilingSprite; factor: number; bottom: number; h: number; fill: Graphics }[] = [];
+  private bgSprites: { sprite: TilingSprite; factor: number; bottom: number; h: number; fill: Graphics; hang?: boolean }[] = [];
   private sky: Sprite | null = null;
   private cam: Cam = { x: 0, y: 0, zoom: 30 };
   private game: Game | null = null;
@@ -631,7 +631,78 @@ export class GameView {
     }
     // Tractor beams flicker with the arena's on/off cycle.
     for (const s of this.beamSprites) s.alpha = g.arena.beamOn ? 0.75 + 0.25 * Math.sin(this.time * 12) : 0.12;
+    this.renderFields(fx);
     void alpha;
+  }
+
+  /** Energy fields and pendulum chains (drawn every frame, they animate). */
+  private renderFields(fx: Graphics) {
+    const g = this.game!;
+    const t = this.time;
+    for (const f of g.arena.fields) {
+      const d = f.def;
+      if (d.kind === 'lift') {
+        const a = f.on ? 1 : 0.25;
+        fx.rect(d.x, d.y, d.w, d.h).fill({ color: 0x7ae8ff, alpha: 0.16 * a });
+        for (let i = 0; i < 6; i++) {
+          const k = ((t * 0.6 + i / 6) % 1);
+          const y = d.y + d.h - k * d.h;
+          fx.rect(d.x + 0.1, y, d.w - 0.2, 0.08).fill({ color: 0xc8f8ff, alpha: 0.5 * a * (1 - k) });
+        }
+        fx.rect(d.x - 0.05, d.y, 0.08, d.h).fill({ color: 0xa8f0ff, alpha: 0.35 * a });
+        fx.rect(d.x + d.w - 0.03, d.y, 0.08, d.h).fill({ color: 0xa8f0ff, alpha: 0.35 * a });
+        fx.roundRect(d.x - 0.3, d.y + d.h - 0.18, d.w + 0.6, 0.3, 0.1).fill({ color: 0x4a5a72 }).stroke({ color: 0x141820, width: 0.06 });
+        fx.rect(d.x - 0.1, d.y + d.h - 0.1, d.w + 0.2, 0.08).fill({ color: 0x7ae8ff, alpha: 0.6 + 0.4 * Math.sin(t * 6) });
+      } else if (d.kind === 'bounce') {
+        fx.rect(d.x, d.y, d.w, d.h).fill({ color: 0x5aff7a, alpha: 0.22 + 0.06 * Math.sin(t * 5) });
+        const vertical = d.h > d.w;
+        const n = Math.ceil((vertical ? d.h : d.w) / 0.5);
+        for (let i = 0; i < n; i++) {
+          const k = (i / n + t * 0.4) % 1;
+          if (vertical) fx.rect(d.x, d.y + k * d.h, d.w, 0.06).fill({ color: 0xc8ffc8, alpha: 0.5 });
+          else fx.rect(d.x + k * d.w, d.y, 0.06, d.h).fill({ color: 0xc8ffc8, alpha: 0.5 });
+        }
+        fx.rect(d.x, d.y, d.w, d.h).stroke({ color: 0x9aff9a, width: 0.06, alpha: 0.9 });
+      } else {
+        const vertical = d.h > d.w;
+        const cx = d.x + d.w / 2, cy = d.y + d.h / 2;
+        if (f.on) {
+          const flick = 0.75 + 0.25 * Math.sin(t * 40);
+          if (vertical) {
+            fx.rect(cx - 0.22, d.y, 0.44, d.h).fill({ color: 0xff3a3a, alpha: 0.18 * flick });
+            fx.rect(cx - 0.09, d.y, 0.18, d.h).fill({ color: 0xff5a4a, alpha: 0.85 * flick });
+            fx.rect(cx - 0.03, d.y, 0.06, d.h).fill({ color: 0xffe8e0, alpha: flick });
+          } else {
+            fx.rect(d.x, cy - 0.22, d.w, 0.44).fill({ color: 0xff3a3a, alpha: 0.18 * flick });
+            fx.rect(d.x, cy - 0.09, d.w, 0.18).fill({ color: 0xff5a4a, alpha: 0.85 * flick });
+            fx.rect(d.x, cy - 0.03, d.w, 0.06).fill({ color: 0xffe8e0, alpha: flick });
+          }
+        } else {
+          // warning: the beam is about to switch on
+          const c = d.cycle;
+          const left = c ? c[0] + c[1] - ((g.arena.time + (d.phase ?? 0)) % (c[0] + c[1])) : 9;
+          const blink = left < 0.8 && Math.sin(t * 30) > 0;
+          if (vertical) fx.rect(cx - 0.02, d.y, 0.04, d.h).fill({ color: 0xff5a4a, alpha: blink ? 0.6 : 0.15 });
+          else fx.rect(d.x, cy - 0.02, d.w, 0.04).fill({ color: 0xff5a4a, alpha: blink ? 0.6 : 0.15 });
+        }
+        // emitters at both ends
+        const em = (x: number, y: number) => fx.roundRect(x - 0.22, y - 0.22, 0.44, 0.44, 0.08).fill({ color: 0x5a6478 }).stroke({ color: 0x141820, width: 0.06 });
+        if (vertical) { em(cx, d.y); em(cx, d.y + d.h); } else { em(d.x, cy); em(d.x + d.w, cy); }
+        const lamp = (x: number, y: number) => fx.circle(x, y, 0.09).fill({ color: f.on ? 0xff3a3a : 0x5a1a1a });
+        if (vertical) { lamp(cx, d.y); lamp(cx, d.y + d.h); } else { lamp(d.x, cy); lamp(d.x + d.w, cy); }
+      }
+    }
+    for (const s of g.arena.saws) {
+      if (!s.def.swing) continue;
+      const p = s.body.getPosition();
+      const n = Math.max(2, Math.round(Math.hypot(p.x - s.def.x, p.y - s.def.y) / 0.25));
+      for (let i = 0; i < n; i++) {
+        const k = (i + 0.5) / n;
+        fx.circle(s.def.x + (p.x - s.def.x) * k, s.def.y + (p.y - s.def.y) * k, 0.07).fill({ color: i % 2 ? 0x8a92a0 : 0xb8c0cc }).stroke({ color: 0x1a1c24, width: 0.03 });
+      }
+      fx.circle(s.def.x, s.def.y, 0.2).fill({ color: 0x6a7280 }).stroke({ color: 0x14161c, width: 0.06 });
+      fx.circle(s.def.x, s.def.y, 0.07).fill({ color: 0x2a2c34 });
+    }
   }
 
   private setCenter(text: string, dur: number, sub = '', color = '#ffffff') {
@@ -762,7 +833,7 @@ export class GameView {
       const fill = new Graphics();
       fill.rect(0, 0, 1, 1).fill(toHex(hex(spec.color2 && spec.kind !== 'mountains' ? spec.color : spec.color)));
       this.bgLayer.addChild(fill, ts);
-      this.bgSprites.push({ sprite: ts, factor: layer.factor, bottom: layer.bottom, h: layer.h, fill });
+      this.bgSprites.push({ sprite: ts, factor: layer.factor, bottom: layer.bottom, h: layer.h, fill, hang: spec.hang });
     });
   }
 
@@ -834,8 +905,13 @@ export class GameView {
       const yOff = -(this.cam.y - cy) * z * l.factor * 0.6;
       s.y = Math.round(H * l.bottom - l.h * ps + yOff);
       s.tilePosition.x = Math.round(-(this.cam.x * z * l.factor) - shx * l.factor);
-      l.fill.position.set(0, s.y + s.height - 1);
-      l.fill.scale.set(W, Math.max(0, H - s.y - s.height + 2));
+      if (l.hang) {
+        l.fill.position.set(0, 0);
+        l.fill.scale.set(W, Math.max(0, s.y + 1));
+      } else {
+        l.fill.position.set(0, s.y + s.height - 1);
+        l.fill.scale.set(W, Math.max(0, H - s.y - s.height + 2));
+      }
     }
 
     // cars

@@ -1,4 +1,5 @@
 import type { MapDef, Pt } from './types';
+import { CAVE_MAPS } from './caves';
 
 /** Samples y = f(x) between x0..x1 into an outline closed at `bottom`. */
 export function heightfield(x0: number, x1: number, step: number, f: (x: number) => number, bottom: number): Pt[] {
@@ -75,7 +76,7 @@ export const MAPS: MapDef[] = [
     id: 'sawmill',
     name: 'Тартак',
     theme: 'sawmill',
-    blurb: 'Дерев\'яна арена з пилками, що ходять угору-вниз.',
+    blurb: 'Дерев\'яна арена: пилки ходять по схилах, а над центром гойдається маятник.',
     bounds: { x0: 0, y0: -4, x1: 44, y1: 24 },
     killY: 32,
     spawns: [[12, 12.5], [32, 12.5]],
@@ -87,7 +88,7 @@ export const MAPS: MapDef[] = [
     saws: [
       { x: 5.2, y: 9.5, r: 1.1, path: [[5.6, 7.5], [7.6, 12.2]], speed: 1.5 },
       { x: 38.8, y: 9.5, r: 1.1, path: [[38.4, 7.5], [36.4, 12.2]], speed: 1.5 },
-      { x: 22, y: 6, r: 1.25, path: [[22, 5.5], [22, 11.2]], speed: 2.2 },
+      { x: 22, y: 1.6, r: 1.25, swing: { len: 8.6, amp: 0.75, period: 3.2 } },
     ],
   },
   {
@@ -174,7 +175,7 @@ export const MAPS: MapDef[] = [
     id: 'moon',
     name: 'Місячна База',
     theme: 'moon',
-    blurb: 'Низька гравітація — довгі стрибки і сальто.',
+    blurb: 'Низька гравітація — довгі стрибки і сальто. З кратера б\'є підйомний промінь.',
     gravity: 9,
     bounds: { x0: 0, y0: -10, x1: 48, y1: 24 },
     killY: 32,
@@ -192,6 +193,7 @@ export const MAPS: MapDef[] = [
       { x: 14, y: 10, w: 4, h: 0.5, path: [[12, 10.5], [17, 9]], speed: 1.6 },
       { x: 34, y: 10, w: 4, h: 0.5, path: [[36, 10.5], [31, 9]], speed: 1.6 },
     ],
+    fields: [{ kind: 'lift', x: 22.9, y: 6.5, w: 2.2, h: 10.1, cycle: [2.5, 2.5] }],
   },
   // ---------------------------------------------------------------- themed arenas (one per car collection)
   {
@@ -414,5 +416,7 @@ export const MAPS: MapDef[] = [
     suddenDeathY: 26,
   },
 ];
+
+MAPS.push(...CAVE_MAPS);
 
 export const MAP_BY_ID: Record<string, MapDef> = Object.fromEntries(MAPS.map((m) => [m.id, m]));

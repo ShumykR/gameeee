@@ -1,7 +1,7 @@
 import { World, Body, Chain, Box, Circle, Vec2 } from 'planck';
 import { ART_PPM, CAT, DEFAULT_GRAVITY, MASK } from '../physics/constants';
 import type { FixtureTag } from '../physics/tags';
-import type { DecorKind, MapDef, PlatformDef, SawDef, Pt, SuddenDeathKind } from './types';
+import type { DecorKind, FieldDef, MapDef, PlatformDef, SawDef, Pt, SuddenDeathKind } from './types';
 import type { ItemKind } from '../cars/types';
 import type { Car } from '../cars/car';
 import { groundY, placedDecor } from './decor';
@@ -32,6 +32,7 @@ export type ArenaEvent =
 export const MAT_FRICTION: Record<string, number> = {
   grass: 0.9, rock: 0.85, sand: 0.75, metal: 0.7, ice: 0.08, wood: 0.85, snow: 0.45, moon: 0.8, neon: 0.75, brick: 0.85,
   grave: 0.85, basalt: 0.85, turf: 0.9, track: 0.8, void: 0.75, asphalt: 0.95, tile: 0.7,
+  cave: 0.85, steel: 0.7, amber: 0.8, girder: 0.8,
 };
 
 interface Mover {
@@ -46,6 +47,7 @@ interface Mover {
 
 export interface PlatformRuntime extends Mover { def: PlatformDef }
 export interface SawRuntime { body: Body; def: SawDef; mover?: Mover }
+export interface FieldRuntime { def: FieldDef; body: Body | null; on: boolean }
 export type BlockStyle = 'crate' | 'ice' | 'stone' | 'toy' | 'meteor';
 export interface BlockRuntime { body: Body; size: number; born: number; style: BlockStyle; seed: number }
 export interface BallRuntime { body: Body; r: number; home: Pt | null; look: 'football' | 'snow'; born: number }
@@ -81,6 +83,7 @@ export class Arena {
   readonly props: { kind: ItemKind; x: number; y: number }[] = [];
   readonly portals: PortalRuntime[] = [];
   readonly beams: BeamRuntime[] = [];
+  readonly fields: FieldRuntime[] = [];
   readonly goals: GoalRuntime[] = [];
   loop: LoopRuntime | null = null;
   /** Tractor beams are switched on. */
@@ -94,7 +97,7 @@ export class Arena {
   private rainTimer = 0;
   private uid = 0;
   private blockTimer = 0;
-  private time = 0;
+  time = 0;
   private rng: () => number;
 
   constructor(readonly world: World, readonly def: MapDef, seed = 1) {
@@ -167,7 +170,7 @@ export class Arena {
       });
     }
     for (const sd of def.saws ?? []) {
-      const start = sd.path?.[0] ?? [sd.x, sd.y];
+      const start: Pt = sd.swing ? [sd.x, sd.y + sd.swing.len] : sd.path?.[0] ?? [sd.x, sd.y];
       const body = world.createBody({ type: 'kinematic', position: new Vec2(start[0], start[1]), angularVelocity: 9 });
       body.createFixture({
         shape: new Circle(sd.r),
@@ -180,6 +183,16 @@ export class Arena {
       const rt: SawRuntime = { body, def: sd };
       if (sd.path && sd.path.length > 1) rt.mover = { body, path: sd.path, speed: sd.speed ?? 2, wait: 0.3, seg: 0, dirn: 1, pause: 0.3 };
       this.saws.push(rt);
+    }
+    for (const fd of def.fields ?? []) {
+      let body: Body | null = null;
+      if (fd.kind !== 'lift') {
+        body = world.createBody({ type: 'static', position: new Vec2(fd.x + fd.w / 2, fd.y + fd.h / 2) });
+        body.createFixture(fd.kind === 'bounce'
+          ? { shape: new Box(fd.w / 2, fd.h / 2), friction: 0.1, restitution: 1.05, filterCategoryBits: CAT.TERRAIN, filterMaskBits: MASK.TERRAIN, userData: { kind: 'field' } satisfies FixtureTag }
+          : { shape: new Box(fd.w / 2, fd.h / 2), isSensor: true, filterCategoryBits: CAT.HAZARD, filterMaskBits: MASK.HAZARD, userData: { kind: 'hazard', type: 'laser' } satisfies FixtureTag });
+      }
+      this.fields.push({ def: fd, body, on: true });
     }
     this.spawnBalls();
     this.buildGadgets();
@@ -360,6 +373,25 @@ export class Arena {
         }
       }
     }
+    // ---- lift fields: everything inside floats upward
+    for (const f of this.fields) {
+      if (f.def.kind !== 'lift' || !f.on) continue;
+      const d = f.def;
+      const lift = (bodies: Body[]) => {
+        const q = bodies[0].getWorldCenter();
+        if (q.x < d.x - 0.3 || q.x > d.x + d.w + 0.3 || q.y < d.y || q.y > d.y + d.h + 0.4) return;
+        const nearTop = q.y < d.y + 1.2;
+        for (const b of bodies) {
+          const mass = b.getMass();
+          const v = b.getLinearVelocity();
+          const up = nearTop ? g * 1.0 : v.y < -7 ? g * 1.0 : g * 1.5;
+          b.applyForceToCenter(new Vec2((d.x + d.w / 2 - q.x) * mass * 1.5, -mass * up * b.getGravityScale()), true);
+        }
+      };
+      for (const c of cars) lift(c.allBodies);
+      for (const b of loose) if (b.getType() === 'dynamic') lift([b]);
+      for (const b of this.balls) lift([b.body]);
+    }
     // ---- goals
     this.goalT += dt;
     for (const b of this.balls) {
@@ -433,7 +465,27 @@ export class Arena {
   step(dt: number) {
     this.time += dt;
     for (const p of this.platforms) this.stepMover(p, dt);
-    for (const s of this.saws) if (s.mover) this.stepMover(s.mover, dt);
+    for (const s of this.saws) {
+      if (s.mover) this.stepMover(s.mover, dt);
+      const sw = s.def.swing;
+      if (sw) {
+        // pendulum: steer the kinematic blade to where the swing will be next step
+        const ang = (t: number) => sw.amp * Math.sin((t / sw.period) * Math.PI * 2);
+        const a1 = ang(this.time + dt);
+        const tx = s.def.x + Math.sin(a1) * sw.len, ty = s.def.y + Math.cos(a1) * sw.len;
+        const p = s.body.getPosition();
+        s.body.setLinearVelocity(new Vec2((tx - p.x) / dt, (ty - p.y) / dt));
+      }
+    }
+    for (const f of this.fields) {
+      const c = f.def.cycle;
+      if (!c) continue;
+      const on = ((this.time + (f.def.phase ?? 0)) % (c[0] + c[1])) < c[0];
+      if (on !== f.on) {
+        f.on = on;
+        f.body?.setActive(on);
+      }
+    }
 
     const fb = this.def.fallingBlocks;
     if (fb) {
