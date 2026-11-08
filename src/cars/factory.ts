@@ -847,6 +847,13 @@ export interface CarSpec {
   flail?: { from: 'deck' | 'roof' | 'tail' | 'nose' | Pt; len: number; r: number; look: FlailDef['look'] };
   /** Extra drawing on top of the frame (render-only unless a poly sets deco: false). */
   art?: (f: Frame) => CarPoly[];
+  /**
+   * Full look of the car. When given, the frame's hull is physics-only (not drawn)
+   * and these render-only polygons are drawn in its place, under the parts.
+   */
+  skin?: (f: Frame) => CarPoly[];
+  /** With a skin: also hide the bolted-on parts (the skin draws them itself). */
+  hideParts?: boolean;
   /** No head/tail light pixels (creatures, blobs…). */
   noLights?: boolean;
   /** Air-control multiplier. */
@@ -873,8 +880,10 @@ const scalePt = (p: Pt, s: number): Pt => [+(p[0] * s).toFixed(3), +(p[1] * s).t
 
 export function buildCar(spec: CarSpec): CarDef {
   const f = frame(spec.frame, spec.o ?? {});
-  const polys = [...f.polys];
-  const windows = [...f.windows];
+  const skinned = !!spec.skin;
+  const polys = skinned ? f.polys.map((p) => ({ ...p, hide: true })) : [...f.polys];
+  const windows = skinned ? [] : [...f.windows];
+  if (spec.skin) for (const p of spec.skin(f)) polys.push({ ...p, deco: true });
   let boost = false;
   let arch: Archetype = f.arch;
   for (const pp of spec.parts ?? []) {
@@ -882,8 +891,8 @@ export function buildCar(spec: CarSpec): CarDef {
     const r = part(f, id, k ?? 1);
     // A part that would swallow the driver's head becomes render-only.
     for (const p of r.polys) if (!p.deco && (inPoly(p.pts, f.head.x, f.head.y) || inPoly(p.pts, f.head.x, f.head.y - f.head.r * 0.7))) p.deco = true;
-    polys.push(...r.polys);
-    if (r.windows) windows.push(...r.windows);
+    polys.push(...(skinned && spec.hideParts ? r.polys.map((p) => ({ ...p, hide: true })) : r.polys));
+    if (r.windows && !(skinned && spec.hideParts)) windows.push(...r.windows);
     if (r.boost) boost = true;
     if (r.arch) arch = r.arch;
   }
@@ -912,7 +921,7 @@ export function buildCar(spec: CarSpec): CarDef {
     palette: { body: b, accent: a, dark: dk ?? darken(b, 0.32), glass: '#8fe0ff', light: '#fff2a8' },
     body,
     windows: windows.map((w) => w.map((q) => scalePt(q, s))),
-    stripe: f.stripe ? { y: +(f.stripe.y * s).toFixed(3), h: f.stripe.h * s } : undefined,
+    stripe: f.stripe && !skinned ? { y: +(f.stripe.y * s).toFixed(3), h: f.stripe.h * s } : undefined,
     wheels,
     suspension: { hz: pre.hz, damping: pre.damping, travel: +(pre.travel * Math.min(1.2, s)).toFixed(3) },
     motor: { torque: 0, speed: +(pre.speed * (spec.speed ?? 1)).toFixed(2) },

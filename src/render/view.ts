@@ -1,6 +1,6 @@
 import { Application, Container, Sprite, TilingSprite, Graphics, Texture } from 'pixi.js';
 import { Vec2 } from 'planck';
-import { ART_PPM } from '../physics/constants';
+import { ART_PPM, CAR_PPM } from '../physics/constants';
 import type { Game, GameEvent } from '../game/game';
 import type { Car } from '../cars/car';
 import type { CarDef, CarPalette } from '../cars/types';
@@ -85,18 +85,18 @@ class CarView {
     const { tex, ox, oy } = carTexture(def, alt);
     const s = new Sprite(tex);
     s.anchor.set(ox / tex.width, oy / tex.height);
-    s.scale.set(1 / ART_PPM);
+    s.scale.set(1 / CAR_PPM);
 
     const dpal = driverPalette(PLAYER_COLORS[car.player]);
     const hg = generateHeadGrid(def.head.r);
     this.head = new Sprite(cached(`head:${def.head.r}:${car.player}`, () => gridTexture(hg, dpal)));
     this.head.anchor.set(0.5);
-    this.head.scale.set(1 / ART_PPM);
+    this.head.scale.set(1 / CAR_PPM);
     this.head.position.set(def.head.x, def.head.y);
     const tg = generateTorsoGrid(def.head.r);
     this.torso = new Sprite(cached(`torso:${def.head.r}:${car.player}`, () => gridTexture(tg, dpal)));
     this.torso.anchor.set(tg.ox / tg.w, 0);
-    this.torso.scale.set(1 / ART_PPM);
+    this.torso.scale.set(1 / CAR_PPM);
     this.torso.position.set(def.head.x - def.head.r * 0.1, def.head.y + def.head.r * 0.6);
 
     this.flame = new Sprite(whiteTexture());
@@ -111,7 +111,7 @@ class CarView {
       const wg = generateWheelGrid(wd);
       const ws = new Sprite(cached(`wheel:${def.id}:${wd.r}:${wd.rim}:${alt}`, () => gridTexture(wg, wheelPalette(pal))));
       ws.anchor.set(0.5);
-      ws.scale.set(1 / ART_PPM);
+      ws.scale.set(1 / CAR_PPM);
       this.wheels.push(ws);
     }
     this.marker = new Sprite(pixelText(PLAYER_NAMES[car.player], { size: 8, color: PLAYER_COLORS[car.player] }));
@@ -120,9 +120,9 @@ class CarView {
     this.root.addChild(this.chain, this.body, ...this.wheels, this.marker);
     if (def.flail) {
       const fl = def.flail;
-      this.flail = new Sprite(cached(`flail:${fl.look}:${fl.r}`, () => gridTexture(flailGrid(fl.look, fl.r, ART_PPM), DECOR_PAL)));
+      this.flail = new Sprite(cached(`flail:${fl.look}:${fl.r}`, () => gridTexture(flailGrid(fl.look, fl.r, CAR_PPM), DECOR_PAL)));
       this.flail.anchor.set(0.5);
-      this.flail.scale.set(1 / ART_PPM);
+      this.flail.scale.set(1 / CAR_PPM);
       this.root.addChild(this.flail);
     }
   }

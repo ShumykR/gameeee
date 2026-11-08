@@ -3,7 +3,7 @@ import { deflateSync } from 'node:zlib';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { CAR_BY_ID } from '../src/cars/defs';
 import { carPalette, driverPalette, generateCarGrid, generateHeadGrid, generateWheelGrid, wheelPalette } from '../src/cars/sprite';
-import { ART_PPM } from '../src/physics/constants';
+import { CAR_PPM } from '../src/physics/constants';
 import type { PixelGrid } from '../src/render/grid';
 import type { RGB } from '../src/render/color';
 
@@ -46,9 +46,9 @@ const blit = (g: PixelGrid, pal: (RGB | null)[], ox: number, oy: number) => {
 };
 const def = CAR_BY_ID.sparrow;
 const cx = 38, cy = 45;
-blit(generateHeadGrid(def.head.r), driverPalette('#3ec1ff'), Math.round(cx + def.head.x * ART_PPM), Math.round(cy + def.head.y * ART_PPM));
+blit(generateHeadGrid(def.head.r), driverPalette('#3ec1ff'), Math.round(cx + def.head.x * CAR_PPM), Math.round(cy + def.head.y * CAR_PPM));
 blit(generateCarGrid(def), carPalette(def.palette), cx, cy);
-for (const w of def.wheels) blit(generateWheelGrid(w), wheelPalette(def.palette), Math.round(cx + w.x * ART_PPM), Math.round(cy + w.y * ART_PPM));
+for (const w of def.wheels) blit(generateWheelGrid(w), wheelPalette(def.palette), Math.round(cx + w.x * CAR_PPM), Math.round(cy + w.y * CAR_PPM));
 
 function scaled(size: number, pad: number) {
   const out = new Uint8Array(size * size * 4);
