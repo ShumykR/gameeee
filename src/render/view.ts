@@ -6,7 +6,10 @@ import type { CarDef, CarPalette } from '../cars/types';
 import { carPalette, driverPalette, generateCarGrid, generateHeadGrid, generateTorsoGrid, generateWheelGrid, wheelPalette } from '../cars/sprite';
 import { generateLayer, generateSky, generateTerrain, THEMES } from '../maps/art';
 import type { MapDef } from '../maps/types';
-import { PROP_PAL, crateGrid, lavaGrid, lavaSurfaceGrid, padGrid, plateGrid, sawGrid, spikesGrid } from '../maps/props';
+import { PROP_PAL, crateGrid, hazardStripGrid, lavaGrid, lavaSurfaceGrid, padGrid, plateGrid, sawGrid, spikesGrid, wallGrid, waterGrid, waterSurfaceGrid } from '../maps/props';
+import { SUDDEN_INFO } from '../maps/sudden';
+import { DECOR_PAL, ballGrid, decorGrid, placedDecor, shotGrid } from '../maps/decor';
+import { PROJECTILES } from '../game/abilities';
 import { Cam, fitCamera, lerpCam } from './camera';
 import { Particles } from './particles';
 import { pixelText } from './pixeltext';
@@ -144,11 +147,16 @@ export class GameView {
   private fxLayer = new Container();
   private flash = new Graphics();
   private ringGfx = new Graphics();
-  private rings: { x: number; y: number; t: number }[] = [];
+  private rings: { x: number; y: number; t: number; r?: number; color?: number }[] = [];
+  private fxGfx = new Graphics();
+  private shotSprites = new Map<number, Sprite>();
   private carViews: CarView[] = [];
   private ragdollSprites: { head: Sprite; torso: Sprite }[] = [];
   private platforms: Sprite[] = [];
   private saws: Sprite[] = [];
+  private ballSprites = new Map<object, Sprite>();
+  private ghostSprites = new Map<number, Sprite>();
+  private wallSprites: Container[] = [];
   private blocks = new Map<object, Sprite>();
   private riseLava: TilingSprite | null = null;
   private riseTop: TilingSprite | null = null;
@@ -174,7 +182,7 @@ export class GameView {
   private debugGfx = new Graphics();
 
   constructor(readonly app: Application, readonly input: InputManager) {
-    this.world.addChild(this.mapLayer, this.dynLayer, this.carLayer, this.particles.container, this.ringGfx, this.fxLayer, this.debugGfx);
+    this.world.addChild(this.mapLayer, this.dynLayer, this.carLayer, this.particles.container, this.ringGfx, this.fxGfx, this.fxLayer, this.debugGfx);
     app.stage.addChild(this.bgLayer, this.world, this.flash, this.hud, this.touchLayer, this.touchLabels);
     for (let i = 0; i < 3; i++) {
       const s = new Sprite();
@@ -237,7 +245,38 @@ export class GameView {
         this.particles.burst(e.x, e.y - 0.3, 18, { speed: 7, colors: [0xffe040, 0xffffff], life: 0.4, size: 0.12, dir: -Math.PI / 2, spread: 1.2, g: 10 });
         break;
       case 'suddenDeath':
-        this.setCenter('РАПТОВА СМЕРТЬ', 1.8, 'лава піднімається!');
+        if (e.late) this.setCenter('ЛАВА!', 1.6, 'час вийшов — лава піднімається');
+        else this.setCenter('РАПТОВА СМЕРТЬ', 2.2, SUDDEN_INFO[e.kind].sub);
+        break;
+      case 'ability': {
+        const col = toHex(hex(PLAYER_COLORS[e.player]));
+        const car = g.cars[e.player];
+        if (e.kind === 'jump') this.particles.burst(e.x, e.y + 0.6, 16, { speed: 5, colors: [0xffffff, col], life: 0.4, size: 0.14, dir: Math.PI / 2, spread: 1.6, g: 4 });
+        else if (e.kind === 'nitro' || e.kind === 'dash') {
+          const f = car.forward();
+          this.particles.burst(e.x - f.x * 1.6, e.y - f.y * 1.6, 22, { speed: 7, colors: [0xffd040, 0xff7020, 0xffffff], life: 0.35, size: 0.16, dir: Math.atan2(-f.y, -f.x), spread: 0.7, g: 0 });
+        } else if (e.kind === 'shield') this.rings.push({ x: e.x, y: e.y - 0.6, t: 0, r: 1.6, color: 0x7fe0ff });
+        else if (e.kind === 'fly') this.particles.burst(e.x, e.y + 0.4, 20, { speed: 4, colors: [0xffffff, 0xc8f0ff], life: 0.6, size: 0.18, dir: Math.PI / 2, spread: 2, g: -1 });
+        else if (e.kind === 'shoot') {
+          const f = car.forward();
+          this.particles.burst(e.x + f.x * 1.8, e.y + f.y * 1.8 - 0.3, 10, { speed: 4, colors: [0xffffff, 0xd0d0d8, 0xfff0a0], life: 0.35, size: 0.2, dir: Math.atan2(f.y, f.x), spread: 0.9, g: -1 });
+          this.trauma = Math.min(1, this.trauma + 0.08);
+        }
+        break;
+      }
+      case 'blast': {
+        const cols = e.kind === 'firework' ? [0xff3a5a, 0xffd23f, 0x5ef0ff, 0xffffff] : e.kind === 'bomb' ? [0xffffff, 0xffd040, 0xff7020, 0x403a48] : [0xd8c8a8, 0xa89880, 0xffffff];
+        this.particles.burst(e.x, e.y, e.kind === 'slam' ? 34 : 40, { speed: e.r * 2.2, colors: cols, life: 0.55, size: 0.2, g: e.kind === 'slam' ? 8 : 4, drag: 2 });
+        this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: e.kind === 'slam' ? 0xffffff : 0xffd060 });
+        this.trauma = Math.min(1, this.trauma + (e.kind === 'firework' ? 0.2 : 0.45));
+        break;
+      }
+      case 'shieldBlock':
+        this.rings.push({ x: e.x, y: e.y, t: 0, r: 1.2, color: 0x7fe0ff });
+        this.particles.burst(e.x, e.y, 16, { speed: 6, colors: [0x7fe0ff, 0xffffff], life: 0.35, size: 0.12, g: 0 });
+        break;
+      case 'shotHit':
+        this.particles.burst(e.x, e.y, 12, { speed: 5, colors: e.proj === 'laser' ? [0x5ef0ff, 0xffffff] : [0xffffff, 0xd0d8e8], life: 0.3, size: 0.12, g: 6 });
         break;
       case 'roundEnd': {
         const r = e.result;
@@ -249,6 +288,128 @@ export class GameView {
         this.setCenter(`ПЕРЕМОГА ${PLAYER_NAMES[e.winner]}!`, 999, `${g.match.scores[0]} : ${g.match.scores[1]}`, PLAYER_COLORS[e.winner]);
         break;
     }
+  }
+
+  /** Closing walls, ghosts, bomb warnings, blizzard snow. */
+  private renderSudden(simDt: number) {
+    const g = this.game!;
+    const a = g.arena;
+    const b = g.map.bounds;
+    this.fxGfx.clear();
+    // walls
+    if (a.walls.length && !this.wallSprites.length) {
+      const hgt = (b.y1 - b.y0) + 24;
+      for (let i = 0; i < a.walls.length; i++) {
+        const c = new Container();
+        const plate = new TilingSprite({ texture: cached('wall', () => gridTexture(wallGrid(), PROP_PAL)), width: 2.4 * ART_PPM, height: hgt * ART_PPM });
+        plate.scale.set(1 / ART_PPM);
+        plate.position.set(-1.2, -hgt / 2);
+        const strip = new TilingSprite({ texture: cached('hazardStrip', () => gridTexture(hazardStripGrid(), PROP_PAL)), width: 6, height: hgt * ART_PPM });
+        strip.scale.set(1 / ART_PPM);
+        // inner edge faces the arena center
+        strip.position.set(i === 0 ? 1.2 - 6 / ART_PPM : -1.2, -hgt / 2);
+        c.addChild(plate, strip);
+        this.fxLayer.addChild(c);
+        this.wallSprites.push(c);
+      }
+    }
+    a.walls.forEach((w, i) => {
+      const p = w.getPosition();
+      this.wallSprites[i]?.position.set(p.x, p.y);
+      if (w.getLinearVelocity().x !== 0 && Math.random() < 0.3) this.particles.spawn(p.x + (i === 0 ? 1.2 : -1.2), p.y + (Math.random() - 0.5) * 12, { vx: (i === 0 ? 1 : -1) * 2, life: 0.3, size: 0.12, color: 0xffd040 });
+    });
+    // ghosts
+    const live = new Set<number>();
+    for (const gh of a.ghosts) {
+      live.add(gh.id);
+      let sp = this.ghostSprites.get(gh.id);
+      if (!sp) {
+        const grid = decorGrid('ghost');
+        sp = new Sprite(cached('decor:ghost', () => gridTexture(grid, DECOR_PAL)));
+        sp.anchor.set(0.5);
+        sp.scale.set((gh.vx < 0 ? -1.3 : 1.3) / ART_PPM, 1.3 / ART_PPM);
+        sp.alpha = 0.85;
+        this.dynLayer.addChild(sp);
+        this.ghostSprites.set(gh.id, sp);
+      }
+      const p = gh.body.getPosition();
+      sp.position.set(p.x, p.y);
+      if (Math.random() < 0.25) this.particles.spawn(p.x - Math.sign(gh.vx) * 0.6, p.y + 0.4, { life: 0.4, size: 0.14, color: 0xd8e4ff });
+    }
+    for (const [id, sp] of this.ghostSprites) if (!live.has(id)) {
+      sp.destroy();
+      this.ghostSprites.delete(id);
+    }
+    // bomb warnings: blinking target + the bomb itself
+    const fx = this.fxGfx;
+    for (const bm of a.bombs) {
+      const blink = Math.sin(this.time * (10 + (1.25 - bm.t) * 20)) > 0;
+      fx.circle(bm.x, bm.y, 3.8 * (0.5 + bm.t * 0.4)).stroke({ color: 0xff3a3a, width: 0.12, alpha: blink ? 0.9 : 0.35 });
+      fx.circle(bm.x, bm.y - 0.35, 0.38).fill({ color: 0x1e1c24 });
+      fx.rect(bm.x - 0.05, bm.y - 0.95, 0.1, 0.25).fill({ color: blink ? 0xffd040 : 0xff7020 });
+    }
+    // blizzard snow, low-gravity sparkles
+    if (a.sudden === 'blizzard') {
+      for (let i = 0; i < 4; i++) this.particles.spawn(b.x0 + Math.random() * (b.x1 - b.x0), b.y0 + Math.random() * 4, { vx: a.wind * 0.9, vy: 4 + Math.random() * 2, life: 3, size: 0.1 + Math.random() * 0.08, color: 0xffffff, shrink: false });
+    } else if (a.sudden === 'lowgrav' && Math.random() < 0.4) {
+      this.particles.spawn(b.x0 + Math.random() * (b.x1 - b.x0), b.y1 - Math.random() * (b.y1 - b.y0), { vy: -0.8, life: 1.6, size: 0.1, color: 0xc8a8ff });
+    }
+    void simDt;
+  }
+
+  /** Projectiles, shields, flight sparkles and the ability charge bar over each car. */
+  private renderAbilities(alpha: number, simDt: number) {
+    const g = this.game!;
+    const live = new Set<number>();
+    for (const sh of g.shots) {
+      live.add(sh.id);
+      let sp = this.shotSprites.get(sh.id);
+      if (!sp) {
+        const pr = PROJECTILES[sh.proj];
+        const grid = shotGrid(sh.proj, pr.r, ART_PPM);
+        sp = new Sprite(cached(`shot:${sh.proj}`, () => gridTexture(grid, DECOR_PAL)));
+        sp.anchor.set(0.5);
+        sp.scale.set(1 / ART_PPM);
+        this.dynLayer.addChild(sp);
+        this.shotSprites.set(sh.id, sp);
+      }
+      const p = sh.body.getPosition(), v = sh.body.getLinearVelocity();
+      sp.position.set(p.x, p.y);
+      sp.rotation = sh.proj === 'laser' || sh.proj === 'firework' ? Math.atan2(v.y, v.x) : sh.body.getAngle();
+      if (sh.proj === 'firework' && Math.random() < 0.8) this.particles.spawn(p.x, p.y, { vx: -v.x * 0.1, vy: -v.y * 0.1, life: 0.3, size: 0.12, color: Math.random() > 0.5 ? 0xffd040 : 0xff5020 });
+      if (sh.proj === 'laser' && Math.random() < 0.5) this.particles.spawn(p.x, p.y, { life: 0.15, size: 0.1, color: 0x5ef0ff });
+    }
+    for (const [id, sp] of this.shotSprites) if (!live.has(id)) {
+      sp.destroy();
+      this.shotSprites.delete(id);
+    }
+    const fx = this.fxGfx; // cleared in renderSudden, which runs first
+    for (const c of g.cars) {
+      if (!c.alive) continue;
+      const hp = c.headWorld();
+      if (c.shieldT > 0) {
+        const a = 0.35 + 0.25 * Math.sin(this.time * 18);
+        fx.circle(hp.x, hp.y, c.def.head.r + 0.35).fill({ color: 0x7fe0ff, alpha: a * 0.5 }).stroke({ color: 0xc8f4ff, width: 0.08, alpha: a + 0.3 });
+      }
+      if (c.flyT > 0 && Math.random() < 0.6) {
+        const p = c.position;
+        this.particles.spawn(p.x + (Math.random() - 0.5) * 2, p.y + 0.8, { vy: 2, life: 0.4, size: 0.12, color: 0xffffff });
+      }
+      if (c.slamming) {
+        const p = c.position;
+        this.particles.spawn(p.x + (Math.random() - 0.5), p.y - 0.5, { vy: -4, life: 0.25, size: 0.2, color: 0xfff0c0 });
+      }
+      // charge bar under the P1/P2 marker
+      const view = this.carViews[c.player];
+      if (!view) continue;
+      const mx = view.marker.x, my = view.marker.y + 0.18;
+      const k = c.abilityCharge;
+      const col = toHex(hex(PLAYER_COLORS[c.player]));
+      fx.rect(mx - 0.6, my, 1.2, 0.16).fill({ color: 0x0c0914, alpha: 0.7 });
+      fx.rect(mx - 0.56, my + 0.04, 1.12 * k, 0.08).fill({ color: k >= 1 ? (Math.sin(this.time * 8) > 0 ? 0xffffff : col) : col, alpha: k >= 1 ? 1 : 0.6 });
+    }
+    void alpha;
+    void simDt;
   }
 
   private setCenter(text: string, dur: number, sub = '', color = '#ffffff') {
@@ -278,6 +439,9 @@ export class GameView {
       this.dynLayer.addChild(s);
       return s;
     });
+    this.ballSprites.clear();
+    this.ghostSprites.clear();
+    this.wallSprites = [];
     this.blocks.clear();
     // Sudden-death lava belongs to the previous round: remove its sprites too.
     for (const c of this.fxLayer.removeChildren()) c.destroy();
@@ -314,7 +478,33 @@ export class GameView {
       this.lavaTiles.push(t, top);
       this.mapLayer.addChild(t, top);
     }
+    // Decorative water
+    const waterTex = cached('water', () => gridTexture(waterGrid(), PROP_PAL));
+    const waterTop = cached('waterTop', () => gridTexture(waterSurfaceGrid(), PROP_PAL));
+    for (const wv of map.water ?? []) {
+      const t = new TilingSprite({ texture: waterTex, width: wv.w * ART_PPM, height: wv.h * ART_PPM });
+      t.position.set(wv.x, wv.y);
+      t.scale.set(1 / ART_PPM);
+      const top = new TilingSprite({ texture: waterTop, width: wv.w * ART_PPM, height: 4 });
+      top.position.set(wv.x, wv.y - 3 / ART_PPM);
+      top.scale.set(1 / ART_PPM);
+      this.lavaTiles.push(t, top);
+      this.mapLayer.addChild(t, top);
+    }
+    // Background props: planted behind the terrain edge (or in front when asked).
+    const front: Sprite[] = [];
+    for (const d of placedDecor(map)) {
+      const grid = decorGrid(d.kind, d.seed);
+      const s = new Sprite(cached(`decor:${d.kind}:${d.seed}`, () => gridTexture(grid, DECOR_PAL)));
+      s.anchor.set(grid.ox / grid.w, grid.oy / grid.h);
+      const k = (d.s ?? 1) / ART_PPM;
+      s.scale.set(d.flip ? -k : k, k);
+      s.position.set(d.x, d.y + 2 / ART_PPM);
+      if (d.front) front.push(s);
+      else this.mapLayer.addChild(s);
+    }
     this.mapLayer.addChild(terrain);
+    for (const s of front) this.mapLayer.addChild(s);
     for (const pad of map.pads ?? []) {
       const s = new Sprite(cached(`pad:${pad.w}`, () => gridTexture(padGrid(pad.w), PROP_PAL)));
       s.anchor.set(0.5, 4 / s.texture.height);
@@ -459,21 +649,52 @@ export class GameView {
       this.saws[i].position.set(pos.x, pos.y);
       this.saws[i].rotation = sw.body.getAngle();
     });
+    const liveBalls = new Set<object>();
+    for (const bl of g.arena.balls) {
+      liveBalls.add(bl.body);
+      let sp = this.ballSprites.get(bl.body);
+      if (!sp) {
+        const grid = bl.look === 'snow' ? shotGrid('snowball', bl.r, ART_PPM) : ballGrid(bl.r, ART_PPM);
+        sp = new Sprite(cached(`ball:${bl.look}:${bl.r.toFixed(2)}`, () => gridTexture(grid, DECOR_PAL)));
+        sp.anchor.set(0.5);
+        sp.scale.set(1 / ART_PPM);
+        this.dynLayer.addChild(sp);
+        this.ballSprites.set(bl.body, sp);
+      }
+      const pos = bl.body.getPosition();
+      sp.position.set(pos.x, pos.y);
+      sp.rotation = bl.body.getAngle();
+    }
+    for (const [k, sp] of this.ballSprites) if (!liveBalls.has(k)) {
+      sp.destroy();
+      this.ballSprites.delete(k);
+    }
+    this.renderSudden(simDt);
     const live = new Set<object>();
     for (const bl of g.arena.blocks) {
       live.add(bl.body);
       let s = this.blocks.get(bl.body);
       if (!s) {
-        const style = g.map.fallingBlocks?.style ?? 'crate';
-        s = new Sprite(cached(`crate:${bl.size}:${style}`, () => gridTexture(crateGrid(bl.size, ART_PPM, style), PROP_PAL)));
-        s.anchor.set(0.5);
-        s.scale.set(1 / ART_PPM);
+        if (bl.style === 'toy') {
+          const grid = decorGrid('block', bl.seed);
+          s = new Sprite(cached(`decor:block:${bl.seed % 9}`, () => gridTexture(decorGrid('block', bl.seed % 9), DECOR_PAL)));
+          s.anchor.set(0.5);
+          s.scale.set(bl.size / (grid.w - 2));
+        } else {
+          const style = bl.style === 'meteor' ? 'stone' : bl.style;
+          s = new Sprite(cached(`crate:${bl.size}:${style}`, () => gridTexture(crateGrid(bl.size, ART_PPM, style), PROP_PAL)));
+          s.anchor.set(0.5);
+          s.scale.set(1 / ART_PPM);
+        }
         this.dynLayer.addChild(s);
         this.blocks.set(bl.body, s);
       }
       const p = bl.body.getPosition();
       s.position.set(p.x, p.y);
       s.rotation = bl.body.getAngle();
+      if (bl.style === 'meteor' && bl.body.getLinearVelocity().length() > 5) {
+        for (let i = 0; i < 2; i++) this.particles.spawn(p.x + (Math.random() - 0.5) * bl.size, p.y - bl.size * 0.4, { vy: -2, life: 0.35, size: 0.2, color: Math.random() > 0.4 ? 0xff7020 : 0xffd040 });
+      }
     }
     for (const [k, s] of this.blocks) if (!live.has(k)) {
       s.destroy();
@@ -482,9 +703,12 @@ export class GameView {
     for (const t of this.lavaTiles) t.tilePosition.x = Math.round(this.time * 6) % 32;
     if (g.arena.riseBody) {
       if (!this.riseLava) {
-        this.riseLava = new TilingSprite({ texture: cached('lava', () => gridTexture(lavaGrid(), PROP_PAL)), width: (b.x1 - b.x0 + 40) * ART_PPM, height: 60 * ART_PPM });
+        const sea = g.arena.riseKind === 'flood';
+        const body = sea ? cached('water', () => gridTexture(waterGrid(), PROP_PAL)) : cached('lava', () => gridTexture(lavaGrid(), PROP_PAL));
+        const top = sea ? cached('waterTop', () => gridTexture(waterSurfaceGrid(), PROP_PAL)) : cached('lavaTop', () => gridTexture(lavaSurfaceGrid(), PROP_PAL));
+        this.riseLava = new TilingSprite({ texture: body, width: (b.x1 - b.x0 + 40) * ART_PPM, height: 60 * ART_PPM });
         this.riseLava.scale.set(1 / ART_PPM);
-        this.riseTop = new TilingSprite({ texture: cached('lavaTop', () => gridTexture(lavaSurfaceGrid(), PROP_PAL)), width: (b.x1 - b.x0 + 40) * ART_PPM, height: 4 });
+        this.riseTop = new TilingSprite({ texture: top, width: (b.x1 - b.x0 + 40) * ART_PPM, height: 4 });
         this.riseTop.scale.set(1 / ART_PPM);
         this.fxLayer.addChild(this.riseLava, this.riseTop);
       }
@@ -492,18 +716,19 @@ export class GameView {
       this.riseTop!.position.set(b.x0 - 20, g.arena.riseY - 3 / ART_PPM);
       this.riseLava.tilePosition.x = Math.round(this.time * 8) % 32;
       this.riseTop!.tilePosition.x = Math.round(-this.time * 10) % 32;
-      if (Math.random() < 0.3) this.particles.spawn(b.x0 + Math.random() * (b.x1 - b.x0), g.arena.riseY, { vy: -3, g: 8, life: 0.6, size: 0.15, color: 0xffd060 });
+      if (Math.random() < 0.3) this.particles.spawn(b.x0 + Math.random() * (b.x1 - b.x0), g.arena.riseY, { vy: -3, g: 8, life: 0.6, size: 0.15, color: g.arena.riseKind === 'flood' ? 0xe8f8ff : 0xffd060 });
     }
     for (const l of g.map.lava ?? []) {
       if (Math.random() < l.w * 0.01) this.particles.spawn(l.x + Math.random() * l.w, l.y, { vy: -3 - Math.random() * 3, g: 10, life: 0.6, size: 0.14, color: Math.random() > 0.5 ? 0xffd060 : 0xff7020 });
     }
 
+    this.renderAbilities(alpha, simDt);
     this.particles.update(simDt);
     this.ringGfx.clear();
     for (const r of this.rings) {
       r.t += simDt;
       const k = r.t / 0.45;
-      if (k < 1) this.ringGfx.circle(r.x, r.y, 0.5 + k * 4.5).stroke({ color: 0xfff6c0, width: 0.35 * (1 - k), alpha: 1 - k });
+      if (k < 1) this.ringGfx.circle(r.x, r.y, 0.5 + k * ((r.r ?? 5) - 0.5)).stroke({ color: r.color ?? 0xfff6c0, width: 0.35 * (1 - k), alpha: 1 - k });
     }
     this.rings = this.rings.filter((r) => r.t < 0.45);
     if (this.debug) drawPhysicsDebug(this.debugGfx, g.world);
@@ -561,7 +786,7 @@ export class GameView {
       s.position.set(Math.round(W / 2 + (i - 1) * 16 * ps), top);
     });
     let tt: string;
-    if (g.suddenDeath) tt = 'РАПТОВА СМЕРТЬ';
+    if (g.suddenDeath) tt = g.arena.sudden ? SUDDEN_INFO[g.arena.riseBody && g.arena.sudden !== 'flood' ? 'lava' : g.arena.sudden].name.toUpperCase() + '!' : 'РАПТОВА СМЕРТЬ';
     else {
       const t = Math.ceil(g.timeLeft);
       tt = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
@@ -601,6 +826,20 @@ export class GameView {
       t.roundRect(z.x + pad, z.y + pad, z.w - pad * 2, z.h - pad * 2, 14).stroke({ color: col, alpha: 0.55, width: 3 });
       const cx = z.x + z.w / 2, cy = z.y + z.h / 2;
       const s = Math.min(z.w, z.h) * 0.2;
+      if (z.btn === 'action') {
+        const car = this.game?.cars[z.player];
+        const k = car ? car.abilityCharge : 1;
+        const inner = z.h - pad * 2 - 6;
+        t.roundRect(z.x + pad + 3, z.y + pad + 3 + inner * (1 - k), z.w - pad * 2 - 6, inner * k, 10).fill({ color: col, alpha: k >= 1 ? 0.45 : 0.18 });
+        // star
+        const pts: number[] = [];
+        for (let i = 0; i < 10; i++) {
+          const a = -Math.PI / 2 + (i * Math.PI) / 5, rr = i % 2 ? s * 0.45 : s;
+          pts.push(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr);
+        }
+        t.poly(pts).fill({ color: 0xffffff, alpha: pressed || k >= 1 ? 0.95 : 0.45 });
+        continue;
+      }
       const d = z.btn === 'left' ? -1 : 1;
       t.poly([cx + d * s, cy, cx - d * s * 0.7, cy - s, cx - d * s * 0.7, cy + s]).fill({ color: 0xffffff, alpha: pressed ? 0.95 : 0.6 });
     }

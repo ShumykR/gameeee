@@ -112,6 +112,28 @@ export class Bot implements Controller {
     return toward;
   }
 
+  /** Use the special action when the situation suits it. */
+  action(game: Game, player: number): boolean {
+    const me = game.cars[player], foe = game.cars[1 - player];
+    if (!me.alive || !foe.alive || me.abilityCd > 0 || game.phase !== 'play') return false;
+    const chance = this.level === 'easy' ? 0.01 : this.level === 'normal' ? 0.05 : 0.12;
+    if (this.rng() > chance) return false;
+    const p = me.position, f = foe.position;
+    const dx = f.x - p.x, dy = f.y - p.y;
+    const dist = Math.hypot(dx, dy);
+    const facingFoe = Math.sign(dx) === Math.sign(me.forward().x);
+    const level = Math.abs(me.angle) < 0.6;
+    switch (me.ability.kind) {
+      case 'shoot': return facingFoe && level && Math.abs(dx) < 16 && Math.abs(dy) < 4;
+      case 'jump': return dist < 4.5 && dy > -1.5;
+      case 'nitro':
+      case 'dash': return facingFoe && level && dist > 2.5 && dist < 10 && !me.inAir;
+      case 'slam': return dist < 4.5 || (me.inAir && Math.abs(dx) < 2 && dy > 0);
+      case 'fly': return dist < 6;
+      case 'shield': return dist < 3.2;
+    }
+  }
+
   /** Raycast down a few meters ahead: true if there's lava or no ground (cliff). */
   private dangerAhead(game: Game, me: Car, dir: number): boolean {
     const p = me.position;

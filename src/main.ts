@@ -6,6 +6,7 @@ import { CARS, CAR_BY_ID } from './cars/defs';
 import { MAPS, MAP_BY_ID } from './maps/defs';
 import { Bot } from './ai/bot';
 import { audio } from './audio/audio';
+import { music } from './audio/music';
 import { Menu, Mode } from './ui/menu';
 import { loadSettings, saveSettings } from './ui/settings';
 import { setupPwa } from './ui/pwa';
@@ -61,6 +62,8 @@ async function boot() {
     view.hud.visible = s === 'play';
     view.showTouch = s === 'play' && (coarse || input.touchEnabled);
     if (s !== 'play') audio.stopEngines();
+    if (s === 'menu') music.play('menu');
+    music.duck(s === 'paused');
   };
 
   const onEvent = (e: GameEvent) => {
@@ -71,9 +74,18 @@ async function boot() {
       case 'impact': audio.impact(e.strength, e.carCar); break;
       case 'death': audio.explosion(); break;
       case 'pad': audio.pad(); break;
-      case 'suddenDeath': audio.siren(); break;
+      case 'ability': audio.ability(e.kind, game?.cars[e.player].ability.projectile); break;
+      case 'blast': audio.blast(e.kind); break;
+      case 'shieldBlock': audio.shieldBlock(); break;
+      case 'shotHit': audio.impact(2, false); break;
+      case 'suddenDeath':
+        audio.siren();
+        if (!e.late) music.play('sudden');
+        break;
+      case 'roundStart': if (music.current === 'sudden') music.resumeMatch(); break;
       case 'roundEnd': if (e.result !== 'draw') audio.point(); break;
       case 'matchEnd':
+        music.stop();
         audio.jingle(mode === 'pvp' || e.winner === 0);
         overTimer = 1.6;
         break;
@@ -85,6 +97,8 @@ async function boot() {
     game.on(onEvent);
     view.attach(game);
     (window as any).__game = game;
+    (window as any).__music = music;
+    (window as any).__audio = audio;
     return game;
   };
 
@@ -117,6 +131,7 @@ async function boot() {
     }
     overTimer = -1;
     menu.hide();
+    music.playMatch();
     setState('play');
   };
 
@@ -190,6 +205,8 @@ async function boot() {
     if (state === 'play' || state === 'menu' || state === 'over') {
       game.inputs[0] = input.dir(0);
       game.inputs[1] = input.dir(1);
+      game.actions[0] = state === 'play' && input.action(0);
+      game.actions[1] = state === 'play' && input.action(1);
       game.frame(dt);
     }
     view.render(state === 'paused' ? 0 : dt);

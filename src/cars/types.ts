@@ -1,7 +1,9 @@
 export type Pt = [number, number];
 
 /** Materials a car polygon can be drawn with (palette slot or special texture). */
-export type CarMat = 'body' | 'accent' | 'dark' | 'metal' | 'spike' | 'scoop' | 'rocket' | 'wood' | 'glass';
+export type CarMat =
+  | 'body' | 'accent' | 'dark' | 'metal' | 'spike' | 'scoop' | 'rocket' | 'wood' | 'glass'
+  | 'bone' | 'gold' | 'leaf' | 'white' | 'light';
 
 export type Archetype =
   | 'allround' | 'heavy' | 'fast' | 'monster' | 'tiny' | 'long'
@@ -37,9 +39,26 @@ export interface CarPalette {
   light: string;
 }
 
+/** Special action on its own button. */
+export type AbilityKind = 'jump' | 'nitro' | 'dash' | 'slam' | 'shoot' | 'fly' | 'shield';
+export type ProjectileKind = 'cannon' | 'snowball' | 'ball' | 'laser' | 'firework';
+
+export interface AbilityDef {
+  kind: AbilityKind;
+  /** For 'shoot'. */
+  projectile?: ProjectileKind;
+}
+
+/** Collection a car belongs to (menu filter + themed arenas). */
+export type CategoryId =
+  | 'originals' | 'retro' | 'halloween' | 'winter' | 'alien' | 'dome' | 'dino'
+  | 'robo' | 'summer' | 'soccer' | 'cny' | 'rift' | 'toys';
+
 export interface CarDef {
   id: string;
   name: string;
+  /** Collection for the garage filter (defaults to 'originals'). */
+  category?: CategoryId;
   archetype: Archetype;
   blurb: string;
   palette: CarPalette;
@@ -78,4 +97,8 @@ export interface CarDef {
   boost?: { accel: number; fuel: number; regen: number };
   /** Extra bounce on the chassis. */
   restitution?: number;
+  /** Special action (defaults by archetype, see game/abilities.ts). */
+  ability?: AbilityDef;
+  /** Gravity scale for the whole car (<1 = floaty hover/flying vehicles). */
+  float?: number;
 }

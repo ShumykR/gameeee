@@ -17,6 +17,11 @@ export const P = {
   ROCKET_D: 20, ROCKET: 21,
   SPIKE_D: 22, SPIKE: 23, SPIKE_L: 24,
   HAZARD: 25,
+  BONE_D: 26, BONE: 27, BONE_L: 28,
+  GOLD_D: 29, GOLD: 30, GOLD_L: 31,
+  LEAF_D: 32, LEAF: 33, LEAF_L: 34,
+  WHITE_D: 35, WHITE: 36,
+  LIGHT_D: 37,
 } as const;
 
 export function carPalette(p: CarPalette): (RGB | null)[] {
@@ -48,11 +53,24 @@ export function carPalette(p: CarPalette): (RGB | null)[] {
   pal[P.SPIKE] = [176, 184, 196];
   pal[P.SPIKE_L] = [236, 240, 246];
   pal[P.HAZARD] = [30, 28, 34];
+  pal[P.BONE_D] = [176, 164, 132];
+  pal[P.BONE] = [232, 222, 194];
+  pal[P.BONE_L] = [252, 248, 232];
+  pal[P.GOLD_D] = [168, 112, 24];
+  pal[P.GOLD] = [240, 190, 50];
+  pal[P.GOLD_L] = [255, 236, 140];
+  pal[P.LEAF_D] = [26, 92, 46];
+  pal[P.LEAF] = [46, 150, 70];
+  pal[P.LEAF_L] = [110, 210, 100];
+  pal[P.WHITE_D] = [196, 204, 220];
+  pal[P.WHITE] = [246, 248, 252];
+  pal[P.LIGHT_D] = shade(light, 0.75);
   return pal;
 }
 
 const MAT_ID: Record<CarMat, number> = {
   body: 1, accent: 2, dark: 3, metal: 4, spike: 5, scoop: 6, rocket: 7, wood: 8, glass: 9,
+  bone: 10, gold: 11, leaf: 12, white: 13, light: 14,
 };
 
 /** [dark, base, light] palette slots per material. */
@@ -66,6 +84,11 @@ const MAT_SHADES: Record<number, [number, number, number]> = {
   7: [P.ROCKET_D, P.ROCKET, P.ROCKET],
   8: [P.WOOD_D, P.WOOD, P.WOOD],
   9: [P.GLASS, P.GLASS, P.GLASS_L],
+  10: [P.BONE_D, P.BONE, P.BONE_L],
+  11: [P.GOLD_D, P.GOLD, P.GOLD_L],
+  12: [P.LEAF_D, P.LEAF, P.LEAF_L],
+  13: [P.WHITE_D, P.WHITE, P.WHITE],
+  14: [P.LIGHT_D, P.HEAD_LIGHT, P.HEAD_LIGHT],
 };
 
 /** Bounding box (meters) of all chassis polygons and windows. */

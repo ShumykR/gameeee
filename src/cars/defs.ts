@@ -1,4 +1,6 @@
 import type { CarDef, CarPoly, Pt } from './types';
+import { buildCar } from './factory';
+import { ROSTER } from './roster';
 
 /** Axis-aligned box polygon helper (car-local meters, y down). */
 export const box = (x0: number, y0: number, x1: number, y1: number, extra: Partial<CarPoly> = {}): CarPoly => ({
@@ -7,7 +9,8 @@ export const box = (x0: number, y0: number, x1: number, y1: number, extra: Parti
 });
 export const poly = (pts: Pt[], extra: Partial<CarPoly> = {}): CarPoly => ({ pts, ...extra });
 
-export const CARS: CarDef[] = [
+/** The game's own hand-tuned cars. */
+const ORIGINALS: CarDef[] = [
   {
     id: 'sparrow',
     name: 'Sparrow',
@@ -323,6 +326,7 @@ export const CARS: CarDef[] = [
     name: 'Tankette',
     archetype: 'heavy',
     blurb: 'Чотири малі колеса і броньована башта позаду водія.',
+    ability: { kind: 'shoot', projectile: 'cannon' },
     palette: { body: '#7a8a4a', accent: '#d8c070', dark: '#262a18', glass: '#b0e0d0', light: '#fff0a0' },
     body: [
       box(-1.5, -0.3, 1.5, 0.22),
@@ -569,6 +573,12 @@ export const CARS: CarDef[] = [
     head: { x: -1.0, y: -0.85, r: 0.28 },
     air: 11,
   },
+];
+
+/** Every car: the originals first, then the generated collections. */
+export const CARS: CarDef[] = [
+  ...ORIGINALS.map((c) => ({ ...c, category: 'originals' as const })),
+  ...ROSTER.map(buildCar),
 ];
 
 export const CAR_BY_ID: Record<string, CarDef> = Object.fromEntries(CARS.map((c) => [c.id, c]));

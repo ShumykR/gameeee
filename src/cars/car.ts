@@ -5,7 +5,8 @@ import { CAT, MASK, STEP_DT, DEFAULT_GRAVITY } from '../physics/constants';
 export const TUNE = { groundTilt: 1.6, maxSpin: 7.5, selfRight: 14 };
 const SELF_RIGHT = TUNE.selfRight;
 import type { FixtureTag } from '../physics/tags';
-import type { CarDef, Pt } from './types';
+import type { AbilityDef, CarDef, Pt } from './types';
+import { abilityOf, ABILITY_INFO } from '../game/abilities';
 
 export interface BodyState { x: number; y: number; a: number }
 
@@ -38,6 +39,15 @@ export class Car {
   /** Number of wheels touching something this step. */
   wheelsOnGround = 0;
   chassisTouching = false;
+  /** Special action and its runtime state. */
+  readonly ability: AbilityDef;
+  /** Seconds until the ability is ready again. */
+  abilityCd = 1.5;
+  shieldT = 0;
+  flyT = 0;
+  nitroT = 0;
+  /** Diving after a mid-air slam; the shockwave fires on landing. */
+  slamming = false;
   /** Previous-step transforms for render interpolation. */
   prev: BodyState[] = [];
   private readonly restAnchors: Vec2[] = [];
@@ -119,6 +129,8 @@ export class Car {
       this.drive.push(wd.drive ?? true);
       this.restAnchors.push(new Vec2(wd.x * f, wd.y));
     }
+    this.ability = abilityOf(def);
+    if (def.float !== undefined) for (const b of this.bodies) b.setGravityScale(def.float);
     this.boostFuel = def.boost?.fuel ?? 0;
     this.snapshot();
   }
@@ -145,6 +157,35 @@ export class Car {
 
   get inAir(): boolean {
     return this.wheelsOnGround === 0 && !this.chassisTouching;
+  }
+
+  /** 0 = just used, 1 = ready. */
+  get abilityCharge(): number {
+    return 1 - Math.max(0, this.abilityCd) / ABILITY_INFO[this.ability.kind].cd;
+  }
+
+  /** Add a velocity change to every body of the car. */
+  kick(dx: number, dy: number) {
+    for (const b of this.bodies) {
+      const v = b.getLinearVelocity();
+      b.setLinearVelocity(new Vec2(v.x + dx, v.y + dy));
+    }
+  }
+
+  /** Unit vector the car's nose points at (world). */
+  forward(): Vec2 {
+    return this.chassis.getWorldVector(new Vec2(this.facing, 0));
+  }
+
+  /** Ability timers; called once per step. */
+  tickAbility(dt: number) {
+    this.abilityCd = Math.max(0, this.abilityCd - dt);
+    this.shieldT = Math.max(0, this.shieldT - dt);
+    this.nitroT = Math.max(0, this.nitroT - dt);
+    if (this.flyT > 0) {
+      this.flyT -= dt;
+      if (this.flyT <= 0) for (const b of this.bodies) b.setGravityScale(this.def.float ?? 1);
+    }
   }
 
   headWorld() {
@@ -237,12 +278,14 @@ export class Car {
     }
     if (this.flipTimer > 0.8 && this.alive) {
       const k = Math.min(1, (this.flipTimer - 0.8) / 0.5);
-      if (Math.abs(w) < 3.5) this.chassis.applyTorque(this.flipDir * SELF_RIGHT * k * I, true);
+      // Still stuck after a while (e.g. propped on a wheel): push progressively harder.
+      const extra = Math.min(2, Math.max(0, this.flipTimer - 1.6));
+      if (Math.abs(w) < 3.5) this.chassis.applyTorque(this.flipDir * (SELF_RIGHT * k * I + extra * this.mass * DEFAULT_GRAVITY * 0.5), true);
       if (this.chassisTouching) this.chassis.applyForceToCenter(new Vec2(0, -this.mass * DEFAULT_GRAVITY * 0.75 * k), true);
     }
 
     // Rocket booster.
-    this.boosting = false;
+    this.boosting = this.nitroT > 0;
     if (d.boost) {
       if (dir === this.facing && this.boostFuel > 0) {
         this.boosting = true;

@@ -54,3 +54,29 @@ it('has 6-8+ arenas with distinct themes', () => {
   expect(MAPS.length).toBeGreaterThanOrEqual(6);
   expect(new Set(MAPS.map((m) => m.theme)).size).toBe(MAPS.length);
 });
+
+import { CATEGORIES } from '../src/cars/catalog';
+import { MAP_BY_ID } from '../src/maps/defs';
+import { decorGrid, decorFilled, placedDecor } from '../src/maps/decor';
+
+describe('themed arenas & decor', () => {
+  it('every collection with an arena points at a real map', () => {
+    for (const c of CATEGORIES) if (c.map) expect(MAP_BY_ID[c.map], c.id).toBeDefined();
+  });
+  it('every decor prop rasterizes and is planted on or above the ground', () => {
+    for (const m of MAPS) {
+      for (const d of placedDecor(m)) {
+        expect(decorFilled(decorGrid(d.kind, d.seed)), `${m.id}:${d.kind}`).toBeGreaterThan(20);
+        expect(d.y, `${m.id}:${d.kind}`).toBeLessThan(m.killY);
+      }
+    }
+  });
+  it('a ball knocked out of the stadium comes back', () => {
+    const g = new Game({ cars: [CARS[0], CARS[1]], maps: [MAP_BY_ID.stadium], randomMaps: false, target: 3, roundTime: 60, seed: 5 });
+    const ball = g.arena.balls[0];
+    expect(ball).toBeDefined();
+    ball.body.setPosition({ x: 26, y: 100 } as never);
+    g.step();
+    expect(ball.body.getPosition().y).toBeLessThan(MAP_BY_ID.stadium.killY);
+  });
+});
