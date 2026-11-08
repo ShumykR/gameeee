@@ -450,6 +450,24 @@ export function decorGrid(kind: DecorKind, seed = 0): PixelGrid {
       p.rect(26, 50, 4, 10, C.LG);
       return p.done();
     }
+    case 'ghost': {
+      const p = new Pen(18, 20);
+      p.ell(9, 8, 8, 8, C.W, (dx, dy) => (dx > 0.4 && dy > -0.2 ? C.SN : C.W));
+      p.rect(1, 8, 16, 8, C.W);
+      for (let i = 0; i < 4; i++) p.poly([[1 + i * 4, 15], [5 + i * 4, 15], [3 + i * 4, 19]], C.W);
+      p.ell(6, 7, 1.6, 2.2, C.K);
+      p.ell(12, 7, 1.6, 2.2, C.K);
+      p.ell(9, 12, 2, 1.6, C.K);
+      return p.done();
+    }
+    case 'bomb': {
+      const p = new Pen(14, 16);
+      p.ell(7, 10, 6, 6, C.K, (dx, dy) => (dx < -0.3 && dy < -0.3 ? C.DG : C.K));
+      p.rect(5, 3, 4, 2, C.DG);
+      p.line(7, 3, 10, 0, C.BR);
+      p.rect(10, 0, 2, 1, C.Y);
+      return p.done();
+    }
     case 'cactus': {
       const p = new Pen(16, 26);
       p.rect(6, 0, 5, 26, C.GR);

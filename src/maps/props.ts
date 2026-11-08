@@ -175,3 +175,26 @@ export function waterSurfaceGrid(): PixelGrid {
   }
   return g;
 }
+
+/** Tileable riveted steel for the closing walls (spiked inner edge drawn separately). */
+export function wallGrid(): PixelGrid {
+  const W = 32, H = 32;
+  const g = makeGrid(W, H);
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      let v = 2;
+      if (y % 16 === 0 || x % 32 === 0) v = 4;
+      else if (y % 16 === 1) v = 3;
+      else if ((x % 16 === 4 || x % 16 === 12) && y % 16 === 4) v = 3;
+      gset(g, x, y, v);
+    }
+  return g;
+}
+
+/** Hazard-striped edge strip (tileable vertically). */
+export function hazardStripGrid(): PixelGrid {
+  const W = 6, H = 16;
+  const g = makeGrid(W, H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) gset(g, x, y, x === 0 || x === W - 1 ? 1 : Math.floor((y + x) / 4) % 2 ? 5 : 6);
+  return g;
+}

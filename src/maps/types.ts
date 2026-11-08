@@ -12,7 +12,7 @@ export type DecorKind =
   | 'tombstone' | 'cross' | 'pumpkin' | 'deadtree' | 'spruce' | 'snowman' | 'gift' | 'ufo' | 'beam' | 'cow' | 'haybale'
   | 'fence' | 'barn' | 'silo' | 'cone' | 'tires' | 'checkflag' | 'palm' | 'umbrella' | 'sandcastle' | 'goal' | 'cornerflag'
   | 'floodlight' | 'lantern' | 'gate' | 'bamboo' | 'crystal' | 'portal' | 'skull' | 'bones' | 'fern' | 'rocks' | 'block'
-  | 'loop' | 'cactus';
+  | 'loop' | 'cactus' | 'ghost' | 'bomb';
 
 /** Render-only prop planted on the ground (or floating at an explicit y). */
 export interface DecorDef {
@@ -27,6 +27,9 @@ export interface DecorDef {
   front?: boolean;
   seed?: number;
 }
+
+/** What happens when the round clock runs out. */
+export type SuddenDeathKind = 'lava' | 'flood' | 'meteors' | 'walls' | 'blizzard' | 'bombs' | 'ghosts' | 'balls' | 'blocks' | 'lowgrav';
 
 /** Pushable ball (e.g. a football). */
 export interface BallDef { x: number; y: number; r: number }
@@ -95,6 +98,8 @@ export interface MapDef {
   fallingBlocks?: FallingBlocksDef;
   /** Where sudden-death lava starts rising from. */
   suddenDeathY?: number;
+  /** Sudden-death variant (defaults by theme, see maps/sudden.ts). */
+  suddenDeath?: SuddenDeathKind;
   /** Background props. */
   decor?: DecorDef[];
   /** Decorative water (no physics; falling in means falling below killY). */

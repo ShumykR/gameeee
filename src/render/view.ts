@@ -6,7 +6,8 @@ import type { CarDef, CarPalette } from '../cars/types';
 import { carPalette, driverPalette, generateCarGrid, generateHeadGrid, generateTorsoGrid, generateWheelGrid, wheelPalette } from '../cars/sprite';
 import { generateLayer, generateSky, generateTerrain, THEMES } from '../maps/art';
 import type { MapDef } from '../maps/types';
-import { PROP_PAL, crateGrid, lavaGrid, lavaSurfaceGrid, padGrid, plateGrid, sawGrid, spikesGrid, waterGrid, waterSurfaceGrid } from '../maps/props';
+import { PROP_PAL, crateGrid, hazardStripGrid, lavaGrid, lavaSurfaceGrid, padGrid, plateGrid, sawGrid, spikesGrid, wallGrid, waterGrid, waterSurfaceGrid } from '../maps/props';
+import { SUDDEN_INFO } from '../maps/sudden';
 import { DECOR_PAL, ballGrid, decorGrid, placedDecor, shotGrid } from '../maps/decor';
 import { PROJECTILES } from '../game/abilities';
 import { Cam, fitCamera, lerpCam } from './camera';
@@ -153,7 +154,9 @@ export class GameView {
   private ragdollSprites: { head: Sprite; torso: Sprite }[] = [];
   private platforms: Sprite[] = [];
   private saws: Sprite[] = [];
-  private balls: Sprite[] = [];
+  private ballSprites = new Map<object, Sprite>();
+  private ghostSprites = new Map<number, Sprite>();
+  private wallSprites: Container[] = [];
   private blocks = new Map<object, Sprite>();
   private riseLava: TilingSprite | null = null;
   private riseTop: TilingSprite | null = null;
@@ -242,7 +245,8 @@ export class GameView {
         this.particles.burst(e.x, e.y - 0.3, 18, { speed: 7, colors: [0xffe040, 0xffffff], life: 0.4, size: 0.12, dir: -Math.PI / 2, spread: 1.2, g: 10 });
         break;
       case 'suddenDeath':
-        this.setCenter('РАПТОВА СМЕРТЬ', 1.8, 'лава піднімається!');
+        if (e.late) this.setCenter('ЛАВА!', 1.6, 'час вийшов — лава піднімається');
+        else this.setCenter('РАПТОВА СМЕРТЬ', 2.2, SUDDEN_INFO[e.kind].sub);
         break;
       case 'ability': {
         const col = toHex(hex(PLAYER_COLORS[e.player]));
@@ -286,6 +290,73 @@ export class GameView {
     }
   }
 
+  /** Closing walls, ghosts, bomb warnings, blizzard snow. */
+  private renderSudden(simDt: number) {
+    const g = this.game!;
+    const a = g.arena;
+    const b = g.map.bounds;
+    this.fxGfx.clear();
+    // walls
+    if (a.walls.length && !this.wallSprites.length) {
+      const hgt = (b.y1 - b.y0) + 24;
+      for (let i = 0; i < a.walls.length; i++) {
+        const c = new Container();
+        const plate = new TilingSprite({ texture: cached('wall', () => gridTexture(wallGrid(), PROP_PAL)), width: 2.4 * ART_PPM, height: hgt * ART_PPM });
+        plate.scale.set(1 / ART_PPM);
+        plate.position.set(-1.2, -hgt / 2);
+        const strip = new TilingSprite({ texture: cached('hazardStrip', () => gridTexture(hazardStripGrid(), PROP_PAL)), width: 6, height: hgt * ART_PPM });
+        strip.scale.set(1 / ART_PPM);
+        // inner edge faces the arena center
+        strip.position.set(i === 0 ? 1.2 - 6 / ART_PPM : -1.2, -hgt / 2);
+        c.addChild(plate, strip);
+        this.fxLayer.addChild(c);
+        this.wallSprites.push(c);
+      }
+    }
+    a.walls.forEach((w, i) => {
+      const p = w.getPosition();
+      this.wallSprites[i]?.position.set(p.x, p.y);
+      if (w.getLinearVelocity().x !== 0 && Math.random() < 0.3) this.particles.spawn(p.x + (i === 0 ? 1.2 : -1.2), p.y + (Math.random() - 0.5) * 12, { vx: (i === 0 ? 1 : -1) * 2, life: 0.3, size: 0.12, color: 0xffd040 });
+    });
+    // ghosts
+    const live = new Set<number>();
+    for (const gh of a.ghosts) {
+      live.add(gh.id);
+      let sp = this.ghostSprites.get(gh.id);
+      if (!sp) {
+        const grid = decorGrid('ghost');
+        sp = new Sprite(cached('decor:ghost', () => gridTexture(grid, DECOR_PAL)));
+        sp.anchor.set(0.5);
+        sp.scale.set((gh.vx < 0 ? -1.3 : 1.3) / ART_PPM, 1.3 / ART_PPM);
+        sp.alpha = 0.85;
+        this.dynLayer.addChild(sp);
+        this.ghostSprites.set(gh.id, sp);
+      }
+      const p = gh.body.getPosition();
+      sp.position.set(p.x, p.y);
+      if (Math.random() < 0.25) this.particles.spawn(p.x - Math.sign(gh.vx) * 0.6, p.y + 0.4, { life: 0.4, size: 0.14, color: 0xd8e4ff });
+    }
+    for (const [id, sp] of this.ghostSprites) if (!live.has(id)) {
+      sp.destroy();
+      this.ghostSprites.delete(id);
+    }
+    // bomb warnings: blinking target + the bomb itself
+    const fx = this.fxGfx;
+    for (const bm of a.bombs) {
+      const blink = Math.sin(this.time * (10 + (1.25 - bm.t) * 20)) > 0;
+      fx.circle(bm.x, bm.y, 3.8 * (0.5 + bm.t * 0.4)).stroke({ color: 0xff3a3a, width: 0.12, alpha: blink ? 0.9 : 0.35 });
+      fx.circle(bm.x, bm.y - 0.35, 0.38).fill({ color: 0x1e1c24 });
+      fx.rect(bm.x - 0.05, bm.y - 0.95, 0.1, 0.25).fill({ color: blink ? 0xffd040 : 0xff7020 });
+    }
+    // blizzard snow, low-gravity sparkles
+    if (a.sudden === 'blizzard') {
+      for (let i = 0; i < 4; i++) this.particles.spawn(b.x0 + Math.random() * (b.x1 - b.x0), b.y0 + Math.random() * 4, { vx: a.wind * 0.9, vy: 4 + Math.random() * 2, life: 3, size: 0.1 + Math.random() * 0.08, color: 0xffffff, shrink: false });
+    } else if (a.sudden === 'lowgrav' && Math.random() < 0.4) {
+      this.particles.spawn(b.x0 + Math.random() * (b.x1 - b.x0), b.y1 - Math.random() * (b.y1 - b.y0), { vy: -0.8, life: 1.6, size: 0.1, color: 0xc8a8ff });
+    }
+    void simDt;
+  }
+
   /** Projectiles, shields, flight sparkles and the ability charge bar over each car. */
   private renderAbilities(alpha: number, simDt: number) {
     const g = this.game!;
@@ -312,8 +383,7 @@ export class GameView {
       sp.destroy();
       this.shotSprites.delete(id);
     }
-    const fx = this.fxGfx;
-    fx.clear();
+    const fx = this.fxGfx; // cleared in renderSudden, which runs first
     for (const c of g.cars) {
       if (!c.alive) continue;
       const hp = c.headWorld();
@@ -369,13 +439,9 @@ export class GameView {
       this.dynLayer.addChild(s);
       return s;
     });
-    this.balls = g.arena.balls.map((b) => {
-      const s = new Sprite(cached(`ball:${b.r}`, () => gridTexture(ballGrid(b.r, ART_PPM), DECOR_PAL)));
-      s.anchor.set(0.5);
-      s.scale.set(1 / ART_PPM);
-      this.dynLayer.addChild(s);
-      return s;
-    });
+    this.ballSprites.clear();
+    this.ghostSprites.clear();
+    this.wallSprites = [];
     this.blocks.clear();
     // Sudden-death lava belongs to the previous round: remove its sprites too.
     for (const c of this.fxLayer.removeChildren()) c.destroy();
@@ -583,26 +649,52 @@ export class GameView {
       this.saws[i].position.set(pos.x, pos.y);
       this.saws[i].rotation = sw.body.getAngle();
     });
-    g.arena.balls.forEach((b, i) => {
-      const pos = b.body.getPosition();
-      this.balls[i].position.set(pos.x, pos.y);
-      this.balls[i].rotation = b.body.getAngle();
-    });
+    const liveBalls = new Set<object>();
+    for (const bl of g.arena.balls) {
+      liveBalls.add(bl.body);
+      let sp = this.ballSprites.get(bl.body);
+      if (!sp) {
+        const grid = bl.look === 'snow' ? shotGrid('snowball', bl.r, ART_PPM) : ballGrid(bl.r, ART_PPM);
+        sp = new Sprite(cached(`ball:${bl.look}:${bl.r.toFixed(2)}`, () => gridTexture(grid, DECOR_PAL)));
+        sp.anchor.set(0.5);
+        sp.scale.set(1 / ART_PPM);
+        this.dynLayer.addChild(sp);
+        this.ballSprites.set(bl.body, sp);
+      }
+      const pos = bl.body.getPosition();
+      sp.position.set(pos.x, pos.y);
+      sp.rotation = bl.body.getAngle();
+    }
+    for (const [k, sp] of this.ballSprites) if (!liveBalls.has(k)) {
+      sp.destroy();
+      this.ballSprites.delete(k);
+    }
+    this.renderSudden(simDt);
     const live = new Set<object>();
     for (const bl of g.arena.blocks) {
       live.add(bl.body);
       let s = this.blocks.get(bl.body);
       if (!s) {
-        const style = g.map.fallingBlocks?.style ?? 'crate';
-        s = new Sprite(cached(`crate:${bl.size}:${style}`, () => gridTexture(crateGrid(bl.size, ART_PPM, style), PROP_PAL)));
-        s.anchor.set(0.5);
-        s.scale.set(1 / ART_PPM);
+        if (bl.style === 'toy') {
+          const grid = decorGrid('block', bl.seed);
+          s = new Sprite(cached(`decor:block:${bl.seed % 9}`, () => gridTexture(decorGrid('block', bl.seed % 9), DECOR_PAL)));
+          s.anchor.set(0.5);
+          s.scale.set(bl.size / (grid.w - 2));
+        } else {
+          const style = bl.style === 'meteor' ? 'stone' : bl.style;
+          s = new Sprite(cached(`crate:${bl.size}:${style}`, () => gridTexture(crateGrid(bl.size, ART_PPM, style), PROP_PAL)));
+          s.anchor.set(0.5);
+          s.scale.set(1 / ART_PPM);
+        }
         this.dynLayer.addChild(s);
         this.blocks.set(bl.body, s);
       }
       const p = bl.body.getPosition();
       s.position.set(p.x, p.y);
       s.rotation = bl.body.getAngle();
+      if (bl.style === 'meteor' && bl.body.getLinearVelocity().length() > 5) {
+        for (let i = 0; i < 2; i++) this.particles.spawn(p.x + (Math.random() - 0.5) * bl.size, p.y - bl.size * 0.4, { vy: -2, life: 0.35, size: 0.2, color: Math.random() > 0.4 ? 0xff7020 : 0xffd040 });
+      }
     }
     for (const [k, s] of this.blocks) if (!live.has(k)) {
       s.destroy();
@@ -611,9 +703,12 @@ export class GameView {
     for (const t of this.lavaTiles) t.tilePosition.x = Math.round(this.time * 6) % 32;
     if (g.arena.riseBody) {
       if (!this.riseLava) {
-        this.riseLava = new TilingSprite({ texture: cached('lava', () => gridTexture(lavaGrid(), PROP_PAL)), width: (b.x1 - b.x0 + 40) * ART_PPM, height: 60 * ART_PPM });
+        const sea = g.arena.riseKind === 'flood';
+        const body = sea ? cached('water', () => gridTexture(waterGrid(), PROP_PAL)) : cached('lava', () => gridTexture(lavaGrid(), PROP_PAL));
+        const top = sea ? cached('waterTop', () => gridTexture(waterSurfaceGrid(), PROP_PAL)) : cached('lavaTop', () => gridTexture(lavaSurfaceGrid(), PROP_PAL));
+        this.riseLava = new TilingSprite({ texture: body, width: (b.x1 - b.x0 + 40) * ART_PPM, height: 60 * ART_PPM });
         this.riseLava.scale.set(1 / ART_PPM);
-        this.riseTop = new TilingSprite({ texture: cached('lavaTop', () => gridTexture(lavaSurfaceGrid(), PROP_PAL)), width: (b.x1 - b.x0 + 40) * ART_PPM, height: 4 });
+        this.riseTop = new TilingSprite({ texture: top, width: (b.x1 - b.x0 + 40) * ART_PPM, height: 4 });
         this.riseTop.scale.set(1 / ART_PPM);
         this.fxLayer.addChild(this.riseLava, this.riseTop);
       }
@@ -621,7 +716,7 @@ export class GameView {
       this.riseTop!.position.set(b.x0 - 20, g.arena.riseY - 3 / ART_PPM);
       this.riseLava.tilePosition.x = Math.round(this.time * 8) % 32;
       this.riseTop!.tilePosition.x = Math.round(-this.time * 10) % 32;
-      if (Math.random() < 0.3) this.particles.spawn(b.x0 + Math.random() * (b.x1 - b.x0), g.arena.riseY, { vy: -3, g: 8, life: 0.6, size: 0.15, color: 0xffd060 });
+      if (Math.random() < 0.3) this.particles.spawn(b.x0 + Math.random() * (b.x1 - b.x0), g.arena.riseY, { vy: -3, g: 8, life: 0.6, size: 0.15, color: g.arena.riseKind === 'flood' ? 0xe8f8ff : 0xffd060 });
     }
     for (const l of g.map.lava ?? []) {
       if (Math.random() < l.w * 0.01) this.particles.spawn(l.x + Math.random() * l.w, l.y, { vy: -3 - Math.random() * 3, g: 10, life: 0.6, size: 0.14, color: Math.random() > 0.5 ? 0xffd060 : 0xff7020 });
@@ -691,7 +786,7 @@ export class GameView {
       s.position.set(Math.round(W / 2 + (i - 1) * 16 * ps), top);
     });
     let tt: string;
-    if (g.suddenDeath) tt = 'РАПТОВА СМЕРТЬ';
+    if (g.suddenDeath) tt = g.arena.sudden ? SUDDEN_INFO[g.arena.riseBody && g.arena.sudden !== 'flood' ? 'lava' : g.arena.sudden].name.toUpperCase() + '!' : 'РАПТОВА СМЕРТЬ';
     else {
       const t = Math.ceil(g.timeLeft);
       tt = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;

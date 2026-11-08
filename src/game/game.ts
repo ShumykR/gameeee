@@ -6,7 +6,8 @@ import { Car } from '../cars/car';
 import type { AbilityKind, CarDef, ProjectileKind } from '../cars/types';
 import { ABILITY_INFO, PROJECTILES } from './abilities';
 import { Arena } from '../maps/arena';
-import type { MapDef } from '../maps/types';
+import type { MapDef, SuddenDeathKind } from '../maps/types';
+import { SUDDEN_FALLBACK, suddenKindFor } from '../maps/sudden';
 import { MatchState, DeathResolver, RoundResult } from './match';
 import { Ragdoll } from './ragdoll';
 
@@ -23,7 +24,7 @@ export type GameEvent =
   | { type: 'shotHit'; x: number; y: number; proj: ProjectileKind }
   | { type: 'death'; player: number; x: number; y: number; cause: 'hit' | 'hazard' | 'fall' | 'ground' }
   | { type: 'pad'; x: number; y: number }
-  | { type: 'suddenDeath' }
+  | { type: 'suddenDeath'; kind: SuddenDeathKind; late?: boolean }
   | { type: 'roundEnd'; result: RoundResult }
   | { type: 'matchEnd'; winner: 0 | 1 };
 
@@ -184,8 +185,13 @@ export class Game {
       this.roundClock += dt;
       if (!this.suddenDeath && this.roundClock >= this.cfg.roundTime) {
         this.suddenDeath = true;
-        this.arena.startRise();
-        this.emit({ type: 'suddenDeath' });
+        const kind = suddenKindFor(this.map);
+        this.arena.startSuddenDeath(kind);
+        this.emit({ type: 'suddenDeath', kind });
+      } else if (this.suddenDeath && !this.arena.riseBody && this.roundClock >= this.cfg.roundTime + SUDDEN_FALLBACK) {
+        // Nobody fell for the variant: lava makes sure the round ends.
+        this.arena.startRise('lava');
+        this.emit({ type: 'suddenDeath', kind: 'lava', late: true });
       }
     }
 
@@ -206,6 +212,9 @@ export class Game {
     this.world.step(dt, VELOCITY_ITERS, POSITION_ITERS);
     this.processContacts();
     this.stepShots();
+    for (const d of this.arena.detonations) this.shockwave(-1, 3.8, 1.3, d, 'bomb');
+    this.arena.detonations = [];
+    if (this.arena.wind) for (const c of this.cars) for (const b of c.bodies) b.applyForceToCenter(new Vec2(this.arena.wind * b.getMass(), 0), true);
     for (const c of this.cars) {
       if (c.slamming && (c.wheelsOnGround > 0 || c.chassisTouching)) {
         c.slamming = false;
