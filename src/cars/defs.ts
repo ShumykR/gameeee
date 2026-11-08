@@ -1,6 +1,7 @@
 import type { CarDef, CarPoly, Pt } from './types';
 import { buildCar } from './factory';
 import { applyKit } from './kit';
+import { skinOriginal } from './originals';
 import { ROSTER } from './roster/index';
 
 /** Axis-aligned box polygon helper (car-local meters, y down). */
@@ -577,7 +578,7 @@ const ORIGINALS: CarDef[] = [
 
 /** Every car: the originals first, then the generated collections. */
 export const CARS: CarDef[] = [
-  ...ORIGINALS.map((c) => ({ ...c, category: 'originals' as const })),
+  ...ORIGINALS.map((c) => skinOriginal({ ...c, category: 'originals' as const })),
   ...ROSTER.map(buildCar),
 ].map(applyKit);
 

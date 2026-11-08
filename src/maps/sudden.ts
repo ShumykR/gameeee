@@ -17,6 +17,7 @@ const BY_THEME: Record<ThemeId, SuddenDeathKind> = {
   meadow: 'lava', foundry: 'lava', sawmill: 'walls', sky: 'lowgrav', ice: 'blizzard', neon: 'walls', desert: 'meteors', moon: 'meteors',
   halloween: 'ghosts', winter: 'blizzard', alien: 'bombs', dome: 'walls', volcano: 'lava', beach: 'flood', stadium: 'balls',
   cny: 'bombs', rift: 'lowgrav', toys: 'blocks',
+  cavern: 'lava', catacomb: 'ghosts', grotto: 'flood', mine: 'walls', chasm: 'meteors', bunker: 'walls', crypt: 'ghosts', amber: 'lowgrav',
 };
 
 export const suddenKindFor = (map: MapDef): SuddenDeathKind => map.suddenDeath ?? BY_THEME[map.theme];

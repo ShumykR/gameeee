@@ -49,7 +49,7 @@ describe('sprite generator', () => {
     for (const [v, n] of counts) if (v !== P.NONE && v !== P.OUTLINE) filled += n;
     expect(filled).toBeGreaterThan(30);
     // Painted hulls get head lights.
-    if (def.lights !== false && def.body.some((p) => (p.mat ?? 'body') === 'body' && !p.deco)) expect(counts.get(P.HEAD_LIGHT) ?? 0).toBeGreaterThan(0);
+    if (def.lights !== false && def.body.some((p) => (p.mat ?? 'body') === 'body' && !p.deco && !p.hide)) expect(counts.get(P.HEAD_LIGHT) ?? 0).toBeGreaterThan(0);
     // origin lies inside the grid
     expect(g.ox).toBeGreaterThan(0);
     expect(g.ox).toBeLessThan(g.w);

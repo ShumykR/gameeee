@@ -3,7 +3,8 @@ export type Pt = [number, number];
 /** Materials a car polygon can be drawn with (palette slot or special texture). */
 export type CarMat =
   | 'body' | 'accent' | 'dark' | 'metal' | 'spike' | 'scoop' | 'rocket' | 'wood' | 'glass'
-  | 'bone' | 'gold' | 'leaf' | 'white' | 'light' | 'black' | 'pink';
+  | 'bone' | 'gold' | 'leaf' | 'white' | 'light' | 'black' | 'pink'
+  | 'red' | 'yellow' | 'green' | 'blue' | 'orange' | 'brown' | 'purple' | 'chrome' | 'rubber' | 'cream' | 'teal' | 'tan' | 'sky' | 'grey';
 
 export type Archetype =
   | 'allround' | 'heavy' | 'fast' | 'monster' | 'tiny' | 'long'
@@ -18,6 +19,12 @@ export interface CarPoly {
   friction?: number;
   /** Render-only piece (no collision). */
   deco?: boolean;
+  /** Physics-only piece (not drawn; a skin draws the look instead). */
+  hide?: boolean;
+  /** Draw a dark seam around this piece even over the same material (panels, doors). */
+  ring?: boolean;
+  /** Flat shading (no top highlight / bottom shadow): decals, stripes, lettering. */
+  flat?: boolean;
 }
 
 export interface WheelDef {

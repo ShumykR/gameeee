@@ -6,7 +6,8 @@ export type FixtureTag =
   | { kind: 'car'; player: number; part: 'chassis' | 'wheel' }
   | { kind: 'head'; player: number }
   | { kind: 'terrain'; mat: string }
-  | { kind: 'hazard'; type: 'lava' | 'saw' | 'spikes' | 'water' }
+  | { kind: 'hazard'; type: 'lava' | 'saw' | 'spikes' | 'water' | 'laser' }
+  | { kind: 'field' }
   | { kind: 'block'; body: Body }
   | { kind: 'pad'; power: number; nx: number; ny: number }
   | { kind: 'platform' }

@@ -8,6 +8,8 @@ export const DEFAULT_GRAVITY = 22;
 
 /** Art resolution: generated pixel-art assets use this many pixels per meter. */
 export const ART_PPM = 14;
+/** Cars, wheels and drivers are drawn finer than the terrain so their details read. */
+export const CAR_PPM = 18;
 
 /** Collision categories. */
 export const CAT = {

@@ -1,5 +1,5 @@
 import type { RGB } from '../render/color';
-import { PixelGrid, makeGrid, gget, gset, fillPoly } from '../render/grid';
+import { PixelGrid, makeGrid, gget, gset, fillPoly, pointInPoly } from '../render/grid';
 import type { DecorKind, MapDef, Pt } from './types';
 import type { ItemKind, ProjectileKind } from '../cars/types';
 
@@ -844,18 +844,24 @@ export function itemGrid(kind: ItemKind, w: number, h: number, ppm: number): Pix
 
 /** Highest solid surface at x (world y, y grows down), or null. */
 export function groundY(map: MapDef, x: number): number | null {
-  let best: number | null = null;
+  // Topmost surface with rock below it, inside the arena (skips cave ceilings above the bounds).
+  const hits: number[] = [];
   for (const s of map.solids) {
     const pts = s.pts;
     for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
       const [xa, ya] = pts[j], [xb, yb] = pts[i];
-      if ((xa <= x && xb > x) || (xb <= x && xa > x)) {
-        const y = ya + ((x - xa) * (yb - ya)) / (xb - xa);
-        if (best === null || y < best) best = y;
-      }
+      if ((xa <= x && xb > x) || (xb <= x && xa > x)) hits.push(ya + ((x - xa) * (yb - ya)) / (xb - xa));
     }
   }
-  return best;
+  hits.sort((a, b) => a - b);
+  const solidAt = (y: number) => map.solids.some((s) => pointInPoly(x, y, s.pts));
+  let first: number | null = null;
+  for (const y of hits) {
+    if (solidAt(y - 0.02) || !solidAt(y + 0.02)) continue;
+    if (first === null) first = y;
+    if (y > map.bounds.y0) return y;
+  }
+  return first;
 }
 
 /** Collect decor placements with resolved y (bottom-center, world meters). */

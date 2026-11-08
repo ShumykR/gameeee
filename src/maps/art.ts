@@ -1,17 +1,19 @@
 import { ART_PPM } from '../physics/constants';
 import { RGB, hex, shade, mix, hash2, bayer } from '../render/color';
 import { PixelGrid, makeGrid, gget, gset, fillPoly } from '../render/grid';
-import type { MapDef, TerrainMat, ThemeId } from './types';
+import type { MapDef, Pt, TerrainMat, ThemeId } from './types';
 
 /* ------------------------------------------------------------------ */
 /* Terrain                                                             */
 /* ------------------------------------------------------------------ */
 
-const MATS: TerrainMat[] = ['grass', 'rock', 'sand', 'metal', 'ice', 'wood', 'snow', 'moon', 'neon', 'brick', 'grave', 'basalt', 'turf', 'track', 'void', 'asphalt', 'tile'];
+const MATS: (TerrainMat | 'back')[] = ['grass', 'rock', 'sand', 'metal', 'ice', 'wood', 'snow', 'moon', 'neon', 'brick', 'grave', 'basalt', 'turf', 'track', 'void', 'asphalt', 'tile', 'cave', 'steel', 'amber', 'girder', 'back'];
+/** Materials shaded by distance to open air in every direction (caves have ceilings). */
+const RIMMED = new Set<TerrainMat | 'back'>(['cave', 'steel', 'amber']);
 /** slots per material: 0 outline,1 top,2 surface,3 surface dark,4 base,5 base dark,6 base light,7 detail */
 const SLOTS = 8;
 
-const MAT_COLORS: Record<TerrainMat, string[]> = {
+const MAT_COLORS: Record<TerrainMat | 'back', string[]> = {
   grass: ['#1d2a14', '#b6f05a', '#5cc23a', '#2f8a34', '#8a5a34', '#5e3a22', '#a8734a', '#3d2616'],
   rock: ['#1b1b24', '#c9c6c0', '#8e8a86', '#6a6670', '#6e6a74', '#4a4752', '#8d8994', '#34323c'],
   sand: ['#3a2a18', '#fff0b8', '#f2cf7a', '#d9ad55', '#d9a24e', '#b47e36', '#ecc06a', '#9a6a2c'],
@@ -29,6 +31,12 @@ const MAT_COLORS: Record<TerrainMat, string[]> = {
   void: ['#08040e', '#ff8ae8', '#8a4ae0', '#6430b8', '#2a1648', '#1a0e30', '#3a2060', '#d08aff'],
   asphalt: ['#0a0a0e', '#ececf0', '#55555e', '#44444c', '#34343c', '#25252b', '#44444c', '#ffd23f'],
   tile: ['#1a0606', '#ffd84a', '#d02e2e', '#a8201e', '#7e1616', '#5a0e10', '#9a1a1c', '#ffcf3a'],
+  // rim-lit materials: outline, rim, glow, glow fade, base, base dark, base light, mortar
+  cave: ['#120a1a', '#fbe8d6', '#c6a2b2', '#86688e', '#5a4670', '#3c2e52', '#6c5682', '#271c36'],
+  steel: ['#0c1018', '#f2f8ff', '#c2d0e4', '#8ea2be', '#6a7e9c', '#4c5e7c', '#7e92b0', '#34425a'],
+  amber: ['#2a1004', '#fff2a8', '#ffcc48', '#f6a228', '#e08418', '#b0600c', '#ee962a', '#7e3c06'],
+  girder: ['#0a0c12', '#eef4fc', '#c0c8d4', '#8e96a4', '#6c7482', '#4a505c', '#a0a8b6', '#2c3038'],
+  back: ['#07050c', '#1d1729', '#1a1425', '#171221', '#141020', '#0e0b16', '#1b1527', '#110d1a'],
 };
 
 export function terrainPalette(): (RGB | null)[] {
@@ -53,11 +61,55 @@ export function generateTerrain(map: MapDef, ppm = ART_PPM): TerrainArt {
   const w = Math.ceil((map.bounds.x1 - map.bounds.x0 + pad * 2) * ppm);
   const h = Math.ceil((map.bounds.y1 - map.bounds.y0 + pad * 2) * ppm);
   const matGrid = makeGrid(w, h);
+  const toPx = (pts: Pt[]) => pts.map(([x, y]) => [(x - x0) * ppm, (y - y0) * ppm] as [number, number]);
   map.solids.forEach((s) => {
     const id = MATS.indexOf(s.mat) + 1;
-    fillPoly(s.pts.map(([x, y]) => [(x - x0) * ppm, (y - y0) * ppm] as [number, number]), w, h, (x, y) => gset(matGrid, x, y, id));
+    fillPoly(toPx(s.pts), w, h, (x, y) => gset(matGrid, x, y, id));
   });
   const out = makeGrid(w, h);
+  // Distance to open air in all four directions (rim light for cave-like materials).
+  let dist: Int16Array | null = null;
+  if (map.solids.some((s) => RIMMED.has(s.mat) || s.mat === 'girder') || map.backdrop) {
+    dist = new Int16Array(w * h).fill(99);
+    const q: number[] = [];
+    for (let i = 0; i < w * h; i++) if (!matGrid.data[i]) { dist[i] = 0; q.push(i); }
+    for (let k = 0; k < q.length; k++) {
+      const i = q[k], d = dist[i];
+      if (d >= 16) continue;
+      const x = i % w, y = (i / w) | 0;
+      for (const j of [x > 0 ? i - 1 : -1, x < w - 1 ? i + 1 : -1, y > 0 ? i - w : -1, y < h - 1 ? i + w : -1]) {
+        if (j >= 0 && dist[j] > d + 1) { dist[j] = d + 1; q.push(j); }
+      }
+    }
+  }
+  // Dark back wall behind caves (render only): cobbles that fade into shadow next to the rock.
+  if (map.backdrop) {
+    const back = makeGrid(w, h);
+    for (const b of map.backdrop) fillPoly(toPx(b), w, h, (x, y) => gset(back, x, y, 1));
+    const bb = (MATS.indexOf('back')) * SLOTS + 1;
+    // distance from rock into the air, for a soft shadow
+    const air = new Int16Array(w * h).fill(99);
+    const q: number[] = [];
+    for (let i = 0; i < w * h; i++) if (matGrid.data[i]) { air[i] = 0; q.push(i); }
+    for (let k = 0; k < q.length; k++) {
+      const i = q[k], d = air[i];
+      if (d >= 10) continue;
+      const x = i % w, y = (i / w) | 0;
+      for (const j of [x > 0 ? i - 1 : -1, x < w - 1 ? i + 1 : -1, y > 0 ? i - w : -1, y < h - 1 ? i + w : -1]) {
+        if (j >= 0 && air[j] > d + 1) { air[j] = d + 1; q.push(j); }
+      }
+    }
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (!gget(back, x, y) || gget(matGrid, x, y)) continue;
+        const a = air[y * w + x];
+        const cell = cobble(x, y, 13);
+        let sl = cell.edge ? 7 : cell.v > 0.66 ? 1 : cell.v > 0.33 ? 2 : 3;
+        if (a < 4 || (a < 7 && bayer(x, y) * 7 > a - 2)) sl = cell.edge ? 0 : 5;
+        gset(out, x, y, bb + sl);
+      }
+    }
+  }
   const depth = new Int16Array(w * h);
   for (let x = 0; x < w; x++) {
     let d = 0;
@@ -77,6 +129,12 @@ export function generateTerrain(map: MapDef, ppm = ART_PPM): TerrainArt {
       const n = hash2(x >> 1, y >> 1, m);
       const dith = bayer(x, y);
       let s: number;
+      if (dist && (RIMMED.has(mat) || mat === 'girder')) {
+        s = rimShade(mat, dist[y * w + x], x, y, gget(matGrid, x, y - 1) === m ? 1 : 0, depth[y * w + x], matGrid, w, h, m);
+        if (s < 0) continue;
+        gset(out, x, y, base + s);
+        continue;
+      }
       if (d === 1 || edge) s = 0;
       else if (d === 2) s = 1;
       else if (d < 6) s = d === 5 && dith > 0.5 ? 3 : 2;
@@ -171,6 +229,63 @@ export function generateTerrain(map: MapDef, ppm = ART_PPM): TerrainArt {
   return { grid: out, palette: terrainPalette(), x0, y0, ppm };
 }
 
+/** Voronoi-ish cobblestones: which stone a pixel belongs to and whether it is on a joint. */
+function cobble(x: number, y: number, size: number): { v: number; edge: boolean } {
+  const cx = Math.floor(x / size), cy = Math.floor(y / size);
+  let d1 = 1e9, d2 = 1e9, id = 0;
+  for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
+    const gx = cx + i, gy = cy + j;
+    const px = gx * size + hash2(gx, gy, 31) * size, py = gy * size + hash2(gx, gy, 37) * size;
+    const d = (x - px) * (x - px) + (y - py) * (y - py) * 1.3;
+    if (d < d1) { d2 = d1; d1 = d; id = gx * 7919 + gy; } else if (d < d2) d2 = d;
+  }
+  return { v: hash2(id, 3, 5), edge: Math.sqrt(d2) - Math.sqrt(d1) < 1.1 };
+}
+
+/**
+ * Rim-lit shading (slot index, -1 = leave transparent): a dark outline, a bright rim,
+ * a glow that fades into a textured body. Girders become a see-through lattice.
+ */
+function rimShade(mat: TerrainMat | 'back', d: number, x: number, y: number, _up: number, depthTop: number, grid: PixelGrid, _w: number, h: number, id: number): number {
+  if (mat === 'girder') {
+    // vertical extent of the girder through this column
+    let up = depthTop - 1, dn = 0;
+    while (dn < 40 && y + dn + 1 < h && gget(grid, x, y + dn + 1) === id) dn++;
+    const H = up + dn + 1;
+    if (up <= 1 || dn <= 1) return up === 0 || dn === 0 ? 0 : up === 1 ? 1 : 5;
+    const cell = Math.max(6, H - 2);
+    const lx = ((x % (cell * 2)) + cell * 2) % (cell * 2);
+    const t = (up - 1) / Math.max(1, H - 3);
+    const diag = Math.abs(lx / cell - (lx < cell ? t : 2 - t)) * cell;
+    if (lx < 2) return lx === 0 ? 0 : 3;
+    if (diag < 1.2) return diag < 0.6 ? 2 : 4;
+    return -1;
+  }
+  if (d <= 1) return 0;
+  if (d === 2) return 1;
+  if (d === 3) return 2;
+  const glow = d < 7 ? (bayer(x, y) * 4 < 7 - d ? 2 : 3) : 3;
+  if (d < 9 && glow === 2) return 2;
+  if (mat === 'cave') {
+    const c = cobble(x, y, 8);
+    if (c.edge) return 7;
+    if (d < 9) return 3;
+    return c.v > 0.7 ? 6 : c.v < 0.25 ? 5 : 4;
+  }
+  if (mat === 'steel') {
+    const px = ((x % 20) + 20) % 20, py = ((y % 14) + 14) % 14;
+    if (px === 0 || py === 0) return 7;
+    if (px === 1 || py === 1) return 6;
+    if ((px === 3 || px === 17) && (py === 3 || py === 11)) return 2;
+    return d < 9 ? 3 : (x + y * 2) % 23 === 0 ? 6 : 4;
+  }
+  // amber: grainy glow with darker veins
+  const n = hash2(x >> 1, y >> 1, 77);
+  if (d >= 9 && Math.abs(((x + Math.round(Math.sin(y * 0.35) * 3)) % 17) - 8) === 0 && n > 0.4) return 7;
+  if (d < 9) return 3;
+  return n > 0.85 ? 6 : n < 0.12 ? 5 : 4;
+}
+
 /* ------------------------------------------------------------------ */
 /* Parallax backgrounds                                                */
 /* ------------------------------------------------------------------ */
@@ -188,7 +303,8 @@ export interface BgLayer {
 
 export interface Theme {
   sky: [string, string, string];
-  layers: { kind: LayerKind; color: string; color2?: string; factor: number; bottom: number; height: number; seed: number }[];
+  /** `hang` layers hang from the top of the screen (stalactites) and fill upward. */
+  layers: { kind: LayerKind; color: string; color2?: string; factor: number; bottom: number; height: number; seed: number; hang?: boolean }[];
   celestial?: { kind: 'sun' | 'moon' | 'planet'; color: string; x: number; y: number; r: number };
   stars?: boolean;
   clouds?: string;
@@ -196,7 +312,8 @@ export interface Theme {
 
 type LayerKind =
   | 'mountains' | 'hills' | 'trees' | 'city' | 'factory' | 'pines' | 'dunes' | 'islands' | 'crystals' | 'craters' | 'ruins'
-  | 'graves' | 'volcanoes' | 'stands' | 'palms' | 'sea' | 'pagodas' | 'farm' | 'domewall' | 'blocks' | 'snowpines';
+  | 'graves' | 'volcanoes' | 'stands' | 'palms' | 'sea' | 'pagodas' | 'farm' | 'domewall' | 'blocks' | 'snowpines'
+  | 'stalactites' | 'cavewall' | 'girders' | 'pipes';
 
 export const THEMES: Record<ThemeId, Theme> = {
   meadow: {
@@ -350,6 +467,65 @@ export const THEMES: Record<ThemeId, Theme> = {
       { kind: 'blocks', color: '#ffd23f', color2: '#4ac46a', factor: 0.2, bottom: 0.97, height: 44, seed: 42 },
     ],
   },
+  cavern: {
+    sky: ['#0a0612', '#1e1430', '#3a2850'],
+    layers: [
+      { kind: 'stalactites', color: '#1a1228', color2: '#3a2c50', factor: 0.06, bottom: 0.3, height: 60, seed: 51, hang: true },
+      { kind: 'cavewall', color: '#241a36', color2: '#3a2c50', factor: 0.1, bottom: 0.9, height: 80, seed: 52 },
+    ],
+  },
+  catacomb: {
+    sky: ['#08060c', '#1a141e', '#30263a'],
+    layers: [
+      { kind: 'stalactites', color: '#140e18', color2: '#2e2234', factor: 0.06, bottom: 0.26, height: 50, seed: 53, hang: true },
+      { kind: 'graves', color: '#1c1422', color2: '#e8dcc0', factor: 0.14, bottom: 0.92, height: 60, seed: 54 },
+    ],
+  },
+  grotto: {
+    sky: ['#04101a', '#0c2a3a', '#1a4a5c'],
+    layers: [
+      { kind: 'stalactites', color: '#081a26', color2: '#2a6a7a', factor: 0.06, bottom: 0.3, height: 60, seed: 55, hang: true },
+      { kind: 'crystals', color: '#0e2a3a', color2: '#5ef0ff', factor: 0.12, bottom: 0.92, height: 80, seed: 56 },
+    ],
+  },
+  mine: {
+    sky: ['#0e0a08', '#2a1c14', '#4a3020'],
+    layers: [
+      { kind: 'stalactites', color: '#1a120c', color2: '#3a2818', factor: 0.06, bottom: 0.28, height: 50, seed: 57, hang: true },
+      { kind: 'girders', color: '#3a2a1c', color2: '#ffb050', factor: 0.12, bottom: 0.95, height: 110, seed: 58 },
+    ],
+  },
+  chasm: {
+    sky: ['#1a2a5a', '#5a6aa8', '#f0a87a'],
+    celestial: { kind: 'sun', color: '#fff0c0', x: 0.7, y: 0.55, r: 16 },
+    clouds: '#f8d8c8',
+    layers: [
+      { kind: 'mountains', color: '#4a4a7a', color2: '#d8c8e8', factor: 0.06, bottom: 0.8, height: 80, seed: 59 },
+      { kind: 'girders', color: '#2a2a4a', color2: '#8a8ab0', factor: 0.16, bottom: 1.0, height: 120, seed: 60 },
+    ],
+  },
+  bunker: {
+    sky: ['#0a0e16', '#1a2434', '#2c3a52'],
+    layers: [
+      { kind: 'pipes', color: '#1a2230', color2: '#ff4a3a', factor: 0.06, bottom: 0.9, height: 160, seed: 61 },
+      { kind: 'girders', color: '#222c3c', color2: '#5a6a86', factor: 0.14, bottom: 1.0, height: 90, seed: 62 },
+    ],
+  },
+  crypt: {
+    sky: ['#06040a', '#140e1c', '#261a30'],
+    layers: [
+      { kind: 'stalactites', color: '#120c18', color2: '#2a1e34', factor: 0.06, bottom: 0.32, height: 60, seed: 63, hang: true },
+      { kind: 'cavewall', color: '#1a1222', color2: '#ffb050', factor: 0.1, bottom: 0.92, height: 90, seed: 64 },
+    ],
+  },
+  amber: {
+    sky: ['#2a0e04', '#6a2a0a', '#d07a20'],
+    celestial: { kind: 'sun', color: '#ffe8a0', x: 0.3, y: 0.3, r: 18 },
+    layers: [
+      { kind: 'dunes', color: '#a0500c', color2: '#7a3a08', factor: 0.08, bottom: 0.82, height: 40, seed: 65 },
+      { kind: 'ruins', color: '#6a3006', color2: '#4a2004', factor: 0.18, bottom: 0.94, height: 60, seed: 66 },
+    ],
+  },
   moon: {
     sky: ['#020208', '#0a0a1c', '#1a1a34'],
     stars: true,
@@ -376,6 +552,13 @@ function pnoise(x: number, W: number, seed: number, octaves = 4): number {
 
 const BG_W = 320;
 
+/** Background cobble joints (tileable over BG_W). */
+function cobbleBg(x: number, y: number): boolean {
+  const row = Math.floor(y / 9);
+  const bx = (x + (row % 2) * 8) % 16;
+  return y % 9 === 0 || bx === 0;
+}
+
 function putPx(buf: Uint8ClampedArray, w: number, x: number, y: number, c: RGB, a = 255) {
   const i = (y * w + x) * 4;
   buf[i] = c[0]; buf[i + 1] = c[1]; buf[i + 2] = c[2]; buf[i + 3] = a;
@@ -386,8 +569,11 @@ export function generateLayer(spec: Theme['layers'][number]): BgLayer {
   const rgba = new Uint8ClampedArray(w * h * 4);
   const c1 = hex(spec.color), c2 = hex(spec.color2 ?? spec.color);
   const s = spec.seed;
-  const col = (x: number, top: number, fill: (y: number) => RGB) => {
-    for (let y = Math.max(0, Math.floor(top)); y < h; y++) putPx(rgba, w, x, y, fill(y));
+  const col = (x: number, top: number, fill: (y: number) => RGB | null) => {
+    for (let y = Math.max(0, Math.floor(top)); y < h; y++) {
+      const c = fill(y);
+      if (c) putPx(rgba, w, x, y, c);
+    }
   };
   for (let x = 0; x < w; x++) {
     const n = pnoise(x, w, s);
@@ -616,6 +802,55 @@ export function generateLayer(spec: Theme['layers'][number]): BgLayer {
         const top = h - th + dx * 2.4;
         const ground = h - 6 + n * 2;
         col(x, Math.min(top, ground), (y) => (y > top && (y - top) % 8 < 2 ? c2 : y < top + 3 ? c2 : c1));
+        break;
+      }
+      case 'stalactites': {
+        const cell = Math.floor(x / 14);
+        const lx = x % 14;
+        const len = (0.3 + hash2(cell, s) * 0.7) * h;
+        const tip = len * (1 - Math.abs(lx - 7) / 7.5);
+        for (let y = 0; y < Math.min(h, tip); y++) putPx(rgba, w, x, y, lx < 3 && y < tip - 2 ? c2 : c1);
+        break;
+      }
+      case 'cavewall': {
+        const top = h * 0.25 + n * h * 0.2;
+        col(x, top, (y) => {
+          const b = cobbleBg(x, y);
+          return b ? shade(c1, 0.8) : y - top < 2 ? c2 : (x * 3 + y) % 17 === 0 ? mix(c1, c2, 0.4) : c1;
+        });
+        break;
+      }
+      case 'girders': {
+        const cell = Math.floor(x / 48), lx = x % 48;
+        const tw = 10;
+        const top = h * (0.15 + hash2(cell, s) * 0.35);
+        const inTower = lx >= 19 && lx < 19 + tw;
+        if (inTower) {
+          col(x, top, (y) => {
+            const ly = (y - Math.floor(top)) % tw;
+            const tx = lx - 19;
+            if (tx === 0 || tx === tw - 1) return c1;
+            if (ly === 0 || Math.abs(tx - ly) < 1 || Math.abs(tw - 1 - tx - ly) < 1) return c1;
+            if (y - top < 3 && tx % 3 === 0) return c2;
+            return null;
+          });
+        }
+        // horizontal beam between towers
+        const by = Math.floor(h * 0.55 + hash2(cell, s + 1) * 10);
+        for (let y = by; y < by + 3; y++) putPx(rgba, w, x, y, y === by ? c2 : c1);
+        break;
+      }
+      case 'pipes': {
+        const top = h * 0.1;
+        for (let y = Math.floor(top); y < h; y++) {
+          const vx = x % 40;
+          const hy = (y + Math.floor(x / 40) * 13) % 52;
+          let c: RGB | null = null;
+          if (vx >= 6 && vx < 12) c = vx === 6 || vx === 11 ? shade(c1, 0.7) : vx === 8 ? shade(c1, 1.4) : c1;
+          if (hy >= 20 && hy < 25) c = hy === 20 ? shade(c1, 1.4) : hy === 24 ? shade(c1, 0.7) : c1;
+          if (vx >= 6 && vx < 12 && hy === 30 && hash2(Math.floor(x / 40), 1, s) > 0.5) c = c2;
+          if (c) putPx(rgba, w, x, y, c);
+        }
         break;
       }
       case 'craters': {

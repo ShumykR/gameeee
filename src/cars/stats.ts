@@ -66,7 +66,7 @@ export function validateCar(def: CarDef): string[] {
   const errs: string[] = [];
   def.body.forEach((p, i) => {
     // Render-only details can be tiny or concave; physics polygons must be valid Box2D shapes.
-    if (p.pts.length < 3 || p.pts.length > (p.deco ? 16 : 8)) errs.push(`poly ${i}: ${p.pts.length} vertices`);
+    if (p.pts.length < 3 || p.pts.length > (p.deco ? 256 : 8)) errs.push(`poly ${i}: ${p.pts.length} vertices`);
     if (!p.deco && !isConvex(p.pts)) errs.push(`poly ${i}: not convex`);
     if (polyArea(p.pts) < (p.deco ? 1e-4 : 0.005)) errs.push(`poly ${i}: degenerate`);
   });
