@@ -274,8 +274,10 @@ export class Menu {
       const c = el('button', `map-card ${this.settings.map === id ? 'on' : ''}`);
       if (thumb) c.appendChild(Object.assign(new Image(), { src: thumb, className: 'thumb' }));
       else c.appendChild(el('div', 'thumb random', '?'));
-      c.appendChild(el('div', 'map-name', name));
-      c.title = blurb;
+      const cat = CATEGORIES.find((k) => k.map === id && k.id !== 'retro');
+      c.appendChild(el('div', 'map-name', cat ? `${cat.icon} ${name}` : name));
+      if (cat) c.title = `${blurb} · тематична арена: ${cat.name}`;
+      if (!c.title) c.title = blurb;
       c.addEventListener('click', () => {
         audio.unlock();
         audio.click();

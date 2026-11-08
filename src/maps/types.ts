@@ -1,8 +1,35 @@
 export type Pt = [number, number];
 
-export type TerrainMat = 'grass' | 'rock' | 'sand' | 'metal' | 'ice' | 'wood' | 'snow' | 'moon' | 'neon' | 'brick';
+export type TerrainMat =
+  | 'grass' | 'rock' | 'sand' | 'metal' | 'ice' | 'wood' | 'snow' | 'moon' | 'neon' | 'brick'
+  | 'grave' | 'basalt' | 'turf' | 'track' | 'void' | 'asphalt' | 'tile';
 
-export type ThemeId = 'meadow' | 'foundry' | 'sawmill' | 'sky' | 'ice' | 'neon' | 'desert' | 'moon';
+export type ThemeId =
+  | 'meadow' | 'foundry' | 'sawmill' | 'sky' | 'ice' | 'neon' | 'desert' | 'moon'
+  | 'halloween' | 'winter' | 'alien' | 'dome' | 'volcano' | 'beach' | 'stadium' | 'cny' | 'rift' | 'toys';
+
+export type DecorKind =
+  | 'tombstone' | 'cross' | 'pumpkin' | 'deadtree' | 'spruce' | 'snowman' | 'gift' | 'ufo' | 'beam' | 'cow' | 'haybale'
+  | 'fence' | 'barn' | 'silo' | 'cone' | 'tires' | 'checkflag' | 'palm' | 'umbrella' | 'sandcastle' | 'goal' | 'cornerflag'
+  | 'floodlight' | 'lantern' | 'gate' | 'bamboo' | 'crystal' | 'portal' | 'skull' | 'bones' | 'fern' | 'rocks' | 'block'
+  | 'loop' | 'cactus';
+
+/** Render-only prop planted on the ground (or floating at an explicit y). */
+export interface DecorDef {
+  kind: DecorKind;
+  x: number;
+  /** Bottom y in world meters; defaults to the ground under x. */
+  y?: number;
+  /** Integer-ish pixel scale (default 1). */
+  s?: number;
+  flip?: boolean;
+  /** Draw in front of the terrain instead of behind it. */
+  front?: boolean;
+  seed?: number;
+}
+
+/** Pushable ball (e.g. a football). */
+export interface BallDef { x: number; y: number; r: number }
 
 export interface SolidDef {
   /** Closed outline, any shape (concave ok). World meters, y down. */
@@ -68,4 +95,10 @@ export interface MapDef {
   fallingBlocks?: FallingBlocksDef;
   /** Where sudden-death lava starts rising from. */
   suddenDeathY?: number;
+  /** Background props. */
+  decor?: DecorDef[];
+  /** Decorative water (no physics; falling in means falling below killY). */
+  water?: LavaDef[];
+  /** Loose balls the cars can push around. */
+  balls?: BallDef[];
 }

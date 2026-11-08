@@ -1,6 +1,7 @@
 import { generateSky, generateTerrain, THEMES } from '../maps/art';
 import type { MapDef } from '../maps/types';
 import { gridToRGBA } from '../render/grid';
+import { DECOR_PAL, decorGrid, placedDecor } from '../maps/decor';
 
 const cache = new Map<string, string>();
 
@@ -21,6 +22,23 @@ export function mapThumb(map: MapDef): string {
   sc.height = sky.h;
   sc.getContext('2d')!.putImageData(new ImageData(sky.rgba as any, sky.w, sky.h), 0, 0);
   ctx.drawImage(sc, 0, 0, c.width, c.height);
+  ctx.fillStyle = '#2a8ad8';
+  for (const wv of map.water ?? []) ctx.fillRect((wv.x - art.x0) * ppm, (wv.y - art.y0) * ppm, wv.w * ppm, wv.h * ppm);
+  // props, scaled down from art resolution
+  const k = ppm / 14;
+  for (const d of placedDecor(map)) {
+    const g = decorGrid(d.kind, d.seed);
+    const dc = document.createElement('canvas');
+    dc.width = g.w;
+    dc.height = g.h;
+    dc.getContext('2d')!.putImageData(new ImageData(gridToRGBA(g, DECOR_PAL) as any, g.w, g.h), 0, 0);
+    const sc2 = k * (d.s ?? 1);
+    ctx.save();
+    ctx.translate((d.x - art.x0) * ppm, (d.y - art.y0) * ppm);
+    if (d.flip) ctx.scale(-1, 1);
+    ctx.drawImage(dc, -g.ox * sc2, -g.oy * sc2, g.w * sc2, g.h * sc2);
+    ctx.restore();
+  }
   const tc = document.createElement('canvas');
   tc.width = art.grid.w;
   tc.height = art.grid.h;

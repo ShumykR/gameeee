@@ -7,7 +7,7 @@ import type { MapDef, TerrainMat, ThemeId } from './types';
 /* Terrain                                                             */
 /* ------------------------------------------------------------------ */
 
-const MATS: TerrainMat[] = ['grass', 'rock', 'sand', 'metal', 'ice', 'wood', 'snow', 'moon', 'neon', 'brick'];
+const MATS: TerrainMat[] = ['grass', 'rock', 'sand', 'metal', 'ice', 'wood', 'snow', 'moon', 'neon', 'brick', 'grave', 'basalt', 'turf', 'track', 'void', 'asphalt', 'tile'];
 /** slots per material: 0 outline,1 top,2 surface,3 surface dark,4 base,5 base dark,6 base light,7 detail */
 const SLOTS = 8;
 
@@ -22,6 +22,13 @@ const MAT_COLORS: Record<TerrainMat, string[]> = {
   moon: ['#15151c', '#e6e4ee', '#b4b2c0', '#8c8a9a', '#77758a', '#56546a', '#9896aa', '#46445a'],
   neon: ['#06040e', '#ff4fd8', '#5ef0ff', '#2a2050', '#1c1636', '#120e26', '#2c2454', '#7a3cff'],
   brick: ['#1e0e0c', '#e8a07a', '#c2563c', '#8e3426', '#a8442e', '#6e2a1e', '#c86048', '#e8d6c0'],
+  grave: ['#0e0a12', '#b88ae8', '#5a3e86', '#3e2c62', '#3a2c30', '#261c22', '#4a3a3c', '#7a5aa8'],
+  basalt: ['#0c0808', '#ffb050', '#5a4440', '#423230', '#2e2424', '#1e1818', '#3e3030', '#ff6a1a'],
+  turf: ['#0c1e0e', '#ffffff', '#52c452', '#3aa23e', '#6a4428', '#48301c', '#7c5434', '#ffffff'],
+  track: ['#3a1806', '#ffd8a8', '#ff8c1a', '#e0700e', '#f07a12', '#c45a08', '#ff9e3a', '#ffffff'],
+  void: ['#08040e', '#ff8ae8', '#8a4ae0', '#6430b8', '#2a1648', '#1a0e30', '#3a2060', '#d08aff'],
+  asphalt: ['#0a0a0e', '#ececf0', '#55555e', '#44444c', '#34343c', '#25252b', '#44444c', '#ffd23f'],
+  tile: ['#1a0606', '#ffd84a', '#d02e2e', '#a8201e', '#7e1616', '#5a0e10', '#9a1a1c', '#ffcf3a'],
 };
 
 export function terrainPalette(): (RGB | null)[] {
@@ -123,6 +130,40 @@ export function generateTerrain(map: MapDef, ppm = ART_PPM): TerrainArt {
         case 'sand':
           if (d > 6 && (y + Math.floor(Math.sin(x * 0.2) * 2)) % 7 === 0) s = 5;
           break;
+        case 'grave':
+          if (d === 1 && hash2(x, 5, 3) > 0.6) s = 1;
+          if (d > 6 && hash2(x >> 2, y >> 2, 8) > 0.92) s = 7; // bones / stones
+          break;
+        case 'basalt': {
+          // glowing cracks
+          const cx = Math.floor(x / 11), cy = Math.floor(y / 9);
+          if (d > 4 && Math.abs(((x + cy * 5) % 11) - 5 - Math.round(Math.sin(y * 0.7 + cx) * 2)) === 0 && hash2(cx, cy, 4) > 0.55) s = 7;
+          break;
+        }
+        case 'turf':
+          if (d > 2 && d < 7) s = Math.floor(x / 10) % 2 ? 2 : 3; // mowed stripes
+          if (d === 2) s = 1;
+          break;
+        case 'track':
+          if (d > 2 && d < 6) s = 2;
+          if (d === 3 && Math.floor(x / 8) % 2 === 0) s = 7; // dashed line
+          if (d > 6 && (x % 20 === 0)) s = 5;
+          break;
+        case 'void': {
+          const fx = (x + y) % 14, fy = (x - y + 1400) % 14;
+          if (d > 3) s = fx === 0 || fy === 0 ? 7 : n > 0.8 ? 6 : 4;
+          break;
+        }
+        case 'asphalt':
+          if (d === 4 && Math.floor(x / 10) % 2 === 0) s = 7;
+          if (d > 6 && hash2(x, y, 2) > 0.93) s = 6;
+          break;
+        case 'tile': {
+          if (d > 2 && d < 5) s = 7; // gold trim
+          if (d >= 5) s = (Math.floor(x / 8) + Math.floor(y / 6)) % 2 ? 4 : 5;
+          if (d >= 5 && (x % 8 === 0 || y % 6 === 0)) s = 6;
+          break;
+        }
       }
       gset(out, x, y, base + s);
     }
@@ -153,7 +194,9 @@ export interface Theme {
   clouds?: string;
 }
 
-type LayerKind = 'mountains' | 'hills' | 'trees' | 'city' | 'factory' | 'pines' | 'dunes' | 'islands' | 'crystals' | 'craters' | 'ruins';
+type LayerKind =
+  | 'mountains' | 'hills' | 'trees' | 'city' | 'factory' | 'pines' | 'dunes' | 'islands' | 'crystals' | 'craters' | 'ruins'
+  | 'graves' | 'volcanoes' | 'stands' | 'palms' | 'sea' | 'pagodas' | 'farm' | 'domewall' | 'blocks' | 'snowpines';
 
 export const THEMES: Record<ThemeId, Theme> = {
   meadow: {
@@ -218,6 +261,93 @@ export const THEMES: Record<ThemeId, Theme> = {
       { kind: 'dunes', color: '#e8b070', color2: '#c48a4e', factor: 0.08, bottom: 0.8, height: 40, seed: 15 },
       { kind: 'ruins', color: '#b47a4a', color2: '#8a5a34', factor: 0.2, bottom: 0.9, height: 60, seed: 16 },
       { kind: 'dunes', color: '#d49a5a', color2: '#b07a40', factor: 0.35, bottom: 1.0, height: 30, seed: 17 },
+    ],
+  },
+  halloween: {
+    sky: ['#0a0614', '#2a1440', '#6a2a5a'],
+    stars: true,
+    celestial: { kind: 'moon', color: '#ffe8a0', x: 0.75, y: 0.22, r: 16 },
+    layers: [
+      { kind: 'hills', color: '#2a1a3a', color2: '#1e1230', factor: 0.08, bottom: 0.8, height: 60, seed: 21 },
+      { kind: 'graves', color: '#1a1026', color2: '#ff9a2a', factor: 0.22, bottom: 0.95, height: 60, seed: 22 },
+    ],
+  },
+  winter: {
+    sky: ['#5a8ad8', '#a8c8f0', '#eef6ff'],
+    celestial: { kind: 'sun', color: '#fffbe8', x: 0.2, y: 0.2, r: 10 },
+    clouds: '#ffffff',
+    layers: [
+      { kind: 'mountains', color: '#8aa6d0', color2: '#ffffff', factor: 0.07, bottom: 0.75, height: 70, seed: 23 },
+      { kind: 'snowpines', color: '#3a6a5a', color2: '#ffffff', factor: 0.2, bottom: 0.9, height: 60, seed: 24 },
+      { kind: 'hills', color: '#e8f0ff', color2: '#c8d6ee', factor: 0.35, bottom: 1.0, height: 30, seed: 25 },
+    ],
+  },
+  alien: {
+    sky: ['#06120c', '#163a2a', '#3a7a4a'],
+    stars: true,
+    celestial: { kind: 'moon', color: '#d8ffd0', x: 0.15, y: 0.2, r: 9 },
+    layers: [
+      { kind: 'hills', color: '#1a3a24', color2: '#14301c', factor: 0.08, bottom: 0.82, height: 50, seed: 26 },
+      { kind: 'farm', color: '#2a1a1a', color2: '#ffd86a', factor: 0.2, bottom: 0.94, height: 60, seed: 27 },
+    ],
+  },
+  dome: {
+    sky: ['#10101a', '#24243a', '#3a3a56'],
+    layers: [
+      { kind: 'domewall', color: '#2a2a3e', color2: '#ffd23f', factor: 0.06, bottom: 0.85, height: 120, seed: 28 },
+      { kind: 'stands', color: '#3a3a52', color2: '#ff5a6e', factor: 0.18, bottom: 0.96, height: 50, seed: 29 },
+    ],
+  },
+  volcano: {
+    sky: ['#1a0a0a', '#5a1a14', '#e0602a'],
+    layers: [
+      { kind: 'volcanoes', color: '#2a1a18', color2: '#ff7a1a', factor: 0.07, bottom: 0.8, height: 90, seed: 30 },
+      { kind: 'trees', color: '#1e3a1a', color2: '#142a12', factor: 0.22, bottom: 0.95, height: 44, seed: 31 },
+    ],
+  },
+  beach: {
+    sky: ['#2a9ae8', '#7accf8', '#fff0c8'],
+    celestial: { kind: 'sun', color: '#fff6c0', x: 0.82, y: 0.16, r: 13 },
+    clouds: '#ffffff',
+    layers: [
+      { kind: 'islands', color: '#5a9a6a', color2: '#7ac48a', factor: 0.05, bottom: 0.82, height: 50, seed: 32 },
+      { kind: 'sea', color: '#1a7ac8', color2: '#8ae0ff', factor: 0.1, bottom: 1.0, height: 70, seed: 33 },
+      { kind: 'palms', color: '#1e6a3a', color2: '#6a4a2a', factor: 0.25, bottom: 0.92, height: 60, seed: 34 },
+    ],
+  },
+  stadium: {
+    sky: ['#0a1430', '#1a3060', '#3a5a9a'],
+    stars: true,
+    layers: [
+      { kind: 'stands', color: '#2a3050', color2: '#ffd23f', factor: 0.08, bottom: 0.85, height: 80, seed: 35 },
+      { kind: 'stands', color: '#1e2440', color2: '#ffffff', factor: 0.18, bottom: 0.95, height: 50, seed: 36 },
+    ],
+  },
+  cny: {
+    sky: ['#1a0610', '#4a0e20', '#a02a2a'],
+    stars: true,
+    celestial: { kind: 'moon', color: '#ffe080', x: 0.5, y: 0.2, r: 14 },
+    layers: [
+      { kind: 'mountains', color: '#3a1422', color2: '#5a2032', factor: 0.06, bottom: 0.78, height: 60, seed: 37 },
+      { kind: 'pagodas', color: '#2a0a14', color2: '#ffb030', factor: 0.2, bottom: 0.95, height: 80, seed: 38 },
+    ],
+  },
+  rift: {
+    sky: ['#04020c', '#1a0a34', '#4a1a6a'],
+    stars: true,
+    celestial: { kind: 'planet', color: '#c07aff', x: 0.72, y: 0.3, r: 20 },
+    layers: [
+      { kind: 'crystals', color: '#2a1448', color2: '#ff8ae8', factor: 0.08, bottom: 0.82, height: 90, seed: 39 },
+      { kind: 'islands', color: '#1e1036', color2: '#5ef0ff', factor: 0.18, bottom: 0.95, height: 60, seed: 40 },
+    ],
+  },
+  toys: {
+    sky: ['#6ab8ff', '#b0e0ff', '#ffffff'],
+    clouds: '#ffffff',
+    celestial: { kind: 'sun', color: '#fff2a0', x: 0.15, y: 0.18, r: 11 },
+    layers: [
+      { kind: 'blocks', color: '#ff6a5a', color2: '#5a9aff', factor: 0.08, bottom: 0.85, height: 70, seed: 41 },
+      { kind: 'blocks', color: '#ffd23f', color2: '#4ac46a', factor: 0.2, bottom: 0.97, height: 44, seed: 42 },
     ],
   },
   moon: {
@@ -362,6 +492,130 @@ export function generateLayer(spec: Theme['layers'][number]): BgLayer {
         const dx = Math.abs(x - cx);
         const top = h - th + dx * (th / 6);
         col(x, Math.min(top, h - 8), (y) => (x < cx && y < h - 8 ? c2 : c1));
+        break;
+      }
+      case 'graves': {
+        const ground = h * 0.8 + n * 3;
+        const cell = Math.floor(x / 12), lx = x % 12;
+        const kind = hash2(cell, s);
+        let top = ground;
+        if (kind > 0.7 && lx > 3 && lx < 9) top = ground - 10 + (lx - 6) * (lx - 6) * 0.4; // tombstone
+        if (kind > 0.5 && kind <= 0.7 && Math.abs(lx - 6) < 3) top = ground - 9; // cross arms
+        if (kind > 0.5 && kind <= 0.7 && lx === 6) top = ground - 14; // cross post
+        if (kind < 0.12) top = ground - 26 + Math.abs(lx - 6) * 3; // dead tree
+        const glow = kind > 0.85 && lx === 6 && hash2(cell, 3) > 0.5;
+        col(x, top, (y) => (glow && y > top + 3 && y < top + 6 ? c2 : y < ground ? shade(c1, 0.85) : c1));
+        break;
+      }
+      case 'volcanoes': {
+        const cell = Math.floor(x / 160);
+        const cx = cell * 160 + 80 + (hash2(cell, s) - 0.5) * 40;
+        const dx = Math.abs(x - cx);
+        const top = Math.max(h * 0.15 + Math.max(0, dx - 10) * 0.9, h * 0.5 + n * 8);
+        const crater = dx < 10;
+        col(x, top, (y) => {
+          if (crater && y < top + 3) return c2;
+          if (dx < 22 && y - top < 30 && Math.abs(x - cx + Math.sin(y * 0.4) * 3) < 1.5) return shade(c2, 0.8); // lava stream
+          return y - top < 2 ? shade(c1, 1.3) : c1;
+        });
+        break;
+      }
+      case 'stands': {
+        const top = h * 0.25;
+        col(x, top, (y) => {
+          const row = Math.floor((y - top) / 5);
+          if ((y - top) % 5 === 0) return shade(c1, 1.25);
+          if ((y - top) % 5 === 2 && hash2(x, row, s) > 0.45) return hash2(x, row, s + 1) > 0.8 ? c2 : mix(c1, [255, 255, 255], 0.35 + hash2(x >> 1, row) * 0.3);
+          return c1;
+        });
+        if (x % 80 === 10) for (let y = 0; y < top; y++) putPx(rgba, w, x, y, shade(c1, 0.8));
+        if (x % 80 >= 6 && x % 80 <= 14) for (let y = 0; y < 5; y++) putPx(rgba, w, x, y, y > 0 && y < 4 ? [255, 250, 210] : shade(c1, 0.6));
+        break;
+      }
+      case 'palms': {
+        const cell = Math.floor(x / 50);
+        const cx = cell * 50 + 25 + (hash2(cell, s) - 0.5) * 16;
+        const th = 30 + hash2(cell, s + 2) * 20;
+        const dx = x - cx;
+        const ground = h - 2;
+        const trunkX = cx + Math.sin((ground - (h - th)) * 0.02) * 3;
+        let top = ground;
+        if (Math.abs(x - trunkX) < 1.5) top = h - th;
+        const fr = Math.abs(dx);
+        if (fr < 14) top = Math.min(top, h - th - 2 + fr * fr * 0.05 - (fr < 3 ? 2 : 0));
+        if (fr < 14 && fr > 1.5) {
+          const yf = h - th - 2 + fr * fr * 0.05;
+          for (let y = Math.floor(yf); y < yf + 3 && y < h; y++) putPx(rgba, w, x, y, c1);
+        } else col(x, top, (y) => (y < h - th + 2 ? c1 : c2));
+        break;
+      }
+      case 'sea': {
+        const top = h * 0.3 + Math.sin(x * 0.15) * 1.2;
+        col(x, top, (y) => ((y - Math.floor(top)) % 9 === 0 && (x + y * 3) % 12 < 5 ? c2 : y - top < 2 ? c2 : c1));
+        break;
+      }
+      case 'pagodas': {
+        const cell = Math.floor(x / 40);
+        const lx = x % 40;
+        const kind = hash2(cell, s);
+        let top = h - 6 + n * 2;
+        if (kind > 0.35) {
+          const tiers = 2 + Math.floor(kind * 3);
+          const base = h - 6;
+          for (let t = 0; t < tiers; t++) {
+            const ty = base - 12 - t * 12;
+            const half = 16 - t * 3;
+            const d = Math.abs(lx - 20);
+            if (d < half) top = Math.min(top, ty + (d > half - 4 ? -(d - half + 4) : 0) + 3);
+            if (d < half - 4) top = Math.min(top, ty + 3);
+          }
+          if (Math.abs(lx - 20) < 1) top = base - 12 - tiers * 12 - 4;
+        }
+        col(x, top, (y) => ((y - Math.floor(top)) % 12 === 4 && kind > 0.35 && hash2(x >> 2, y, s) > 0.5 ? c2 : c1));
+        break;
+      }
+      case 'farm': {
+        const cell = Math.floor(x / 70);
+        const lx = x % 70;
+        const kind = hash2(cell, s);
+        const ground = h - 6 + n * 2;
+        let top = ground;
+        if (kind > 0.5 && lx > 10 && lx < 40) top = ground - 22 + Math.max(0, Math.abs(lx - 25) - 6) * 0.9; // barn
+        if (kind > 0.5 && lx >= 44 && lx < 52) top = ground - 34 + (lx === 44 || lx === 51 ? 2 : 0); // silo
+        if (lx % 9 === 0) top = Math.min(top, ground - 5); // fence posts
+        col(x, top, (y) => (kind > 0.5 && lx > 21 && lx < 29 && y > top + 6 && y < top + 10 && hash2(cell, 2) > 0.3 ? c2 : y === Math.floor(ground) - 3 ? shade(c1, 1.3) : c1));
+        break;
+      }
+      case 'domewall': {
+        const top = h * 0.05 + Math.pow((x - w / 2) / (w / 2), 2) * h * 0.25;
+        col(x, top, (y) => {
+          if ((y - Math.floor(top)) % 20 === 6 && x % 6 < 2) return c2; // light bulbs row
+          if ((y - Math.floor(top)) % 20 < 2) return shade(c1, 1.3);
+          return x % 24 === 0 ? shade(c1, 0.75) : c1;
+        });
+        break;
+      }
+      case 'blocks': {
+        const cell = Math.floor(x / 16);
+        const stack = 1 + Math.floor(hash2(cell, s) * 4);
+        const top = h - stack * 14 - 2;
+        const lx = x % 16;
+        col(x, top, (y) => {
+          const b = Math.floor((y - top) / 14);
+          const edge = lx === 0 || lx === 15 || (y - top) % 14 === 0;
+          const cc = hash2(cell, b, s) > 0.5 ? c1 : c2;
+          return edge ? shade(cc, 0.7) : (y - top) % 14 < 3 ? shade(cc, 1.25) : cc;
+        });
+        break;
+      }
+      case 'snowpines': {
+        const cell = Math.floor(x / 9);
+        const cx = cell * 9 + 4;
+        const th = 24 + hash2(cell, s) * 28;
+        const dx = Math.abs(x - cx);
+        const top = h - th + dx * 2.4;
+        const ground = h - 6 + n * 2;
+        col(x, Math.min(top, ground), (y) => (y > top && (y - top) % 8 < 2 ? c2 : y < top + 3 ? c2 : c1));
         break;
       }
       case 'craters': {

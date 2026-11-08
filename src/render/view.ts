@@ -6,7 +6,8 @@ import type { CarDef, CarPalette } from '../cars/types';
 import { carPalette, driverPalette, generateCarGrid, generateHeadGrid, generateTorsoGrid, generateWheelGrid, wheelPalette } from '../cars/sprite';
 import { generateLayer, generateSky, generateTerrain, THEMES } from '../maps/art';
 import type { MapDef } from '../maps/types';
-import { PROP_PAL, crateGrid, lavaGrid, lavaSurfaceGrid, padGrid, plateGrid, sawGrid, spikesGrid } from '../maps/props';
+import { PROP_PAL, crateGrid, lavaGrid, lavaSurfaceGrid, padGrid, plateGrid, sawGrid, spikesGrid, waterGrid, waterSurfaceGrid } from '../maps/props';
+import { DECOR_PAL, ballGrid, decorGrid, placedDecor } from '../maps/decor';
 import { Cam, fitCamera, lerpCam } from './camera';
 import { Particles } from './particles';
 import { pixelText } from './pixeltext';
@@ -149,6 +150,7 @@ export class GameView {
   private ragdollSprites: { head: Sprite; torso: Sprite }[] = [];
   private platforms: Sprite[] = [];
   private saws: Sprite[] = [];
+  private balls: Sprite[] = [];
   private blocks = new Map<object, Sprite>();
   private riseLava: TilingSprite | null = null;
   private riseTop: TilingSprite | null = null;
@@ -278,6 +280,13 @@ export class GameView {
       this.dynLayer.addChild(s);
       return s;
     });
+    this.balls = g.arena.balls.map((b) => {
+      const s = new Sprite(cached(`ball:${b.r}`, () => gridTexture(ballGrid(b.r, ART_PPM), DECOR_PAL)));
+      s.anchor.set(0.5);
+      s.scale.set(1 / ART_PPM);
+      this.dynLayer.addChild(s);
+      return s;
+    });
     this.blocks.clear();
     // Sudden-death lava belongs to the previous round: remove its sprites too.
     for (const c of this.fxLayer.removeChildren()) c.destroy();
@@ -314,7 +323,33 @@ export class GameView {
       this.lavaTiles.push(t, top);
       this.mapLayer.addChild(t, top);
     }
+    // Decorative water
+    const waterTex = cached('water', () => gridTexture(waterGrid(), PROP_PAL));
+    const waterTop = cached('waterTop', () => gridTexture(waterSurfaceGrid(), PROP_PAL));
+    for (const wv of map.water ?? []) {
+      const t = new TilingSprite({ texture: waterTex, width: wv.w * ART_PPM, height: wv.h * ART_PPM });
+      t.position.set(wv.x, wv.y);
+      t.scale.set(1 / ART_PPM);
+      const top = new TilingSprite({ texture: waterTop, width: wv.w * ART_PPM, height: 4 });
+      top.position.set(wv.x, wv.y - 3 / ART_PPM);
+      top.scale.set(1 / ART_PPM);
+      this.lavaTiles.push(t, top);
+      this.mapLayer.addChild(t, top);
+    }
+    // Background props: planted behind the terrain edge (or in front when asked).
+    const front: Sprite[] = [];
+    for (const d of placedDecor(map)) {
+      const grid = decorGrid(d.kind, d.seed);
+      const s = new Sprite(cached(`decor:${d.kind}:${d.seed}`, () => gridTexture(grid, DECOR_PAL)));
+      s.anchor.set(grid.ox / grid.w, grid.oy / grid.h);
+      const k = (d.s ?? 1) / ART_PPM;
+      s.scale.set(d.flip ? -k : k, k);
+      s.position.set(d.x, d.y + 2 / ART_PPM);
+      if (d.front) front.push(s);
+      else this.mapLayer.addChild(s);
+    }
     this.mapLayer.addChild(terrain);
+    for (const s of front) this.mapLayer.addChild(s);
     for (const pad of map.pads ?? []) {
       const s = new Sprite(cached(`pad:${pad.w}`, () => gridTexture(padGrid(pad.w), PROP_PAL)));
       s.anchor.set(0.5, 4 / s.texture.height);
@@ -458,6 +493,11 @@ export class GameView {
       const pos = sw.body.getPosition();
       this.saws[i].position.set(pos.x, pos.y);
       this.saws[i].rotation = sw.body.getAngle();
+    });
+    g.arena.balls.forEach((b, i) => {
+      const pos = b.body.getPosition();
+      this.balls[i].position.set(pos.x, pos.y);
+      this.balls[i].rotation = b.body.getAngle();
     });
     const live = new Set<object>();
     for (const bl of g.arena.blocks) {

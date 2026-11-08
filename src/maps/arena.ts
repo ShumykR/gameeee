@@ -5,6 +5,7 @@ import type { MapDef, PlatformDef, SawDef, Pt } from './types';
 
 export const MAT_FRICTION: Record<string, number> = {
   grass: 0.9, rock: 0.85, sand: 0.75, metal: 0.7, ice: 0.08, wood: 0.85, snow: 0.45, moon: 0.8, neon: 0.75, brick: 0.85,
+  grave: 0.85, basalt: 0.85, turf: 0.9, track: 0.8, void: 0.75, asphalt: 0.95, tile: 0.7,
 };
 
 interface Mover {
@@ -20,6 +21,7 @@ interface Mover {
 export interface PlatformRuntime extends Mover { def: PlatformDef }
 export interface SawRuntime { body: Body; def: SawDef; mover?: Mover }
 export interface BlockRuntime { body: Body; size: number; born: number }
+export interface BallRuntime { body: Body; r: number; home: Pt }
 
 /** Live physics objects for a map plus per-step behaviour (movers, spawners). */
 export class Arena {
@@ -27,6 +29,7 @@ export class Arena {
   readonly platforms: PlatformRuntime[] = [];
   readonly saws: SawRuntime[] = [];
   readonly blocks: BlockRuntime[] = [];
+  readonly balls: BallRuntime[] = [];
   readonly lavaBodies: Body[] = [];
   readonly padBodies: Body[] = [];
   /** Rising sudden-death lava (sensor box whose top edge is at `riseY`). */
@@ -109,6 +112,23 @@ export class Arena {
       if (sd.path && sd.path.length > 1) rt.mover = { body, path: sd.path, speed: sd.speed ?? 2, wait: 0.3, seg: 0, dirn: 1, pause: 0.3 };
       this.saws.push(rt);
     }
+    this.spawnBalls();
+  }
+
+  private spawnBalls() {
+    for (const b of this.def.balls ?? []) {
+      const body = this.world.createBody({ type: 'dynamic', position: new Vec2(b.x, b.y), angularDamping: 0.2, linearDamping: 0.05 });
+      body.createFixture({
+        shape: new Circle(b.r),
+        density: 0.25,
+        friction: 0.6,
+        restitution: 0.7,
+        filterCategoryBits: CAT.DEBRIS,
+        filterMaskBits: MASK.DEBRIS,
+        userData: { kind: 'block', body } satisfies FixtureTag,
+      });
+      this.balls.push({ body, r: b.r, home: [b.x, b.y] });
+    }
   }
 
   get gravity(): number | undefined {
@@ -158,6 +178,14 @@ export class Arena {
       if (b.body.getPosition().y > this.def.killY || this.time - b.born > 14) {
         this.world.destroyBody(b.body);
         this.blocks.splice(i, 1);
+      }
+    }
+    // Balls that fall out of the arena come back to their spot.
+    for (const b of this.balls) {
+      if (b.body.getPosition().y > this.def.killY) {
+        b.body.setPosition(new Vec2(b.home[0], b.home[1]));
+        b.body.setLinearVelocity(new Vec2(0, 0));
+        b.body.setAngularVelocity(0);
       }
     }
     if (this.riseBody) {
