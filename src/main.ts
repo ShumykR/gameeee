@@ -109,6 +109,8 @@ async function boot() {
       seed: q.has('seed') ? Number(q.get('seed')) : undefined,
     });
     if (mode === 'bot') g.controllers[1] = new Bot(settings.bot, Date.now() & 0xffff);
+    input.solo = mode === 'bot';
+    relayout();
     if (q.has('bots')) {
       g.controllers[0] = new Bot('hard', 5);
       g.controllers[1] = new Bot('hard', 6);
