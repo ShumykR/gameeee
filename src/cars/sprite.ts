@@ -22,6 +22,8 @@ export const P = {
   LEAF_D: 32, LEAF: 33, LEAF_L: 34,
   WHITE_D: 35, WHITE: 36,
   LIGHT_D: 37,
+  BLACK: 38, BLACK_L: 39,
+  PINK_D: 40, PINK: 41, PINK_L: 42,
 } as const;
 
 export function carPalette(p: CarPalette): (RGB | null)[] {
@@ -65,12 +67,17 @@ export function carPalette(p: CarPalette): (RGB | null)[] {
   pal[P.WHITE_D] = [196, 204, 220];
   pal[P.WHITE] = [246, 248, 252];
   pal[P.LIGHT_D] = shade(light, 0.75);
+  pal[P.BLACK] = [28, 26, 34];
+  pal[P.BLACK_L] = [62, 58, 72];
+  pal[P.PINK_D] = [200, 92, 130];
+  pal[P.PINK] = [246, 140, 176];
+  pal[P.PINK_L] = [255, 196, 214];
   return pal;
 }
 
 const MAT_ID: Record<CarMat, number> = {
   body: 1, accent: 2, dark: 3, metal: 4, spike: 5, scoop: 6, rocket: 7, wood: 8, glass: 9,
-  bone: 10, gold: 11, leaf: 12, white: 13, light: 14,
+  bone: 10, gold: 11, leaf: 12, white: 13, light: 14, black: 15, pink: 16,
 };
 
 /** [dark, base, light] palette slots per material. */
@@ -89,6 +96,8 @@ const MAT_SHADES: Record<number, [number, number, number]> = {
   12: [P.LEAF_D, P.LEAF, P.LEAF_L],
   13: [P.WHITE_D, P.WHITE, P.WHITE],
   14: [P.LIGHT_D, P.HEAD_LIGHT, P.HEAD_LIGHT],
+  15: [P.BLACK, P.BLACK, P.BLACK_L],
+  16: [P.PINK_D, P.PINK, P.PINK_L],
 };
 
 /** Bounding box (meters) of all chassis polygons and windows. */
@@ -116,10 +125,16 @@ export function generateCarGrid(def: CarDef, ppm = ART_PPM): PixelGrid {
   const mats = makeGrid(w, h, ox, oy);
   const toPx = (pts: readonly (readonly [number, number])[]) => pts.map(([x, y]) => [x * ppm + ox, y * ppm + oy] as [number, number]);
 
-  for (const poly of def.body) {
+  // Which polygon painted each pixel: later parts get a 1px outline where they sit
+  // on top of a different material, so details read as separate pieces.
+  const owner = makeGrid(w, h);
+  def.body.forEach((poly, i) => {
     const id = MAT_ID[poly.mat ?? 'body'];
-    fillPoly(toPx(poly.pts), w, h, (x, y) => gset(mats, x, y, id));
-  }
+    fillPoly(toPx(poly.pts), w, h, (x, y) => {
+      gset(mats, x, y, id);
+      gset(owner, x, y, Math.min(255, i + 1));
+    });
+  });
   const glass = makeGrid(w, h);
   for (const win of def.windows ?? []) fillPoly(toPx(win), w, h, (x, y) => gset(glass, x, y, 1));
 
@@ -133,6 +148,12 @@ export function generateCarGrid(def: CarDef, ppm = ART_PPM): PixelGrid {
       if (!m) continue;
       const edge = !gget(mats, x - 1, y) || !gget(mats, x + 1, y) || !gget(mats, x, y - 1) || !gget(mats, x, y + 1);
       if (edge) { gset(out, x, y, P.OUTLINE); continue; }
+      const me = gget(owner, x, y);
+      const seam = (xx: number, yy: number) => {
+        const o = gget(owner, xx, yy);
+        return o < me && gget(mats, xx, yy) !== m;
+      };
+      if (seam(x - 1, y) || seam(x + 1, y) || seam(x, y - 1) || seam(x, y + 1)) { gset(out, x, y, P.OUTLINE); continue; }
       let mm = m;
       if (gget(glass, x, y)) mm = 9;
       else if (m === 1 && y >= stripeY0 && y < stripeY1) mm = 2;
@@ -170,7 +191,7 @@ export function generateCarGrid(def: CarDef, ppm = ART_PPM): PixelGrid {
   // Head & tail lights: scan front/back columns for the first interior body pixel.
   const bodyRows: number[] = [];
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (gget(mats, x, y) === 1) { bodyRows.push(y); break; }
-  if (bodyRows.length) {
+  if (bodyRows.length && def.lights !== false) {
     const midY = bodyRows[Math.floor(bodyRows.length * 0.35)];
     for (let x = w - 1; x >= 0; x--) {
       if (gget(mats, x, midY) === 1) {

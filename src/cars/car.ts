@@ -1,4 +1,4 @@
-import { World, Body, Polygon, Circle, WheelJoint, Vec2, Fixture } from 'planck';
+import { World, Body, Polygon, Circle, WheelJoint, RopeJoint, Vec2, Fixture } from 'planck';
 import { CAT, MASK, STEP_DT, DEFAULT_GRAVITY } from '../physics/constants';
 
 /** Tuning knobs shared by all cars. */
@@ -6,7 +6,7 @@ export const TUNE = { groundTilt: 1.6, maxSpin: 7.5, selfRight: 14 };
 const SELF_RIGHT = TUNE.selfRight;
 import type { FixtureTag } from '../physics/tags';
 import type { AbilityDef, CarDef, Pt } from './types';
-import { abilityOf, ABILITY_INFO } from '../game/abilities';
+import { abilityOf, abilityCd } from '../game/abilities';
 
 export interface BodyState { x: number; y: number; a: number }
 
@@ -40,12 +40,21 @@ export class Car {
   wheelsOnGround = 0;
   chassisTouching = false;
   /** Special action and its runtime state. */
-  readonly ability: AbilityDef;
+  readonly ability: AbilityDef | null;
   /** Seconds until the ability is ready again. */
   abilityCd = 1.5;
   shieldT = 0;
   flyT = 0;
   nitroT = 0;
+  /** Ghost mode: passes through the other car and shots. */
+  phaseT = 0;
+  /** Engine dead (frozen / zapped). */
+  stunT = 0;
+  stunLook: 'ice' | 'zap' | 'web' = 'ice';
+  /** Floating in a bubble. */
+  liftT = 0;
+  /** Swinging weight on a chain, if the car has one. */
+  readonly flail: Body | null = null;
   /** Diving after a mid-air slam; the shockwave fires on landing. */
   slamming = false;
   /** Previous-step transforms for render interpolation. */
@@ -129,14 +138,42 @@ export class Car {
       this.drive.push(wd.drive ?? true);
       this.restAnchors.push(new Vec2(wd.x * f, wd.y));
     }
+    if (def.flail) {
+      const fl = def.flail;
+      const anchor = new Vec2(x + fl.at[0] * f, y + fl.at[1]);
+      const fb = world.createBody({ type: 'dynamic', position: new Vec2(anchor.x - 0.3 * f, anchor.y + fl.len * 0.9), angularDamping: 0.2, linearDamping: 0.05 });
+      fb.createFixture({
+        shape: new Circle(fl.r),
+        density: 1.6,
+        friction: 0.4,
+        restitution: 0.2,
+        filterGroupIndex: group,
+        filterCategoryBits: CAT.CAR,
+        filterMaskBits: MASK.CAR,
+        userData: chassisTag,
+      });
+      world.createJoint(new RopeJoint({ bodyA: this.chassis, bodyB: fb, maxLength: fl.len, localAnchorA: new Vec2(fl.at[0] * f, fl.at[1]), localAnchorB: new Vec2(0, 0) }));
+      this.flail = fb;
+    }
     this.ability = abilityOf(def);
-    if (def.float !== undefined) for (const b of this.bodies) b.setGravityScale(def.float);
+    this.applyGravity();
     this.boostFuel = def.boost?.fuel ?? 0;
     this.snapshot();
   }
 
   get bodies(): Body[] {
     return [this.chassis, ...this.wheels];
+  }
+
+  /** Every body including the chain weight (for moving the whole car). */
+  get allBodies(): Body[] {
+    return this.flail ? [...this.bodies, this.flail] : this.bodies;
+  }
+
+  /** Gravity scale from flight / bubble / the car's own floatiness. */
+  applyGravity() {
+    const g = this.liftT > 0 ? -0.18 : this.flyT > 0 ? -0.06 : this.def.float ?? 1;
+    for (const b of this.allBodies) b.setGravityScale(g);
   }
 
   get mass(): number {
@@ -161,12 +198,13 @@ export class Car {
 
   /** 0 = just used, 1 = ready. */
   get abilityCharge(): number {
-    return 1 - Math.max(0, this.abilityCd) / ABILITY_INFO[this.ability.kind].cd;
+    if (!this.ability) return 0;
+    return 1 - Math.max(0, this.abilityCd) / abilityCd(this.ability);
   }
 
   /** Add a velocity change to every body of the car. */
   kick(dx: number, dy: number) {
-    for (const b of this.bodies) {
+    for (const b of this.allBodies) {
       const v = b.getLinearVelocity();
       b.setLinearVelocity(new Vec2(v.x + dx, v.y + dy));
     }
@@ -182,9 +220,27 @@ export class Car {
     this.abilityCd = Math.max(0, this.abilityCd - dt);
     this.shieldT = Math.max(0, this.shieldT - dt);
     this.nitroT = Math.max(0, this.nitroT - dt);
+    this.stunT = Math.max(0, this.stunT - dt);
+    let regrav = false;
     if (this.flyT > 0) {
       this.flyT -= dt;
-      if (this.flyT <= 0) for (const b of this.bodies) b.setGravityScale(this.def.float ?? 1);
+      if (this.flyT <= 0) regrav = true;
+    }
+    if (this.liftT > 0) {
+      this.liftT -= dt;
+      if (this.liftT <= 0) regrav = true;
+    }
+    if (regrav) this.applyGravity();
+  }
+
+  /** Switch ghost mode collision filtering on/off. */
+  setPhased(on: boolean) {
+    const solid = on ? CAT.TERRAIN | CAT.PLATFORM | CAT.HAZARD : MASK.CAR;
+    for (const b of this.allBodies) {
+      for (let fx = b.getFixtureList(); fx; fx = fx.getNext()) {
+        if (fx === this.headFixture) fx.setFilterData({ groupIndex: -(this.player + 1), categoryBits: CAT.HEAD, maskBits: on ? CAT.TERRAIN | CAT.PLATFORM | CAT.HAZARD : MASK.HEAD });
+        else fx.setFilterData({ groupIndex: -(this.player + 1), categoryBits: CAT.CAR, maskBits: solid });
+      }
     }
   }
 
@@ -230,7 +286,7 @@ export class Car {
     this.snapshot();
     this.scanContacts();
     const d = this.def;
-    const dir = this.alive ? this.input : 0;
+    const dir = this.alive && this.stunT <= 0 ? this.input : 0;
 
     // Motor: drive wheels toward target angular speed; light rolling brake when idle.
     for (let i = 0; i < this.wheels.length; i++) {
@@ -351,6 +407,6 @@ export class Car {
   }
 
   destroy() {
-    for (const b of this.bodies) this.world.destroyBody(b);
+    for (const b of this.allBodies) this.world.destroyBody(b);
   }
 }

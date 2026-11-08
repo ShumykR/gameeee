@@ -3,7 +3,7 @@ import { Vec2 } from 'planck';
 import { Game } from '../src/game/game';
 import { CARS, CAR_BY_ID } from '../src/cars/defs';
 import { MAP_BY_ID } from '../src/maps/defs';
-import { abilityOf, ABILITY_INFO } from '../src/game/abilities';
+import { abilityOf, ABILITY_INFO, PROJECTILES } from '../src/game/abilities';
 import type { AbilityDef, CarDef } from '../src/cars/types';
 
 const withAbility = (def: CarDef, ability: AbilityDef): CarDef => ({ ...def, ability });
@@ -23,14 +23,42 @@ function press(g: Game, p: number, steps = 1) {
 }
 
 describe('abilities', () => {
-  it('every car has a known ability', () => {
-    for (const c of CARS) expect(ABILITY_INFO[abilityOf(c).kind], c.id).toBeDefined();
+  it('abilities are known kinds, and plenty of cars just drive', () => {
+    let none = 0;
+    for (const c of CARS) {
+      const a = abilityOf(c);
+      if (!a) { none++; continue; }
+      expect(ABILITY_INFO[a.kind], c.id).toBeDefined();
+      if (a.kind === 'shoot') expect(PROJECTILES[a.projectile!], c.id).toBeDefined();
+    }
+    expect(none).toBeGreaterThan(CARS.length * 0.25);
+    expect(none).toBeLessThan(CARS.length * 0.75);
   });
-  it('gun-carrying cars shoot, rockets boost', () => {
-    expect(abilityOf(CAR_BY_ID.tank).kind).toBe('shoot');
-    expect(abilityOf(CAR_BY_ID['snowball-cannon']).projectile).toBe('snowball');
-    expect(abilityOf(CAR_BY_ID.firework).kind).toBe('nitro');
-    expect(abilityOf(CAR_BY_ID['flying-saucer']).kind).toBe('fly');
+  it('abilities fit the car', () => {
+    expect(abilityOf(CAR_BY_ID.tank)?.projectile).toBe('cannon');
+    expect(abilityOf(CAR_BY_ID['toaster-racer'])?.projectile).toBe('toast');
+    expect(abilityOf(CAR_BY_ID['snowball-cannon'])?.projectile).toBe('snowball');
+    expect(abilityOf(CAR_BY_ID['flying-saucer'])?.kind).toBe('fly');
+    expect(abilityOf(CAR_BY_ID['fire-truck'])?.projectile).toBe('water');
+    expect(abilityOf(CAR_BY_ID['ghost-bike'])?.kind).toBe('phase');
+    expect(abilityOf(CAR_BY_ID['mine-lander'])?.item).toBe('mine');
+    expect(abilityOf(CAR_BY_ID.limousine)).toBeNull();
+    expect(abilityOf(CAR_BY_ID.firework)).toBeNull(); // booster only
+  });
+  it('cargo cars carry loose cargo that spills', () => {
+    const def = CAR_BY_ID['soccer-delivery'];
+    expect(def.cargo?.kind).toBe('ball');
+    const g = new Game({ cars: [def, CARS[1]], maps: [MAP_BY_ID.meadow], randomMaps: false, target: 9, roundTime: 60, seed: 3 });
+    expect(g.items.filter((i) => i.owner === 0 && i.kind === 'ball').length).toBe(def.cargo!.n);
+    expect(CAR_BY_ID['wrecking-crane'].flail).toBeDefined();
+    expect(g.cars[1].flail).toBeNull();
+  });
+  it('a car without an ability ignores the button', () => {
+    const g = ready({ kind: 'jump' });
+    (g.cars[0] as { ability: unknown }).ability = null;
+    const vy = g.cars[0].chassis.getLinearVelocity().y;
+    press(g, 0);
+    expect(Math.abs(g.cars[0].chassis.getLinearVelocity().y - vy)).toBeLessThan(2);
   });
   it('jump throws the car upward, then needs to recharge', () => {
     const g = ready({ kind: 'jump' });
@@ -99,5 +127,73 @@ describe('abilities', () => {
     const vx = c1.chassis.getLinearVelocity().x;
     g.useAbility(0);
     expect(c1.chassis.getLinearVelocity().x).toBeGreaterThan(vx + 3);
+  });
+
+  const placeFoe = (g: Game, dx: number) => {
+    const c0 = g.cars[0], c1 = g.cars[1];
+    const p0 = c0.position;
+    for (const b of c1.allBodies) {
+      const p = b.getPosition();
+      b.setPosition(new Vec2(p.x - c1.position.x + p0.x + dx, p.y));
+    }
+  };
+  it('roar pushes, stun roar kills the engine', () => {
+    let g = ready({ kind: 'roar' });
+    placeFoe(g, 3.5);
+    const vx = g.cars[1].chassis.getLinearVelocity().x;
+    g.useAbility(0);
+    expect(g.cars[1].chassis.getLinearVelocity().x).toBeGreaterThan(vx + 2);
+    g = ready({ kind: 'roar', stun: true });
+    placeFoe(g, 3);
+    g.useAbility(0);
+    expect(g.cars[1].stunT).toBeGreaterThan(0.5);
+  });
+  it('drop leaves a mine behind that blows up the opponent', () => {
+    const g = ready({ kind: 'drop', item: 'mine' });
+    g.useAbility(0);
+    const mine = g.items.find((i) => i.kind === 'mine');
+    expect(mine).toBeDefined();
+    expect(mine!.body.getPosition().x).toBeLessThan(g.cars[0].position.x);
+    for (let i = 0; i < 30; i++) g.step();
+    const events: string[] = [];
+    g.on((e) => { if (e.type === 'blast') events.push(e.kind); });
+    // drive the opponent onto it
+    for (const b of g.cars[1].allBodies) {
+      const p = b.getPosition();
+      b.setPosition(new Vec2(p.x - g.cars[1].position.x + mine!.body.getPosition().x, p.y - g.cars[1].position.y + mine!.body.getPosition().y - 1.2));
+    }
+    for (let i = 0; i < 60 && !events.length; i++) g.step();
+    expect(events).toContain('bomb');
+  });
+  it('dump throws cargo out the back', () => {
+    const g = ready({ kind: 'dump', item: 'log' });
+    const n = g.items.length;
+    g.useAbility(0);
+    expect(g.items.length).toBe(n + 4);
+  });
+  it('phase lets the car pass through and then turns solid again', () => {
+    const g = ready({ kind: 'phase' });
+    g.useAbility(0);
+    expect(g.cars[0].phaseT).toBeGreaterThan(1);
+    g.kill(0, 'hit', 1); // shots/cars cannot touch a ghost; head contacts are filtered
+    for (let i = 0; i < 200; i++) g.step();
+    expect(g.cars[0].phaseT).toBe(0);
+  });
+  it('blink teleports forward', () => {
+    const g = ready({ kind: 'blink' });
+    const x0 = g.cars[0].position.x;
+    g.useAbility(0);
+    expect(g.cars[0].position.x).toBeGreaterThan(x0 + 1.5);
+  });
+  it('ice shots freeze, bubbles lift, water does not knock the head off', () => {
+    for (const [proj, check] of [['ice', (c: Game['cars'][0]) => c.stunT > 0], ['bubble', (c: Game['cars'][0]) => c.liftT > 0]] as const) {
+      const g = ready({ kind: 'shoot', projectile: proj });
+      placeFoe(g, 4);
+      g.useAbility(0);
+      let hit = false;
+      for (let i = 0; i < 90 && !hit; i++) { g.step(); hit = check(g.cars[1]); }
+      expect(hit, proj).toBe(true);
+    }
+    expect(PROJECTILES.water.harmless).toBe(true);
   });
 });

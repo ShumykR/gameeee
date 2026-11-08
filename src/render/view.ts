@@ -1,4 +1,5 @@
 import { Application, Container, Sprite, TilingSprite, Graphics, Texture } from 'pixi.js';
+import { Vec2 } from 'planck';
 import { ART_PPM } from '../physics/constants';
 import type { Game, GameEvent } from '../game/game';
 import type { Car } from '../cars/car';
@@ -8,8 +9,8 @@ import { generateLayer, generateSky, generateTerrain, THEMES } from '../maps/art
 import type { MapDef } from '../maps/types';
 import { PROP_PAL, crateGrid, hazardStripGrid, lavaGrid, lavaSurfaceGrid, padGrid, plateGrid, sawGrid, spikesGrid, wallGrid, waterGrid, waterSurfaceGrid } from '../maps/props';
 import { SUDDEN_INFO } from '../maps/sudden';
-import { DECOR_PAL, ballGrid, decorGrid, placedDecor, shotGrid } from '../maps/decor';
-import { PROJECTILES } from '../game/abilities';
+import { DECOR_PAL, ballGrid, decorGrid, flailGrid, itemGrid, placedDecor, shotGrid } from '../maps/decor';
+import { ITEMS, PROJECTILES } from '../game/abilities';
 import { Cam, fitCamera, lerpCam } from './camera';
 import { Particles } from './particles';
 import { pixelText } from './pixeltext';
@@ -61,6 +62,8 @@ class CarView {
   readonly torso: Sprite;
   readonly flame: Sprite;
   readonly marker: Sprite;
+  readonly flail: Sprite | null = null;
+  readonly chain = new Graphics();
 
   constructor(readonly car: Car, alt: boolean) {
     const def = car.def;
@@ -100,7 +103,14 @@ class CarView {
     this.marker = new Sprite(pixelText(PLAYER_NAMES[car.player], { size: 8, color: PLAYER_COLORS[car.player] }));
     this.marker.anchor.set(0.5, 1);
     this.marker.scale.set(1 / ART_PPM);
-    this.root.addChild(this.body, ...this.wheels, this.marker);
+    this.root.addChild(this.chain, this.body, ...this.wheels, this.marker);
+    if (def.flail) {
+      const fl = def.flail;
+      this.flail = new Sprite(cached(`flail:${fl.look}:${fl.r}`, () => gridTexture(flailGrid(fl.look, fl.r, ART_PPM), DECOR_PAL)));
+      this.flail.anchor.set(0.5);
+      this.flail.scale.set(1 / ART_PPM);
+      this.root.addChild(this.flail);
+    }
   }
 
   sync(alpha: number, time: number) {
@@ -115,6 +125,23 @@ class CarView {
       target.position.set(x, y);
       target.rotation = a;
     }
+    if (this.flail && c.flail) {
+      const fp = c.flail.getPosition();
+      this.flail.position.set(fp.x, fp.y);
+      this.flail.rotation = c.flail.getAngle();
+      const fl = c.def.flail!;
+      const a = c.chassis.getWorldPoint(new Vec2(fl.at[0] * c.facing, fl.at[1]));
+      const ch = this.chain.clear();
+      const n = Math.max(3, Math.round(Vec2.distance(a, fp) / 0.22));
+      for (let i = 0; i <= n; i++) {
+        const k = i / n;
+        ch.rect(a.x + (fp.x - a.x) * k - 0.06, a.y + (fp.y - a.y) * k - 0.06, 0.12, 0.12).fill({ color: i % 2 ? 0x5a5e6c : 0x9aa0ae });
+      }
+    }
+    // Ghost mode flickers; frozen / zapped cars get a tint.
+    this.root.alpha = c.phaseT > 0 ? 0.35 + 0.15 * Math.sin(time * 30) : 1;
+    const tint = c.stunT > 0 ? (c.stunLook === 'zap' ? (Math.sin(time * 40) > 0 ? 0xfff6a0 : 0xffffff) : c.stunLook === 'web' ? 0xdadada : 0xa8e4ff) : 0xffffff;
+    this.body.tint = tint;
     const alive = c.alive;
     this.head.visible = alive;
     this.torso.visible = alive;
@@ -143,6 +170,8 @@ export class GameView {
   readonly particles = new Particles();
   private mapLayer = new Container();
   private dynLayer = new Container();
+  /** Loose cargo sits in front of the car bodies (it rides in their beds). */
+  private itemLayer = new Container();
   private carLayer = new Container();
   private fxLayer = new Container();
   private flash = new Graphics();
@@ -158,6 +187,7 @@ export class GameView {
   private ghostSprites = new Map<number, Sprite>();
   private wallSprites: Container[] = [];
   private blocks = new Map<object, Sprite>();
+  private itemSprites = new Map<number, Sprite>();
   private riseLava: TilingSprite | null = null;
   private riseTop: TilingSprite | null = null;
   private lavaTiles: TilingSprite[] = [];
@@ -182,7 +212,7 @@ export class GameView {
   private debugGfx = new Graphics();
 
   constructor(readonly app: Application, readonly input: InputManager) {
-    this.world.addChild(this.mapLayer, this.dynLayer, this.carLayer, this.particles.container, this.ringGfx, this.fxGfx, this.fxLayer, this.debugGfx);
+    this.world.addChild(this.mapLayer, this.dynLayer, this.carLayer, this.itemLayer, this.particles.container, this.ringGfx, this.fxGfx, this.fxLayer, this.debugGfx);
     app.stage.addChild(this.bgLayer, this.world, this.flash, this.hud, this.touchLayer, this.touchLabels);
     for (let i = 0; i < 3; i++) {
       const s = new Sprite();
@@ -256,6 +286,16 @@ export class GameView {
           const f = car.forward();
           this.particles.burst(e.x - f.x * 1.6, e.y - f.y * 1.6, 22, { speed: 7, colors: [0xffd040, 0xff7020, 0xffffff], life: 0.35, size: 0.16, dir: Math.atan2(-f.y, -f.x), spread: 0.7, g: 0 });
         } else if (e.kind === 'shield') this.rings.push({ x: e.x, y: e.y - 0.6, t: 0, r: 1.6, color: 0x7fe0ff });
+        else if (e.kind === 'phase') this.particles.burst(e.x, e.y - 0.3, 24, { speed: 3, colors: [0xffffff, 0xc8d8ff, 0x8090c0], life: 0.6, size: 0.2, g: -2, drag: 2 });
+        else if (e.kind === 'blink') {
+          const cols = [0xc07aff, 0x5ef0ff, 0xffffff];
+          if (e.from) {
+            this.particles.burst(e.from.x, e.from.y, 26, { speed: 5, colors: cols, life: 0.5, size: 0.18, g: 0, drag: 3 });
+            this.rings.push({ x: e.from.x, y: e.from.y, t: 0, r: 1.8, color: 0xc07aff });
+          }
+          this.particles.burst(e.x, e.y, 26, { speed: 6, colors: cols, life: 0.5, size: 0.18, g: 0, drag: 3 });
+          this.rings.push({ x: e.x, y: e.y, t: 0, r: 2.2, color: 0x5ef0ff });
+        } else if (e.kind === 'dump' || e.kind === 'drop') this.particles.burst(e.x, e.y + 0.3, 10, { speed: 3, colors: [0xd8c8a8, 0xffffff], life: 0.4, size: 0.16, g: 4 });
         else if (e.kind === 'fly') this.particles.burst(e.x, e.y + 0.4, 20, { speed: 4, colors: [0xffffff, 0xc8f0ff], life: 0.6, size: 0.18, dir: Math.PI / 2, spread: 2, g: -1 });
         else if (e.kind === 'shoot') {
           const f = car.forward();
@@ -265,10 +305,23 @@ export class GameView {
         break;
       }
       case 'blast': {
+        if (e.kind === 'roar' || e.kind === 'zap') {
+          const col = e.kind === 'zap' ? 0xfff060 : 0xffffff;
+          this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r * 0.6, color: col });
+          this.rings.push({ x: e.x, y: e.y, t: -0.12, r: e.r, color: col });
+          if (e.kind === 'zap') this.particles.burst(e.x, e.y, 30, { speed: e.r * 2, colors: [0xfff060, 0xffffff, 0x5ef0ff], life: 0.3, size: 0.12, g: 0, drag: 3 });
+          this.trauma = Math.min(1, this.trauma + 0.2);
+          break;
+        }
         const cols = e.kind === 'firework' ? [0xff3a5a, 0xffd23f, 0x5ef0ff, 0xffffff] : e.kind === 'bomb' ? [0xffffff, 0xffd040, 0xff7020, 0x403a48] : [0xd8c8a8, 0xa89880, 0xffffff];
         this.particles.burst(e.x, e.y, e.kind === 'slam' ? 34 : 40, { speed: e.r * 2.2, colors: cols, life: 0.55, size: 0.2, g: e.kind === 'slam' ? 8 : 4, drag: 2 });
         this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: e.kind === 'slam' ? 0xffffff : 0xffd060 });
         this.trauma = Math.min(1, this.trauma + (e.kind === 'firework' ? 0.2 : 0.45));
+        break;
+      }
+      case 'effect': {
+        const cols: Record<string, number[]> = { freeze: [0xbfefff, 0xffffff, 0x5ad0f0], stun: [0xfff060, 0xffffff], lift: [0x8fe8ff, 0xffffff], pull: [0xc8a060, 0xffffff], push: [0x5ab0ff, 0xffffff], web: [0xffffff, 0xd0d0d8] };
+        this.particles.burst(e.x, e.y, 18, { speed: 5, colors: cols[e.effect], life: 0.4, size: 0.14, g: e.effect === 'push' ? 6 : 0, drag: 2 });
         break;
       }
       case 'shieldBlock':
@@ -375,13 +428,46 @@ export class GameView {
       }
       const p = sh.body.getPosition(), v = sh.body.getLinearVelocity();
       sp.position.set(p.x, p.y);
-      sp.rotation = sh.proj === 'laser' || sh.proj === 'firework' ? Math.atan2(v.y, v.x) : sh.body.getAngle();
+      const along = sh.proj === 'laser' || sh.proj === 'zap' || sh.proj === 'bullet' || sh.proj === 'firework' || sh.proj === 'missile' || sh.proj === 'harpoon' || sh.proj === 'cork';
+      sp.rotation = along ? Math.atan2(v.y, v.x) : sh.body.getAngle();
+      if (sh.proj === 'fire') {
+        const age = (g.time - sh.born) / PROJECTILES.fire.life;
+        sp.scale.set((0.8 + age * 0.9) / ART_PPM);
+        sp.alpha = 1 - age * 0.6;
+      }
+      if (sh.proj === 'missile' && Math.random() < 0.8) this.particles.spawn(p.x, p.y, { vx: -v.x * 0.1, vy: -v.y * 0.1, life: 0.4, size: 0.16, color: Math.random() > 0.5 ? 0xd0d0d8 : 0xff8020 });
+      if (sh.proj === 'fire' && Math.random() < 0.5) this.particles.spawn(p.x, p.y, { vy: -1.5, life: 0.25, size: 0.14, color: Math.random() > 0.5 ? 0xffd040 : 0xff5020 });
       if (sh.proj === 'firework' && Math.random() < 0.8) this.particles.spawn(p.x, p.y, { vx: -v.x * 0.1, vy: -v.y * 0.1, life: 0.3, size: 0.12, color: Math.random() > 0.5 ? 0xffd040 : 0xff5020 });
-      if (sh.proj === 'laser' && Math.random() < 0.5) this.particles.spawn(p.x, p.y, { life: 0.15, size: 0.1, color: 0x5ef0ff });
+      if ((sh.proj === 'laser' || sh.proj === 'zap') && Math.random() < 0.5) this.particles.spawn(p.x, p.y, { life: 0.15, size: 0.1, color: sh.proj === 'zap' ? 0xfff060 : 0x5ef0ff });
     }
     for (const [id, sp] of this.shotSprites) if (!live.has(id)) {
       sp.destroy();
       this.shotSprites.delete(id);
+    }
+    const liveItems = new Set<number>();
+    for (const it of g.items) {
+      liveItems.add(it.id);
+      let sp = this.itemSprites.get(it.id);
+      if (!sp) {
+        const info = ITEMS[it.kind];
+        sp = new Sprite(cached(`item:${it.kind}`, () => gridTexture(itemGrid(it.kind, info.w, info.h, ART_PPM), DECOR_PAL)));
+        sp.anchor.set(0.5);
+        sp.scale.set(1 / ART_PPM);
+        this.itemLayer.addChild(sp);
+        this.itemSprites.set(it.id, sp);
+      }
+      const p = it.body.getPosition();
+      sp.position.set(p.x, p.y);
+      sp.rotation = it.body.getAngle();
+      if (it.fuse !== undefined) {
+        sp.tint = Math.sin(this.time * (8 + (1.5 - it.fuse) * 14)) > 0 ? 0xffffff : 0xff8060;
+        if (Math.random() < 0.5) this.particles.spawn(p.x, p.y - 0.3, { vy: -1, life: 0.2, size: 0.08, color: 0xffd040 });
+      }
+      if (it.kind === 'mine') sp.tint = Math.sin(this.time * 6) > 0.6 ? 0xff8080 : 0xffffff;
+    }
+    for (const [id, sp] of this.itemSprites) if (!liveItems.has(id)) {
+      sp.destroy();
+      this.itemSprites.delete(id);
     }
     const fx = this.fxGfx; // cleared in renderSudden, which runs first
     for (const c of g.cars) {
@@ -395,13 +481,22 @@ export class GameView {
         const p = c.position;
         this.particles.spawn(p.x + (Math.random() - 0.5) * 2, p.y + 0.8, { vy: 2, life: 0.4, size: 0.12, color: 0xffffff });
       }
+      if (c.stunT > 0 && Math.random() < 0.5) {
+        const p = c.position;
+        const col = c.stunLook === 'zap' ? 0xfff060 : c.stunLook === 'web' ? 0xffffff : 0xbfefff;
+        this.particles.spawn(p.x + (Math.random() - 0.5) * 2.4, p.y + (Math.random() - 0.5) * 1.2, { life: 0.25, size: 0.1, color: col });
+      }
+      if (c.liftT > 0) {
+        const p = c.position;
+        fx.circle(p.x, p.y - 0.3, 2.1).fill({ color: 0x8fe8ff, alpha: 0.18 }).stroke({ color: 0xd8f8ff, width: 0.08, alpha: 0.6 });
+      }
       if (c.slamming) {
         const p = c.position;
         this.particles.spawn(p.x + (Math.random() - 0.5), p.y - 0.5, { vy: -4, life: 0.25, size: 0.2, color: 0xfff0c0 });
       }
       // charge bar under the P1/P2 marker
       const view = this.carViews[c.player];
-      if (!view) continue;
+      if (!view || !c.ability) continue;
       const mx = view.marker.x, my = view.marker.y + 0.18;
       const k = c.abilityCharge;
       const col = toHex(hex(PLAYER_COLORS[c.player]));
@@ -443,6 +538,8 @@ export class GameView {
     this.ghostSprites.clear();
     this.wallSprites = [];
     this.blocks.clear();
+    for (const sp of this.itemSprites.values()) sp.destroy();
+    this.itemSprites.clear();
     // Sudden-death lava belongs to the previous round: remove its sprites too.
     for (const c of this.fxLayer.removeChildren()) c.destroy();
     this.riseLava = null;
@@ -728,7 +825,7 @@ export class GameView {
     for (const r of this.rings) {
       r.t += simDt;
       const k = r.t / 0.45;
-      if (k < 1) this.ringGfx.circle(r.x, r.y, 0.5 + k * ((r.r ?? 5) - 0.5)).stroke({ color: r.color ?? 0xfff6c0, width: 0.35 * (1 - k), alpha: 1 - k });
+      if (k >= 0 && k < 1) this.ringGfx.circle(r.x, r.y, 0.5 + k * ((r.r ?? 5) - 0.5)).stroke({ color: r.color ?? 0xfff6c0, width: 0.35 * (1 - k), alpha: 1 - k });
     }
     this.rings = this.rings.filter((r) => r.t < 0.45);
     if (this.debug) drawPhysicsDebug(this.debugGfx, g.world);
@@ -819,6 +916,7 @@ export class GameView {
     this.touchLabels.removeChildren();
     if (!this.showTouch) return;
     for (const z of this.input.zones) {
+      if (z.btn === 'action' && this.game && !this.game.cars[z.player]?.ability) continue;
       const pressed = this.input.touch[z.player][z.btn];
       const col = toHex(hex(PLAYER_COLORS[z.player]));
       const pad = 6;

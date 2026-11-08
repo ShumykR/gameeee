@@ -1,5 +1,5 @@
 import type { Body } from 'planck';
-import type { ProjectileKind } from '../cars/types';
+import type { ItemKind, ProjectileKind } from '../cars/types';
 
 /** Typed userData attached to every fixture so contact logic can classify it. */
 export type FixtureTag =
@@ -11,7 +11,8 @@ export type FixtureTag =
   | { kind: 'pad'; power: number; nx: number; ny: number }
   | { kind: 'platform' }
   | { kind: 'ragdoll'; player: number }
-  | { kind: 'shot'; owner: number; proj: ProjectileKind; id: number };
+  | { kind: 'shot'; owner: number; proj: ProjectileKind; id: number }
+  | { kind: 'item'; owner: number; item: ItemKind; id: number };
 
 export function tagOf(f: { getUserData(): unknown }): FixtureTag | null {
   return (f.getUserData() as FixtureTag) ?? null;

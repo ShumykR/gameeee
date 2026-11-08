@@ -115,10 +115,20 @@ export class AudioEngine {
       case 'slam': this.tone(500, 0.25, 'square', 0.08, 120); break;
       case 'fly': this.tone(330, 0.5, 'sine', 0.12, 880); this.noiseBurst(0.5, 0.12, 2400, 0.5, 4000); break;
       case 'shield': [880, 1320, 1760].forEach((f, i) => this.tone(f, 0.14, 'triangle', 0.1, undefined, i * 0.05)); break;
+      case 'roar': this.tone(140, 0.55, 'sawtooth', 0.14, 70); this.noiseBurst(0.5, 0.3, 600, 0.6, 200); break;
+      case 'drop': this.tone(300, 0.12, 'square', 0.1, 180); this.tone(160, 0.1, 'square', 0.08, undefined, 0.1); break;
+      case 'dump': this.noiseBurst(0.5, 0.4, 500, 0.8, 150); this.tone(200, 0.2, 'triangle', 0.1, 90); break;
+      case 'phase': this.tone(660, 0.5, 'sine', 0.1, 220); this.tone(990, 0.5, 'sine', 0.06, 330); break;
+      case 'blink': this.tone(200, 0.25, 'square', 0.08, 1600); this.tone(1600, 0.2, 'sine', 0.06, 400, 0.15); break;
       case 'shoot':
-        if (proj === 'laser') this.tone(1800, 0.18, 'square', 0.09, 300);
-        else if (proj === 'snowball' || proj === 'ball') { this.noiseBurst(0.12, 0.3, 700, 1, 300); this.tone(240, 0.1, 'triangle', 0.15, 120); }
-        else if (proj === 'firework') { this.noiseBurst(0.5, 0.25, 3000, 0.6, 800); this.tone(600, 0.4, 'square', 0.05, 1600); }
+        if (proj === 'laser' || proj === 'zap') this.tone(1800, 0.18, 'square', 0.09, 300);
+        else if (proj === 'snowball' || proj === 'ball' || proj === 'egg' || proj === 'burger' || proj === 'gift') { this.noiseBurst(0.12, 0.3, 700, 1, 300); this.tone(240, 0.1, 'triangle', 0.15, 120); }
+        else if (proj === 'firework' || proj === 'missile') { this.noiseBurst(0.5, 0.25, 3000, 0.6, 800); this.tone(600, 0.4, 'square', 0.05, 1600); }
+        else if (proj === 'toast') { this.tone(900, 0.06, 'square', 0.12); this.tone(500, 0.15, 'triangle', 0.12, 1200, 0.05); }
+        else if (proj === 'bubble') [600, 900, 1200].forEach((f, i) => this.tone(f, 0.08, 'sine', 0.1, f * 1.5, i * 0.06));
+        else if (proj === 'water' || proj === 'fire') this.noiseBurst(0.6, 0.35, proj === 'water' ? 1800 : 900, 0.5, proj === 'water' ? 2600 : 400);
+        else if (proj === 'harpoon' || proj === 'web') { this.noiseBurst(0.2, 0.2, 2000, 0.6, 600); this.tone(300, 0.15, 'square', 0.06, 900); }
+        else if (proj === 'cork') { this.tone(1200, 0.05, 'square', 0.14, 400); this.noiseBurst(0.15, 0.3, 3000, 1, 1000); }
         else { this.noiseBurst(0.35, 0.55, 900, 0.6, 120); this.tone(80, 0.3, 'sine', 0.5, 40); }
         break;
     }
@@ -128,9 +138,17 @@ export class AudioEngine {
       this.noiseBurst(0.6, 0.4, 3500, 0.4, 600);
       for (let i = 0; i < 4; i++) this.tone(1200 + Math.random() * 1200, 0.08, 'square', 0.05, undefined, 0.05 + i * 0.07);
     } else if (kind === 'bomb') this.explosion();
+    else if (kind === 'zap') { this.noiseBurst(0.4, 0.4, 4000, 0.3, 1200); this.tone(90, 0.3, 'square', 0.1, 60); }
+    else if (kind === 'roar') return;
     else { this.noiseBurst(0.5, 0.6, 500, 0.6, 60); this.tone(70, 0.5, 'sine', 0.6, 30); }
   }
   shieldBlock() { this.tone(1400, 0.2, 'triangle', 0.15, 700); }
+  effect(kind: string) {
+    if (kind === 'freeze') [1600, 2000, 2400].forEach((f, i) => this.tone(f, 0.1, 'triangle', 0.07, undefined, i * 0.04));
+    else if (kind === 'stun') this.noiseBurst(0.3, 0.3, 5000, 0.4, 2000);
+    else if (kind === 'lift') this.tone(400, 0.4, 'sine', 0.1, 900);
+    else if (kind === 'pull') this.tone(700, 0.25, 'sawtooth', 0.06, 200);
+  }
 
   point() {
     [784, 988].forEach((f, i) => this.tone(f, 0.12, 'square', 0.1, undefined, i * 0.09));
