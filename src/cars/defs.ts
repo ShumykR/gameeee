@@ -1,5 +1,6 @@
 import type { CarDef, CarPoly, Pt } from './types';
 import { buildCar } from './factory';
+import { applyKit } from './kit';
 import { ROSTER } from './roster/index';
 
 /** Axis-aligned box polygon helper (car-local meters, y down). */
@@ -87,7 +88,6 @@ const ORIGINALS: CarDef[] = [
   },
   {
     id: 'mammoth',
-    ability: { kind: 'jump', name: 'Монстр-стрибок' },
     name: 'Mammoth',
     archetype: 'monster',
     blurb: 'Монстр-трак на величезних колесах. М\'яка підвіска, переїжджає все.',
@@ -167,7 +167,6 @@ const ORIGINALS: CarDef[] = [
   },
   {
     id: 'digger',
-    ability: { kind: 'slam', name: 'Удар ковшем' },
     name: 'Digger',
     archetype: 'scoop',
     blurb: 'Ківш спереду підчіплює суперника знизу і перекидає його.',
@@ -193,7 +192,6 @@ const ORIGINALS: CarDef[] = [
   },
   {
     id: 'rammer',
-    ability: { kind: 'dash', name: 'Таран' },
     name: 'Rammer',
     archetype: 'ram',
     blurb: 'Сталевий таран на рівні голови суперника.',
@@ -302,7 +300,6 @@ const ORIGINALS: CarDef[] = [
   },
   {
     id: 'jelly',
-    ability: { kind: 'jump', name: 'Желе-стрибок' },
     name: 'Jelly',
     archetype: 'bouncy',
     blurb: 'Гумовий кузов і м\'яка підвіска — відскакує від усього.',
@@ -330,7 +327,6 @@ const ORIGINALS: CarDef[] = [
     name: 'Tankette',
     archetype: 'heavy',
     blurb: 'Чотири малі колеса і броньована башта позаду водія.',
-    ability: { kind: 'shoot', projectile: 'cannon', name: 'Башта' },
     palette: { body: '#7a8a4a', accent: '#d8c070', dark: '#262a18', glass: '#b0e0d0', light: '#fff0a0' },
     body: [
       box(-1.5, -0.3, 1.5, 0.22),
@@ -356,7 +352,6 @@ const ORIGINALS: CarDef[] = [
   },
   {
     id: 'hornet',
-    ability: { kind: 'dash', name: 'Жало' },
     name: 'Hornet',
     archetype: 'spike',
     blurb: 'Швидке жало на носі: ідеальне для атак у лоб.',
@@ -584,6 +579,6 @@ const ORIGINALS: CarDef[] = [
 export const CARS: CarDef[] = [
   ...ORIGINALS.map((c) => ({ ...c, category: 'originals' as const })),
   ...ROSTER.map(buildCar),
-];
+].map(applyKit);
 
 export const CAR_BY_ID: Record<string, CarDef> = Object.fromEntries(CARS.map((c) => [c.id, c]));

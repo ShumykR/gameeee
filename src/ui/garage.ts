@@ -148,7 +148,7 @@ export function openCarBrowser(host: HTMLElement, o: BrowserOpts): CarBrowser {
     card.appendChild(el('div', 'car-name', `${def.name}`));
     card.appendChild(el('div', 'gd-tags', `<span class="chip on">${cat.icon} ${cat.name}</span><span class="chip">${ARCH_NAMES[def.archetype]}</span>`));
     card.appendChild(el('div', 'blurb', def.blurb));
-    card.appendChild(el('div', `ability ${abilityOf(def) ? '' : 'none'}`, `${abilityLabel(def)} — ${abilityBlurb(def)}`));
+    card.appendChild(el('div', `ability ${abilityOf(def) || def.traits?.length ? '' : 'none'}`, `${abilityLabel(def)} — ${abilityBlurb(def)}`));
     card.appendChild(statBars(def));
     const row = el('div', 'row');
     if (o.onAssign) {

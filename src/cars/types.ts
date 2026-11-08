@@ -39,19 +39,31 @@ export interface CarPalette {
   light: string;
 }
 
-/** Special action on its own button. */
+/** Special action on its own button. Every car's action is unique (see cars/kit.ts). */
 export type AbilityKind =
-  | 'jump' | 'nitro' | 'dash' | 'slam' | 'shoot' | 'fly' | 'shield'
-  | 'roar' | 'drop' | 'phase' | 'blink' | 'dump';
+  // hops and leaps
+  | 'jump' | 'stomp' | 'bounce' | 'rear' | 'surprise' | 'ollie' | 'pounce' | 'hydraulics' | 'backflip' | 'moonjump'
+  // rushes and strikes
+  | 'nitro' | 'drs' | 'dash' | 'sting' | 'gore' | 'flip' | 'bump' | 'bite' | 'frenzy' | 'slide'
+  | 'punch' | 'kick' | 'scoop' | 'tailwhip'
+  // area effects
+  | 'slam' | 'puff' | 'roar' | 'discharge' | 'howl' | 'stasis' | 'beam' | 'storm'
+  // self
+  | 'fly' | 'glide' | 'shield' | 'shell' | 'reflect' | 'heavy' | 'phase' | 'invis' | 'blink' | 'swap' | 'recall' | 'icewall'
+  // things
+  | 'shoot' | 'drop' | 'dump';
 export type ProjectileKind =
   | 'cannon' | 'snowball' | 'ball' | 'laser' | 'firework' | 'toast' | 'harpoon' | 'bubble' | 'pumpkin'
-  | 'bone' | 'missile' | 'water' | 'ice' | 'egg' | 'fire' | 'urn' | 'zap' | 'cork' | 'gift' | 'burger' | 'web'
-  | 'icecream' | 'golf' | 'bullet';
+  | 'bone' | 'missile' | 'water' | 'ice' | 'fire' | 'urn' | 'zap' | 'cork' | 'burger' | 'web'
+  | 'golf' | 'bullet' | 'bigsnow' | 'bat' | 'penguin' | 'mega' | 'torpedo' | 'volley' | 'tea' | 'plasma'
+  | 'seeker' | 'fist' | 'railgun' | 'atom' | 'hook' | 'quill' | 'ink';
 
-/** Loose things a car carries (start in the bed and spill out) or drops. */
+/** Loose things a car carries (start in the bed and spill out), drops, or an arena scatters around. */
 export type ItemKind =
   | 'ball' | 'log' | 'barrel' | 'gift' | 'pumpkin' | 'snowball' | 'trash' | 'rock' | 'egg' | 'bone'
-  | 'crate' | 'hay' | 'cow' | 'penguin' | 'ice' | 'coal' | 'mine' | 'bomb' | 'peel';
+  | 'crate' | 'hay' | 'cow' | 'penguin' | 'coal' | 'mine' | 'bomb' | 'peel'
+  | 'icecream' | 'coffin' | 'concrete' | 'oil' | 'tar' | 'spikes' | 'sandbag' | 'melon' | 'tire'
+  | 'icewall' | 'flame' | 'cone' | 'toyblock';
 
 export interface AbilityDef {
   kind: AbilityKind;
@@ -61,9 +73,24 @@ export interface AbilityDef {
   item?: ItemKind;
   /** Car-specific name shown in menus ("Тостомет", "Сирена"…). */
   name?: string;
-  /** For 'roar': stun instead of push. */
-  stun?: boolean;
 }
+
+/** Passive, always-on quirk of a car (shown next to its active ability). */
+export type TraitDef =
+  /** Floats and paddles in water instead of drowning. */
+  | { kind: 'swim' }
+  /** Drops an item from the back every few seconds while driving. */
+  | { kind: 'spill'; item: ItemKind; every: number }
+  /** Shrugs off the first head hit of each round. */
+  | { kind: 'medkit' }
+  /** Sticky tracks: much more grip on slopes and walls. */
+  | { kind: 'grip' }
+  /** Spiky hull: whoever rams it bounces off. */
+  | { kind: 'quills' }
+  /** Rubber body: bounces off everything. */
+  | { kind: 'rubber' }
+  /** Electric skin: touching it stuns. */
+  | { kind: 'shock' };
 
 export interface CargoDef {
   kind: ItemKind;
@@ -131,6 +158,8 @@ export interface CarDef {
   restitution?: number;
   /** Special action on the action button; cars without one just drive. */
   ability?: AbilityDef;
+  /** Passive quirks. */
+  traits?: TraitDef[];
   /** Loose cargo that sits in the bed at the start of each round. */
   cargo?: CargoDef;
   /** Swinging weight on a chain. */

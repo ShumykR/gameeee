@@ -213,7 +213,7 @@ export class Menu {
       panel.appendChild(stage);
       const cat = CATEGORY_BY_ID[categoryOf(def)];
       panel.appendChild(el('div', 'car-name', `${def.name} <small>${cat.icon} ${ARCH_NAMES[def.archetype]}</small>`));
-      const ab = el('div', `ability ${abilityOf(def) ? '' : 'none'}`, abilityLabel(def));
+      const ab = el('div', `ability ${abilityOf(def) || def.traits?.length ? '' : 'none'}`, abilityLabel(def));
       ab.title = abilityBlurb(def);
       panel.appendChild(ab);
       panel.appendChild(el('div', 'blurb', def.blurb));

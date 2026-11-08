@@ -108,6 +108,14 @@ export class AudioEngine {
     notes.forEach((f, i) => this.tone(f, 0.18, 'square', 0.12, undefined, i * 0.13));
   }
   ability(kind: string, proj?: string) {
+    // Families of actions share a sound.
+    const fam: Record<string, string> = {
+      stomp: 'jump', bounce: 'jump', rear: 'jump', ollie: 'jump', pounce: 'jump', hydraulics: 'jump', backflip: 'jump', moonjump: 'jump',
+      drs: 'nitro', sting: 'dash', gore: 'dash', flip: 'dash', bump: 'dash', bite: 'dash', frenzy: 'dash', slide: 'dash',
+      punch: 'slam', kick: 'slam', scoop: 'slam', tailwhip: 'slam', puff: 'slam', glide: 'fly', shell: 'shield', reflect: 'shield', heavy: 'slam',
+      discharge: 'roar', howl: 'roar', stasis: 'blink', beam: 'fly', storm: 'roar', invis: 'phase', swap: 'blink', recall: 'blink', icewall: 'drop',
+    };
+    kind = fam[kind] ?? kind;
     switch (kind) {
       case 'jump': this.tone(220, 0.18, 'square', 0.12, 660); break;
       case 'nitro':

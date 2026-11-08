@@ -1,4 +1,4 @@
-import type { AbilityDef, AbilityKind, Archetype, CarDef, CarMat, CarPoly, CategoryId, FlailDef, ItemKind, ProjectileKind, Pt, WheelDef } from './types';
+import type { Archetype, CarDef, CarMat, CarPoly, CategoryId, FlailDef, ItemKind, Pt, WheelDef } from './types';
 import { estimateMass } from './stats';
 
 /*
@@ -841,12 +841,6 @@ export interface CarSpec {
   arch?: Archetype;
   /** Uniform scale of the whole car. */
   s?: number;
-  /**
-   * Special action, written 'kind', 'kind:arg' or 'kind:arg|Name'
-   * (e.g. 'shoot:toast|Тостомет', 'drop:mine', 'fly|Левітація'). Omitted = no action.
-   */
-  ab?: string;
-  ability?: AbilityDef;
   /** Loose cargo in the bed at round start. */
   cargo?: [ItemKind, number];
   /** Weight on a chain, hung from a frame anchor. */
@@ -901,7 +895,6 @@ export function buildCar(spec: CarSpec): CarDef {
       polys.push(q);
     }
   }
-  const ability = spec.ability ?? (spec.ab ? parseAbility(spec.ab) : undefined);
   const s = spec.s ?? 1;
   const pre = PRESETS[arch];
   const body = polys.map((p) => ({ ...p, pts: p.pts.map((q) => scalePt(q, s)) }));
@@ -945,7 +938,6 @@ export function buildCar(spec: CarSpec): CarDef {
       : [f.nose.x, f.nose.y0];
     def.flail = { at: scalePt(at, s), len: fl.len * s, r: fl.r * s, look: fl.look };
   }
-  if (ability) def.ability = ability;
   if (spec.float ?? f.float) def.float = spec.float ?? f.float;
   if (spec.bounce) def.restitution = spec.bounce;
   // Normalize chassis density so the car hits its target mass, then torque for target accel.
@@ -986,21 +978,6 @@ export function buildCar(spec: CarSpec): CarDef {
   def.motor.torque = +((accel * mass) / inv).toFixed(2);
   if (def.motor.speed > 18 && mass >= 5) def.motor.speed = 17.5;
   return def;
-}
-
-const KINDS: AbilityKind[] = ['jump', 'nitro', 'dash', 'slam', 'shoot', 'fly', 'shield', 'roar', 'drop', 'phase', 'blink', 'dump'];
-
-/** 'shoot:toast|Тостомет' → { kind: 'shoot', projectile: 'toast', name: 'Тостомет' } */
-export function parseAbility(src: string): AbilityDef {
-  const [main, name] = src.split('|');
-  const [kind, arg] = main.split(':');
-  if (!KINDS.includes(kind as AbilityKind)) throw new Error(`unknown ability ${src}`);
-  const a: AbilityDef = { kind: kind as AbilityKind };
-  if (kind === 'shoot') a.projectile = (arg ?? 'cannon') as ProjectileKind;
-  else if ((kind === 'drop' || kind === 'dump') && arg) a.item = arg as ItemKind;
-  else if (kind === 'roar' && arg === 'stun') a.stun = true;
-  if (name) a.name = name;
-  return a;
 }
 
 function centroidX(pts: Pt[]): [number, number] {
