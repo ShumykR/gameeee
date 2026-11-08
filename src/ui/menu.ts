@@ -1,14 +1,15 @@
 import { CARS, CAR_BY_ID } from '../cars/defs';
+import { ARCH_NAMES, CATEGORIES, CATEGORY_BY_ID, categoryOf, countByCategory, filterCars, type CarFilter } from '../cars/catalog';
 import { carPreviewCanvas } from '../cars/preview';
-import { normalizedStats } from '../cars/stats';
-import type { CarDef } from '../cars/types';
+import type { CategoryId } from '../cars/types';
 import { MAPS } from '../maps/defs';
-import { pixelTextCanvas } from '../render/pixeltext';
 import { altPalette, PLAYER_COLORS } from '../render/view';
 import { audio } from '../audio/audio';
 import type { BotLevel } from '../ai/bot';
 import type { Settings } from './settings';
 import { mapThumb } from './thumbs';
+import { button, el, statBars, titleCanvas } from './dom';
+import { openCarBrowser, type CarBrowser } from './garage';
 
 export type Mode = 'pvp' | 'bot';
 
@@ -27,46 +28,23 @@ export interface MenuHooks {
 }
 
 const LEVEL_NAMES: Record<BotLevel, string> = { easy: 'ЛЕГКО', normal: 'НОРМА', hard: 'ВАЖКО' };
-const ARCH_NAMES: Record<string, string> = {
-  allround: 'універсал', heavy: 'важке', fast: 'швидке', monster: 'монстр-трак', tiny: 'крихітне', long: 'довга база',
-  scoop: 'ківш', ram: 'таран', spike: 'шипи', rocket: 'ракета', tall: 'високе', bouncy: 'стрибуче',
-};
-
-function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', html = ''): HTMLElementTagNameMap[K] {
-  const e = document.createElement(tag);
-  if (cls) e.className = cls;
-  if (html) e.innerHTML = html;
-  return e;
-}
-
-function button(label: string, cls: string, onClick: () => void, sound: 'click' | 'back' = 'click') {
-  const b = el('button', `btn ${cls}`, label);
-  b.addEventListener('click', (e) => {
-    e.stopPropagation();
-    audio.unlock();
-    audio[sound]();
-    onClick();
-  });
-  return b;
-}
-
-function titleCanvas(text: string, size: number, color: string, scale: number) {
-  const c = pixelTextCanvas(text, { size, color });
-  c.className = 'ptitle';
-  c.style.width = `${c.width * scale}px`;
-  c.style.height = `${c.height * scale}px`;
-  return c;
-}
-
 export class Menu {
   private root: HTMLElement;
   private keyHandler: ((e: KeyboardEvent) => void) | null = null;
+  /** Garage overlay currently open on top of a screen (gets the keys). */
+  private overlay: CarBrowser | null = null;
+  /** Per-player collection filter on the car-select screen. */
+  private carCat: (CategoryId | 'all')[] = ['all', 'all'];
+  private garageFilter: CarFilter = {};
   mode: Mode = 'pvp';
 
   constructor(host: HTMLElement, private settings: Settings, private hooks: MenuHooks) {
     this.root = el('div', 'menu-root');
     host.appendChild(this.root);
-    window.addEventListener('keydown', (e) => this.keyHandler?.(e));
+    window.addEventListener('keydown', (e) => {
+      if (this.overlay) this.overlay.handleKey(e);
+      else this.keyHandler?.(e);
+    });
   }
 
   get visible() {
@@ -74,6 +52,8 @@ export class Menu {
   }
 
   hide() {
+    this.overlay?.close();
+    this.overlay = null;
     this.root.innerHTML = '';
     this.root.className = 'menu-root';
     this.keyHandler = null;
@@ -106,6 +86,7 @@ export class Menu {
     }
     if (SHOW_BOT_MODE) col.appendChild(diff);
     const row = el('div', 'row');
+    row.append(button('🚙 гараж', 'small', () => this.openGarage()));
     row.append(button('налаштування', 'small', () => this.showSettings()));
     if (this.hooks.install) row.append(button('встановити', 'small gold', () => this.hooks.install?.()));
     col.appendChild(row);
@@ -135,6 +116,25 @@ export class Menu {
     this.keyHandler = (e) => e.code === 'Escape' && this.showMain();
   }
 
+  /** Browse every car (from the main menu). */
+  openGarage() {
+    this.overlay = openCarBrowser(this.root, {
+      title: `ГАРАЖ · ${CARS.length} авто`,
+      mode: 'browse',
+      color: PLAYER_COLORS[0],
+      filter: this.garageFilter,
+      onAssign: (p, def) => {
+        if (p === 0) this.settings.p1 = def.id;
+        else this.settings.p2 = def.id;
+        this.hooks.settingsChanged();
+      },
+      onClose: (f) => {
+        this.garageFilter = f;
+        this.overlay = null;
+      },
+    });
+  }
+
   showCars(mode: Mode, onDone: () => void) {
     this.mode = mode;
     const s = this.screen('cars');
@@ -142,30 +142,88 @@ export class Menu {
     head.appendChild(titleCanvas('ОБЕРИ АВТО', 12, '#ffffff', 2));
     s.appendChild(head);
     const wrap = el('div', 'cars-wrap');
-    const idx = [Math.max(0, CARS.findIndex((c) => c.id === this.settings.p1)), Math.max(0, CARS.findIndex((c) => c.id === this.settings.p2))];
+    const cur = [CAR_BY_ID[this.settings.p1] ?? CARS[0], CAR_BY_ID[this.settings.p2] ?? CARS[1]];
+    const counts = countByCategory(CARS);
+    // If a remembered collection no longer contains the car, show all.
+    for (const p of [0, 1]) if (this.carCat[p] !== 'all' && categoryOf(cur[p]) !== this.carCat[p]) this.carCat[p] = 'all';
+    const pool = (p: number) => filterCars(CARS, { cat: this.carCat[p] });
     const panels = [0, 1].map((p) => {
       const panel = el('div', `car-panel p${p + 1}`);
       wrap.appendChild(panel);
       return panel;
     });
+    const step = (p: number, d: number) => {
+      const list = pool(p);
+      const i = list.indexOf(cur[p]);
+      cur[p] = list[(Math.max(0, i) + d + list.length) % list.length];
+      renderAll();
+    };
+    const setCat = (p: number, cat: CategoryId | 'all') => {
+      this.carCat[p] = cat;
+      const list = pool(p);
+      if (!list.includes(cur[p])) cur[p] = list[0];
+      renderAll();
+    };
+    const cycleCat = (p: number, d: number) => {
+      const ids: (CategoryId | 'all')[] = ['all', ...CATEGORIES.map((c) => c.id)];
+      setCat(p, ids[(ids.indexOf(this.carCat[p]) + d + ids.length) % ids.length]);
+    };
+    const pickFromGarage = (p: number) => {
+      this.overlay = openCarBrowser(this.root, {
+        title: p === 0 ? 'ГРАВЕЦЬ 1 · обери авто' : mode === 'bot' ? 'БОТ · обери авто' : 'ГРАВЕЦЬ 2 · обери авто',
+        mode: 'pick',
+        color: PLAYER_COLORS[p],
+        selected: cur[p].id,
+        filter: { cat: this.carCat[p] },
+        onPick: (def) => {
+          cur[p] = def;
+          if (this.carCat[p] !== 'all' && categoryOf(def) !== this.carCat[p]) this.carCat[p] = 'all';
+        },
+        onClose: () => {
+          this.overlay = null;
+          renderAll();
+        },
+      });
+    };
     const render = (p: number) => {
-      const def = CARS[idx[p]];
+      const def = cur[p];
       const panel = panels[p];
       panel.innerHTML = '';
+      const top = el('div', 'panel-top');
       const who = p === 0 ? 'ГРАВЕЦЬ 1' : mode === 'bot' ? `БОТ · ${LEVEL_NAMES[this.settings.bot]}` : 'ГРАВЕЦЬ 2';
-      panel.appendChild(el('div', 'who', who));
+      top.appendChild(el('div', 'who', who));
+      const sel = el('select', 'cat-select');
+      sel.setAttribute('aria-label', 'Колекція');
+      sel.appendChild(new Option(`Усі колекції (${counts.all})`, 'all'));
+      for (const c of CATEGORIES) sel.appendChild(new Option(`${c.icon} ${c.name} (${counts[c.id] ?? 0})`, c.id));
+      sel.value = this.carCat[p];
+      sel.addEventListener('change', () => { audio.click(); setCat(p, sel.value as CategoryId | 'all'); });
+      top.appendChild(sel);
+      panel.appendChild(top);
       const stage = el('div', 'stage');
-      const sameAsOther = CARS[idx[1 - p]].id === def.id && p === 1;
+      const sameAsOther = cur[1 - p].id === def.id && p === 1;
       const cv = carPreviewCanvas(def, sameAsOther ? altPalette(def.palette) : def.palette, PLAYER_COLORS[p], 3, p === 1);
       cv.className = 'preview';
-      const prev = button('◀', 'arrow', () => { idx[p] = (idx[p] + CARS.length - 1) % CARS.length; renderAll(); });
-      const next = button('▶', 'arrow', () => { idx[p] = (idx[p] + 1) % CARS.length; renderAll(); });
-      stage.append(prev, cv, next);
+      cv.addEventListener('click', () => pickFromGarage(p));
+      cv.title = 'Відкрити всі авто';
+      stage.append(button('◀', 'arrow', () => step(p, -1)), cv, button('▶', 'arrow', () => step(p, 1)));
       panel.appendChild(stage);
-      panel.appendChild(el('div', 'car-name', `${def.name} <small>${ARCH_NAMES[def.archetype] ?? def.archetype}</small>`));
+      const cat = CATEGORY_BY_ID[categoryOf(def)];
+      panel.appendChild(el('div', 'car-name', `${def.name} <small>${cat.icon} ${ARCH_NAMES[def.archetype]}</small>`));
       panel.appendChild(el('div', 'blurb', def.blurb));
       panel.appendChild(statBars(def));
-      panel.appendChild(el('div', 'counter', `${idx[p] + 1} / ${CARS.length}`));
+      const row = el('div', 'row panel-actions');
+      row.append(
+        button('☰ усі авто', 'small', () => pickFromGarage(p)),
+        button('🎲', 'small', () => {
+          const list = pool(p);
+          cur[p] = list[Math.floor(Math.random() * list.length)];
+          renderAll();
+        }),
+      );
+      panel.appendChild(row);
+      const list = pool(p);
+      panel.appendChild(el('div', 'counter', `${list.indexOf(def) + 1} / ${list.length}`));
     };
     const renderAll = () => { render(0); render(1); };
     renderAll();
@@ -188,17 +246,21 @@ export class Menu {
     );
     s.appendChild(foot);
     const commit = () => {
-      this.settings.p1 = CARS[idx[0]].id;
-      this.settings.p2 = CARS[idx[1]].id;
+      this.settings.p1 = cur[0].id;
+      this.settings.p2 = cur[1].id;
       this.hooks.settingsChanged();
       onDone();
     };
     this.keyHandler = (e) => {
-      const step = (p: number, d: number) => { idx[p] = (idx[p] + CARS.length + d) % CARS.length; audio.click(); renderAll(); };
-      if (e.code === 'KeyA') step(0, -1);
-      else if (e.code === 'KeyD') step(0, 1);
-      else if (e.code === 'ArrowLeft') step(1, -1);
-      else if (e.code === 'ArrowRight') step(1, 1);
+      const k = (p: number, d: number) => { audio.click(); step(p, d); };
+      if (e.code === 'KeyA') k(0, -1);
+      else if (e.code === 'KeyD') k(0, 1);
+      else if (e.code === 'KeyW') cycleCat(0, -1);
+      else if (e.code === 'KeyS') cycleCat(0, 1);
+      else if (e.code === 'ArrowLeft') k(1, -1);
+      else if (e.code === 'ArrowRight') k(1, 1);
+      else if (e.code === 'ArrowUp') cycleCat(1, -1);
+      else if (e.code === 'ArrowDown') cycleCat(1, 1);
       else if (e.code === 'Enter') commit();
       else if (e.code === 'Escape') this.hooks.toMenu();
     };
@@ -260,21 +322,6 @@ export class Menu {
     s.appendChild(col);
     this.keyHandler = (e) => e.code === 'Enter' && this.hooks.rematch();
   }
-}
-
-function statBars(def: CarDef) {
-  const st = normalizedStats(def, CARS);
-  const box = el('div', 'stats');
-  const rows: [string, number][] = [['Швидкість', st.speed], ['Потужність', st.accel], ['Вага', st.weight], ['Зчеплення', st.grip], ['Повітря', st.air]];
-  for (const [k, v] of rows) {
-    const r = el('div', 'stat');
-    r.appendChild(el('span', '', k));
-    const bar = el('div', 'bar');
-    for (let i = 1; i <= 5; i++) bar.appendChild(el('i', v >= i - 0.25 ? 'f' : ''));
-    r.appendChild(bar);
-    box.appendChild(r);
-  }
-  return box;
 }
 
 export { CAR_BY_ID };

@@ -112,3 +112,74 @@ html, body {
 .cars-wrap.random-cars .car-panel { opacity: .45; }
 .cars-wrap.random-cars::after { content: 'Авто обиратимуться випадково кожного раунду'; position: absolute; left: 50%; top: 46%; transform: translateX(-50%); background: var(--gold); color: #2a1a08; font-weight: 800; padding: 6px 12px; border: 3px solid #0c0914; border-radius: 6px; font-size: 13px; pointer-events: none; }
 .cars-wrap { position: relative; }
+
+/* ---------- car select: collection filter + actions ---------- */
+.panel-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; width: 100%; }
+.cat-select, .garage-arch {
+  font: inherit; font-size: 12px; font-weight: 700; color: var(--ink); background: #120e1e;
+  border: 2px solid #0c0914; border-radius: 5px; padding: 3px 6px; max-width: 62%; min-width: 0;
+}
+.preview { cursor: pointer; }
+.panel-actions { gap: 6px; }
+.panel-actions .btn.small { padding: 4px 9px; }
+.btn.p1 { background: #1f6f99; }
+.btn.p2 { background: #a2343f; }
+
+/* ---------- garage (searchable grid of all cars) ---------- */
+.garage {
+  position: fixed; inset: 0; z-index: 20; background: var(--bg); display: flex; flex-direction: column; gap: 6px;
+  padding: max(8px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  user-select: none; touch-action: pan-y;
+}
+.garage-head { display: flex; align-items: center; gap: 8px; }
+.garage-title { font-weight: 900; letter-spacing: 1px; color: var(--gold); white-space: nowrap; font-size: 14px; }
+.garage-search {
+  flex: 1; min-width: 0; font: inherit; font-size: 15px; color: var(--ink); background: #120e1e; border: 3px solid #0c0914;
+  border-radius: 6px; padding: 6px 10px; user-select: text; -webkit-user-select: text;
+}
+.garage-search:focus, .cat-select:focus, .garage-arch:focus { outline: 2px solid var(--gold); }
+.garage-arch { max-width: 140px; }
+.garage-chips { display: flex; gap: 5px; overflow-x: auto; padding-bottom: 3px; scrollbar-width: thin; touch-action: pan-x; flex-shrink: 0; }
+.chip {
+  font: inherit; font-size: 12px; font-weight: 700; color: var(--ink); background: var(--panel); border: 2px solid #0c0914;
+  border-radius: 999px; padding: 4px 10px; white-space: nowrap; cursor: pointer;
+}
+.chip small { color: var(--muted); font-weight: 600; margin-left: 2px; }
+.chip.on { background: var(--gold); color: #2a1a08; }
+.chip.on small { color: #6a4a10; }
+.garage-grid {
+  flex: 1; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 6px; align-content: start; padding: 2px; touch-action: pan-y; -webkit-overflow-scrolling: touch;
+}
+.gcar {
+  font: inherit; color: var(--ink); background: var(--panel); border: 3px solid #0c0914; border-radius: 6px; padding: 4px;
+  display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; min-height: 92px;
+}
+.gcar:hover { background: var(--panel2); }
+.gcar.on { border-color: var(--gold); }
+.gcar img { width: 100%; height: 62px; object-fit: contain; image-rendering: pixelated; }
+.gcar-name { font-size: 11px; font-weight: 700; text-align: center; line-height: 1.15; }
+.garage-empty { display: none; text-align: center; color: var(--muted); padding: 30px; }
+.garage-foot { font-size: 10px; color: var(--muted); text-align: center; }
+.garage-detail { position: absolute; inset: 0; background: rgba(8, 6, 14, .82); display: flex; align-items: center; justify-content: center; padding: 10px; }
+.gd-card {
+  background: var(--panel); border: 3px solid #0c0914; border-radius: 8px; padding: 10px 14px; width: min(560px, 100%);
+  max-height: 100%; overflow-y: auto; display: flex; flex-direction: column; align-items: center; gap: 5px;
+}
+.gd-stage { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 6px; }
+.gd-preview { image-rendering: pixelated; max-width: 72%; max-height: 34vh; width: auto; height: auto; }
+.gd-tags { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; }
+.gd-tags .chip { cursor: default; font-size: 11px; padding: 2px 8px; }
+.gd-note { font-size: 12px; color: var(--gold); font-weight: 700; }
+
+@media (max-height: 430px) {
+  .car-panel { gap: 2px; padding: 4px 8px; }
+  .car-panel .blurb { display: none; }
+  .car-name { font-size: 15px; }
+  .stat { font-size: 9px; }
+  .bar i { height: 6px; }
+  .garage-grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
+  .gcar img { height: 50px; }
+  .gcar { min-height: 76px; }
+  .gd-preview { max-height: 30vh; }
+}
