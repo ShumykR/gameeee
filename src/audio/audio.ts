@@ -4,9 +4,11 @@
  */
 export class AudioEngine {
   ctx: AudioContext | null = null;
-  private master!: GainNode;
+  master!: GainNode;
   private sfx!: GainNode;
-  private noise!: AudioBuffer;
+  noise!: AudioBuffer;
+  /** Called once the context exists (first user gesture). */
+  onUnlock: (() => void) | null = null;
   private engines: { osc: OscillatorNode; sub: OscillatorNode; filter: BiquadFilterNode; gain: GainNode }[] = [];
   muted = false;
 
@@ -35,6 +37,7 @@ export class AudioEngine {
     this.noise = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
     const d = this.noise.getChannelData(0);
     for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    this.onUnlock?.();
   }
 
   setMuted(m: boolean) {

@@ -5,6 +5,7 @@ import type { CategoryId } from '../cars/types';
 import { MAPS } from '../maps/defs';
 import { altPalette, PLAYER_COLORS } from '../render/view';
 import { audio } from '../audio/audio';
+import { music } from '../audio/music';
 import type { BotLevel } from '../ai/bot';
 import type { Settings } from './settings';
 import { mapThumb } from './thumbs';
@@ -113,6 +114,7 @@ export class Menu {
     mk('Час раунду', [30, 45, 60, 90], this.settings.roundTime, (v) => `${v}с`, (v) => (this.settings.roundTime = v));
     mk('Випадкові авто щораунду', [1, 0], this.settings.randomCars ? 1 : 0, (v) => (v ? 'так' : 'ні'), (v) => (this.settings.randomCars = !!v));
     mk('Звук', [1, 0], audio.muted ? 0 : 1, (v) => (v ? 'увімк' : 'вимк'), (v) => audio.setMuted(!v));
+    mk('Музика', [1, 0], music.enabled ? 1 : 0, (v) => (v ? 'увімк' : 'вимк'), (v) => music.setEnabled(!!v));
     s.appendChild(button('◀ назад', '', () => this.showMain(), 'back'));
     this.keyHandler = (e) => e.code === 'Escape' && this.showMain();
   }
