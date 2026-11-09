@@ -186,3 +186,55 @@ html, body {
 
 .ability { font-size: 11px; font-weight: 800; color: var(--gold); text-align: center; }
 .ability.none { color: #9a94b0; font-weight: 600; }
+
+/* ---------- car select on short landscape screens ----------
+   iPhone Safari cannot go fullscreen, so its landscape viewport is often only
+   ~280-340px tall. Stacking preview + name + stats + buttons vertically doesn't
+   fit there, so the panel becomes a grid with the preview beside the stats and
+   the arrows moved down next to the action buttons. */
+.car-info { display: contents; }
+@media (max-height: 430px) {
+  .screen.cars { gap: 4px; }
+  .screen.cars .foot { margin-top: 0; }
+  .screen.cars .foot .btn { padding: 6px 14px; font-size: 14px; }
+  .car-panel {
+    display: grid; align-items: center; justify-items: center; column-gap: 6px; row-gap: 3px;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "top  top  top  top"
+      "prev prev info info"
+      "cnt  cnt  info info"
+      "l    act  act  r";
+  }
+  .car-panel .panel-top { grid-area: top; }
+  .car-panel .stage { display: contents; }
+  .car-panel .stage > .arrow:first-child { grid-area: l; }
+  .car-panel .stage > .arrow:last-child { grid-area: r; }
+  .car-panel .btn.arrow { padding: 4px 12px; font-size: 14px; }
+  .car-panel .preview { grid-area: prev; width: 100%; height: 100%; max-width: none; max-height: none; min-height: 0; object-fit: contain; }
+  .car-panel .car-info { grid-area: info; display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; }
+  .car-panel .car-name { text-align: center; line-height: 1.1; }
+  .car-panel .car-name small { display: block; margin: 0; }
+  .car-panel .ability { font-size: 10px; }
+  .car-panel .panel-actions { grid-area: act; flex-wrap: nowrap; }
+  .car-panel .counter { grid-area: cnt; }
+  .stat span { width: 62px; }
+  .bar i { width: 13px; }
+}
+
+/* main menu on very short landscape screens: logo beside the buttons */
+@media (max-height: 360px) {
+  .screen.main { flex-direction: row; gap: 28px; }
+  .screen.main .logo { zoom: .8; }
+  .screen.main .hint { display: none; }
+}
+
+/* settings on short screens: tighter rows, and scroll if it still doesn't fit */
+@media (max-height: 430px) {
+  .screen.settings { overflow-y: auto; touch-action: pan-y; gap: 3px; }
+  .screen.settings > * { flex-shrink: 0; }
+  .set-row { padding: 1px 10px; font-size: 13px; }
+  .set-row .btn.small { padding: 2px 9px; }
+  .screen.settings > .btn { padding: 6px 14px; }
+}
