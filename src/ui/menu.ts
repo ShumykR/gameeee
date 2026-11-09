@@ -212,12 +212,16 @@ export class Menu {
       stage.append(button('◀', 'arrow', () => step(p, -1)), cv, button('▶', 'arrow', () => step(p, 1)));
       panel.appendChild(stage);
       const cat = CATEGORY_BY_ID[categoryOf(def)];
-      panel.appendChild(el('div', 'car-name', `${def.name} <small>${cat.icon} ${ARCH_NAMES[def.archetype]}</small>`));
+      // Name, ability and stats are grouped so short (landscape phone) screens
+      // can put them in a column beside the preview instead of below it.
+      const info = el('div', 'car-info');
+      info.appendChild(el('div', 'car-name', `${def.name} <small>${cat.icon} ${ARCH_NAMES[def.archetype]}</small>`));
       const ab = el('div', `ability ${abilityOf(def) || def.traits?.length ? '' : 'none'}`, abilityLabel(def));
       ab.title = abilityBlurb(def);
-      panel.appendChild(ab);
-      panel.appendChild(el('div', 'blurb', def.blurb));
-      panel.appendChild(statBars(def));
+      info.appendChild(ab);
+      info.appendChild(el('div', 'blurb', def.blurb));
+      info.appendChild(statBars(def));
+      panel.appendChild(info);
       const row = el('div', 'row panel-actions');
       row.append(
         button('☰ усі авто', 'small', () => pickFromGarage(p)),
