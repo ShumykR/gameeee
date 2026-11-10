@@ -81,12 +81,12 @@ export const TOYS = group('toys', [
   }],
   ['horned-pickup', 'Horned Pickup', 'Пікап із головою трицератопса.', 'pickup', ['#e08a1a', '#e0d0a0'], {
     parts: ['horns'], hideParts: true,
-    art: (f) => [hidden(poly([[f.nose.x - 0.05, 0.0], [f.nose.x - 0.05, 0.15], [f.nose.x + 0.5, -0.05]], 'accent', { deco: false, density: 0.3 }))],
+    art: (f) => [hidden(poly([[f.nose.x - 0.05, -0.05], [f.nose.x - 0.05, 0.2], [f.nose.x + 1.1, -0.3]], 'accent', { deco: false, density: 0.3 }))],
     skin: (f) => [
       ...pickup(f),
       blob([[f.nose.x - 0.25, -0.26], [f.nose.x + 0.0, -0.75], [f.nose.x + 0.25, -0.65], [f.nose.x + 0.05, -0.2]], 'accent', {}, 1),
-      poly([[f.nose.x - 0.05, 0.0], [f.nose.x - 0.05, 0.15], [f.nose.x + 0.5, -0.05]], 'bone'),
-      poly([[f.roof.x1 - 0.1, f.roof.y], [f.roof.x1 + 0.05, f.roof.y + 0.05], [f.roof.x1 + 0.4, f.roof.y - 0.35]], 'bone'),
+      poly([[f.nose.x - 0.05, -0.05], [f.nose.x - 0.05, 0.2], [f.nose.x + 1.1, -0.3]], 'bone'),
+      poly([[f.roof.x1 - 0.3, f.roof.y], [f.roof.x1 - 0.02, f.roof.y + 0.05], [f.roof.x1 + 0.7, f.roof.y - 0.75]], 'bone'),
       ...eyeball(f.nose.x - 0.45, -0.1, 0.08),
     ],
   }],
@@ -358,7 +358,7 @@ export const TOYS = group('toys', [
     ],
   }],
   ['knight-dragster', 'Knight Dragster', 'Болід-дракон у лицарському обладунку зі списом.', 'dragster', ['#a0a8b8', '#e02a2a'], {
-    parts: ['spikes'],
+    parts: [['spikes', 0.55]],
     skin: (f) => [
       rr(f.tail.x - 0.1, -0.1, f.tail.x + 0.2, 0.12, 0.05, 'grey'),
       blob([[f.tail.x + 0.3, 0.22], [f.tail.x + 0.35, -0.22], [-0.6, -0.3], [-0.2, -0.16], [f.nose.x - 0.3, 0.02], [f.nose.x, 0.08], [f.nose.x, 0.16], [f.tail.x + 0.4, 0.26]], 'body', {}, 1),

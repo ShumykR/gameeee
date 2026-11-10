@@ -10,6 +10,18 @@ export const SUMMER = group('summer', [
   ['harvester', 'Harvester', 'Зернозбиральний комбайн із мотовилом. Скидає тюки сіна.', 'box', ['#3aa04a', '#ffd23f'], {
     o: o({ len: 1.15, tall: 1.2 }), parts: ['plow'], cargo: ['hay', 2], hideParts: true,
     art: (f) => [hidden(tailgate(f.deck.x0, f.deck.y, 0.3, 'accent'))],
+    // The reel is absurdly big and really turns: it combs whatever is in front up and over the header.
+    links: (f) => {
+      const cx = f.nose.x + 0.75, cy = -0.75, r = 0.85;
+      const art: CarPoly[] = [];
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2, c = Math.cos(a), sn = Math.sin(a);
+        art.push(seg([cx, cy], [cx + c * r, cy + sn * r], 0.07, 'red'));
+        art.push(seg([cx + c * r - sn * 0.22, cy + sn * r + c * 0.22], [cx + c * r + sn * 0.22, cy + sn * r - c * 0.22], 0.13, 'yellow'));
+      }
+      art.push(circ(cx, cy, 0.2, 'red'), circ(cx, cy, 0.08, 'dark'));
+      return [{ at: [cx, cy], spin: -7, density: 0.03, hit: [ell(cx, cy, r, r, 'red', {}, 8)], art }];
+    },
     skin: (f) => [
       rr(f.tail.x, f.roof.y + 0.15, f.nose.x - 0.2, 0.25, 0.1, 'body'),
       rr(f.nose.x - 1.05, f.roof.y - 0.35, f.nose.x - 0.25, f.roof.y + 0.5, 0.08, 'body'), rr(f.nose.x - 0.95, f.roof.y - 0.25, f.nose.x - 0.35, f.roof.y + 0.3, 0.05, 'glass'),
@@ -17,8 +29,7 @@ export const SUMMER = group('summer', [
       stripe(f.tail.x, f.nose.x - 0.2, -0.05, 0.08, 'accent'),
       poly([[f.nose.x - 0.2, -0.3], [f.nose.x + 0.7, -0.15], [f.nose.x + 0.75, 0.3], [f.nose.x - 0.2, 0.3]], 'yellow'),
       ...[0, 1, 2, 3].map((i) => poly([[f.nose.x + 0.05 + i * 0.17, 0.3], [f.nose.x + 0.13 + i * 0.17, 0.3], [f.nose.x + 0.09 + i * 0.17, 0.45]], 'chrome')),
-      circ(f.nose.x + 0.35, -0.55, 0.36, 'red'), circ(f.nose.x + 0.35, -0.55, 0.28, 'dark'), circ(f.nose.x + 0.35, -0.55, 0.08, 'red'),
-      ...[0, 1, 2].map((i) => seg([f.nose.x + 0.35 + Math.cos(i * 1.05) * 0.3, -0.55 + Math.sin(i * 1.05) * 0.3], [f.nose.x + 0.35 - Math.cos(i * 1.05) * 0.3, -0.55 - Math.sin(i * 1.05) * 0.3], 0.05, 'red')),
+      ...path([[f.nose.x - 0.3, -0.5], [f.nose.x + 0.75, -0.75]], 0.12, 'dark'),
       ...stack(f.tail.x + 0.8, f.roof.y + 0.15, 0.4, 0.09, 'dark'),
     ],
   }],

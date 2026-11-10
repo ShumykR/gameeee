@@ -782,8 +782,8 @@ function part(f: Frame, id: PartId, k = 1): { polys: CarPoly[]; windows?: Pt[][]
     case 'spikes':
       return {
         polys: [
-          T([n.x - 0.05, n.y0], [n.x - 0.05, ny], [n.x + 0.5 * k, (n.y0 + ny) / 2], 'spike'),
-          T([n.x - 0.05, ny], [n.x - 0.05, n.y1], [n.x + 0.5 * k, (ny + n.y1) / 2], 'spike'),
+          T([n.x - 0.05, n.y0], [n.x - 0.05, ny], [n.x + 0.95 * k, (n.y0 + ny) / 2 - 0.08], 'spike'),
+          T([n.x - 0.05, ny], [n.x - 0.05, n.y1], [n.x + 0.95 * k, ny + 0.02], 'spike'),
         ],
         arch: 'spike',
       };
@@ -793,9 +793,9 @@ function part(f: Frame, id: PartId, k = 1): { polys: CarPoly[]; windows?: Pt[][]
       for (let i = 0; i < 3; i++) {
         const x = r.x0 + w * (0.15 + i * 0.32);
         if (Math.abs(x - f.head.x) < f.head.r + 0.12) continue;
-        polys.push(T([x - 0.12, r.y], [x + 0.12, r.y], [x, r.y - 0.35], 'spike', deco));
+        polys.push(T([x - 0.14, r.y], [x + 0.14, r.y], [x, r.y - 0.6], 'spike', deco));
       }
-      polys.push(T([t.x + 0.05, t.y0 + 0.02], [t.x + 0.05, t.y0 + 0.25], [t.x - 0.35, t.y0 + 0.05], 'spike'));
+      polys.push(T([t.x + 0.05, t.y0 + 0.02], [t.x + 0.05, t.y0 + 0.28], [t.x - 0.7, t.y0 + 0.05], 'spike'));
       return { polys, arch: 'spike' };
     }
     case 'scoop':
@@ -808,16 +808,17 @@ function part(f: Frame, id: PartId, k = 1): { polys: CarPoly[]; windows?: Pt[][]
       return { polys: [R(n.x, n.y0 - 0.9, n.x + 0.12, n.y1, 'dark'), R(n.x + 0.12, n.y1 - 0.12, n.x + 1.0, n.y1 - 0.02, 'metal')], arch: 'scoop' };
     case 'saw': {
       // A big circular saw on an arm: its own spinning body, teeth and all. It throws up whatever it bites.
-      const r = 0.56 * k, cx = n.x + 0.2 + r, cy = ny;
+      const r = 0.9 * k, cx = n.x + 0.12 + r;
+      const cy = Math.min(ny, Math.max(...f.wheels.map((w) => w.y + w.r)) - r * 1.22 - 0.06);
       const art: CarPoly[] = [];
-      const nt = 10;
+      const nt = 14;
       for (let i = 0; i < nt; i++) {
         const a0 = (i / nt) * Math.PI * 2, a1 = ((i + 0.62) / nt) * Math.PI * 2, at = ((i + 0.1) / nt) * Math.PI * 2;
         art.push(P([[cx + Math.cos(a0) * r * 0.86, cy + Math.sin(a0) * r * 0.86], [cx + Math.cos(at) * r * 1.2, cy + Math.sin(at) * r * 1.2], [cx + Math.cos(a1) * r * 0.86, cy + Math.sin(a1) * r * 0.86]], 'white', { deco: true }));
       }
       art.push(O(cx, cy, r * 0.92, r * 0.92, 'metal', { deco: true }, 12), O(cx, cy, r * 0.42, r * 0.42, 'red', { deco: true }, 10), O(cx, cy, r * 0.14, r * 0.14, 'black', { deco: true }));
       return {
-        polys: [R(n.x - 0.15, ny - 0.06, cx, ny + 0.06, 'dark')],
+        polys: [P([[n.x - 0.15, ny - 0.07], [n.x - 0.15, ny + 0.07], [cx, cy + 0.07], [cx, cy - 0.07]], 'dark')],
         arch: 'spike',
         links: [{ at: [cx, cy], spin: -14, density: 0.15, hit: [O(cx, cy, r * 1.08, r * 1.08, 'metal')], art }],
       };
@@ -834,7 +835,7 @@ function part(f: Frame, id: PartId, k = 1): { polys: CarPoly[]; windows?: Pt[][]
       return { polys, arch: 'spike' };
     }
     case 'horns':
-      return { polys: [T([r.x1 - 0.25, r.y], [r.x1 - 0.05, r.y + 0.05], [r.x1 + 0.4, r.y - 0.45], 'bone'), T([r.x0 + 0.05, r.y + 0.05], [r.x0 + 0.25, r.y], [r.x0 - 0.3, r.y - 0.4], 'bone', deco)] };
+      return { polys: [T([r.x1 - 0.3, r.y], [r.x1 - 0.02, r.y + 0.05], [r.x1 + 0.7, r.y - 0.75], 'bone'), T([r.x0 + 0.02, r.y + 0.05], [r.x0 + 0.3, r.y], [r.x0 - 0.5, r.y - 0.7], 'bone', deco)] };
     case 'drill':
       return { polys: [P([[n.x - 0.05, n.y0], [n.x + 0.15, n.y0], [n.x + 0.85 * k, ny], [n.x + 0.15, n.y1], [n.x - 0.05, n.y1]], 'metal', { density: 1.2 })], arch: 'spike' };
     case 'claw':
