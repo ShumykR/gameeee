@@ -590,34 +590,19 @@ export const CARS: CarDef[] = [
  */
 function openCockpit(def: CarDef): CarDef {
   const { x, y, r } = def.head;
-  const k = def.cabin ? 1.1 : 1.5;
-  const x0 = x - r * k, x1 = x + r * k, y0 = y - r, y1 = y + (def.cabin ? r : r * 3);
+  // A cab's open window is cut by the frame itself.
+  if (def.cabin) return def;
+  const x0 = x - r * 1.5, x1 = x + r * 1.5, y0 = y - r, y1 = y + r * 3;
   const near = (pts: readonly (readonly [number, number])[]) => {
     let ax = Infinity, bx = -Infinity, ay = Infinity, by = -Infinity;
     for (const [px, py] of pts) { ax = Math.min(ax, px); bx = Math.max(bx, px); ay = Math.min(ay, py); by = Math.max(by, py); }
     return ax < x1 && bx > x0 && ay < y1 && by > y0;
   };
-  if (!def.cabin) {
-    return {
-      ...def,
-      body: def.body.filter((p) => !(p.mat === 'glass' && p.deco && near(p.pts))),
-      windows: def.windows?.filter((w) => !near(w)),
-    };
-  }
-  // In a cab the pane the driver sits behind becomes an open, dark window with the helmet in it.
-  let opened = false;
-  const body = def.body.map((p) => {
-    if (!(p.mat === 'glass' && p.deco && near(p.pts))) return p;
-    opened = true;
-    return { ...p, mat: 'black' as const };
-  });
-  for (const w of def.windows ?? []) if (near(w)) { opened = true; body.push({ pts: w, mat: 'black', deco: true }); }
-  if (!opened) {
-    const pts: [number, number][] = [];
-    for (let i = 0; i < 14; i++) pts.push([+(x + Math.cos((i / 14) * Math.PI * 2) * r * 1.3).toFixed(3), +(y + Math.sin((i / 14) * Math.PI * 2) * r * 1.25).toFixed(3)]);
-    body.push({ pts, mat: 'black', deco: true });
-  }
-  return { ...def, body, windows: def.windows?.filter((w) => !near(w)) };
+  return {
+    ...def,
+    body: def.body.filter((p) => !(p.mat === 'glass' && p.deco && near(p.pts))),
+    windows: def.windows?.filter((w) => !near(w)),
+  };
 }
 
 export const CAR_BY_ID: Record<string, CarDef> = Object.fromEntries(CARS.map((c) => [c.id, c]));

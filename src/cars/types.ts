@@ -19,6 +19,8 @@ export interface CarPoly {
   friction?: number;
   /** Render-only piece (no collision). */
   deco?: boolean;
+  /** Render only: cuts a see-through hole in everything drawn before it (an open cab window). */
+  cut?: boolean;
   /** Physics-only piece (not drawn; a skin draws the look instead). */
   hide?: boolean;
   /** Draw a dark seam around this piece even over the same material (panels, doors). */

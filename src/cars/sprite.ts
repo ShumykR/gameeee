@@ -94,8 +94,8 @@ export function generateCarGrid(def: CarDef, ppm = CAR_PPM): PixelGrid {
     ringOf.push(!!poly.ring);
     flatOf.push(!!poly.flat);
     fillPoly(toPx(poly.pts), w, h, (x, y) => {
-      gset(mats, x, y, id);
-      owner[y * w + x] = i + 1;
+      gset(mats, x, y, poly.cut ? 0 : id);
+      owner[y * w + x] = poly.cut ? 0 : i + 1;
     });
   });
   const own = (x: number, y: number) => (x < 0 || y < 0 || x >= w || y >= h ? 0 : owner[y * w + x]);

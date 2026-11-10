@@ -53,6 +53,8 @@ export interface Frame {
   float?: number;
   /** The driver sits inside a cab, under its roof: only the helmet shows, in the open window. */
   cabin?: boolean;
+  /** Outline of the open window the driver is seen through (convex pieces). */
+  port?: Pt[][];
   /** Pieces of the frame that move on their own hinge (a creature's neck and head). */
   limbs?: LinkSpec[];
   /** Handling overrides on top of the archetype preset. */
@@ -86,38 +88,58 @@ export interface FrameOpts {
 
 const W = (x: number, y: number, r: number, rim?: WheelDef['rim'], extra: Partial<WheelDef> = {}): WheelDef => ({ x, y, r, rim, ...extra });
 
+/** Area-weighted centre (x) of a set of hull pieces. */
+function centreX(ps: CarPoly[]): number {
+  let mx = 0, mm = 0;
+  for (const p of ps) { const [cx, ar] = centroidX(p.pts); mx += cx * ar; mm += ar; }
+  return mm > 0 ? mx / mm : 0;
+}
+
+/** How far a cab roof reaches forward past the middle of the driver's helmet. */
+const ROOF_OVER = 0.16;
+/** Height of the helmet in a tall cab: the driver sits low, not up under the roof. */
+const CAB_SEAT = -0.5;
+
 function frame(id: FrameId, o: FrameOpts): Frame {
   const L = o.len ?? 1, H = o.tall ?? 1, wk = o.wheel ?? 1, rim = o.rim, m = o.mat ?? 'body';
   switch (id) {
     case 'sedan':
     case 'coupe': {
       const hl = (id === 'coupe' ? 1.45 : 1.62) * L;
-      const cab = id === 'coupe' ? 0.46 : 0.52;
+      const cab = id === 'coupe' ? 0.52 : 0.58;
       const polys = [P([[-hl, -0.16], [hl - 0.4, -0.16], [hl, 0.04], [hl - 0.03, 0.32], [-hl, 0.32], [-hl - 0.04, 0.06]], m)];
       const windows: Pt[][] = [];
       let head = { x: -0.25 * L, y: -0.74 * H, r: 0.28 };
+      let rx1 = 0.36 * L;
+      let port: Pt[][] | undefined;
       if (o.open) {
         polys.push(P([[0.32 * L, -0.16], [0.72 * L, -0.16], [0.44 * L, -0.6], [0.3 * L, -0.6]], 'dark'));
         windows.push([[0.36 * L, -0.18], [0.62 * L, -0.18], [0.42 * L, -0.54], [0.34 * L, -0.54]]);
         head = { x: -0.2 * L, y: -0.62, r: 0.28 };
       } else {
         const top = -0.16 - cab * H;
-        // The driver sits in a hatch cut into the roof: cabin walls in front and behind,
-        // the helmet's top above the roof line.
-        const hx = -0.1 * L, hw = 0.31;
+        // The driver sits in the cab, under its roof: solid cab behind, the roof over the helmet,
+        // an open window in front of it (the only way in for a rival's wheel or bumper).
+        const hx = 0.06 * L, hw = 0.31, cy = top + 0.37;
+        rx1 = hx + ROOF_OVER;
         polys.push(P([[-1.0 * L, -0.16], [hx - hw, -0.16], [hx - hw, top], [-0.84 * L, top]], m));
-        polys.push(P([[hx + hw, -0.16], [0.78 * L, -0.16], [0.36 * L, top], [hx + hw, top]], m));
-        windows.push([[0.04 * L, -0.2], [0.66 * L, -0.2], [0.32 * L, top + 0.06], [0.04 * L, top + 0.06]]);
-        windows.push([[-0.8 * L, -0.2], [-0.06 * L, -0.2], [-0.06 * L, top + 0.06], [-0.72 * L, top + 0.06]]);
-        head = { x: hx, y: top + 0.02, r: 0.28 };
+        polys.push(R(hx - hw, top, rx1, top + 0.08, m));
+        windows.push([[-0.8 * L, -0.2], [hx - hw - 0.06, -0.2], [hx - hw - 0.06, top + 0.06], [-0.72 * L, top + 0.06]]);
+        head = { x: hx, y: cy, r: 0.28 };
+        port = [
+          [[hx - hw, top + 0.08], [rx1 - 0.03, top + 0.08], [rx1 + 0.3, -0.18], [hx - hw, -0.18]],
+          [[hx - hw, -0.2], [hx + hw + 0.04, -0.2], [hx + hw + 0.04, cy + 0.3], [hx - hw, cy + 0.3]],
+        ];
       }
       const wx = (hl - 0.55) * 1, wr = 0.42 * wk;
       return {
         arch: 'allround', polys, windows,
         wheels: [W(-wx, 0.3 + wr * 0.2 + 0.0, wr, rim), W(wx, 0.3 + wr * 0.2, wr, rim)],
-        head, deck: { x0: -hl, x1: -1.0 * L, y: -0.16 }, roof: { x0: -0.84 * L, x1: 0.36 * L, y: o.open ? -0.6 : -0.16 - cab * H },
+        head, deck: { x0: -hl, x1: -1.0 * L, y: -0.16 }, roof: { x0: -0.84 * L, x1: rx1, y: o.open ? -0.6 : -0.16 - cab * H },
         nose: { x: hl, y0: -0.16, y1: 0.32 }, tail: { x: -hl, y0: -0.16, y1: 0.32 }, stripe: { y: 0.02, h: 0.08 },
-        cabin: !o.open,
+        cabin: !o.open, port,
+        // The cab is all behind the driver now: keep the weight in the middle of the wheelbase.
+        comX: o.open ? undefined : -centreX(polys),
       };
     }
     case 'sports': {
@@ -141,42 +163,48 @@ function frame(id: FrameId, o: FrameOpts): Frame {
       const polys = [P([[-hl, -0.26], [hl - 0.3, -0.26], [hl, -0.05], [hl, 0.36], [-hl, 0.36]], m)];
       const windows: Pt[][] = [];
       let head;
+      let rx1 = 0.46 * L;
+      let port: Pt[][] | undefined;
       if (o.open) {
         polys.push(P([[0.5 * L, -0.26], [0.85 * L, -0.26], [0.6 * L, -0.74], [0.48 * L, -0.74]], 'dark'));
         head = { x: 0.05 * L, y: -0.72, r: 0.29 };
       } else {
-        // The driver sits in a hatch cut into the cab roof, between its back wall and the windscreen.
-        const bx = -0.3 * L, hx = bx + 0.1 + 0.32, fx = hx + 0.32;
+        // The driver sits in the cab: back wall behind, roof above, open window in front.
+        const bx = -0.3 * L, hx = bx + 0.1 + 0.32, cy = top + 0.37;
+        rx1 = hx + ROOF_OVER;
         polys.push(R(bx, top, bx + 0.1, -0.26, m));
-        polys.push(P([[fx, -0.26], [Math.max(fx + 0.2, 0.78 * L), -0.26], [Math.max(fx + 0.04, 0.46 * L), top + 0.04], [fx, top + 0.04]], m));
-        windows.push([[0.08 * L, -0.3], [0.66 * L, -0.3], [0.42 * L, top + 0.07], [0.08 * L, top + 0.07]]);
-        head = { x: hx, y: top + 0.02, r: 0.29 };
+        polys.push(R(bx, top, rx1, top + 0.08, m));
+        head = { x: hx, y: cy, r: 0.29 };
+        port = [[[bx + 0.1, top + 0.08], [rx1 - 0.03, top + 0.08], [rx1 + 0.3, -0.28], [bx + 0.1, -0.28]]];
       }
       const wr = 0.46 * wk;
       return {
         arch: 'heavy', polys, windows,
         wheels: [W(-1.1 * L, 0.36 + wr * 0.2, wr, rim ?? 'disc'), W(1.1 * L, 0.36 + wr * 0.2, wr, rim ?? 'disc')],
-        head, deck: { x0: -hl, x1: -0.32 * L, y: -0.26 }, roof: { x0: -0.26 * L, x1: 0.46 * L, y: o.open ? -0.74 : top },
+        head, deck: { x0: -hl, x1: -0.32 * L, y: -0.26 }, roof: { x0: -0.26 * L, x1: rx1, y: o.open ? -0.74 : top },
         nose: { x: hl, y0: -0.26, y1: 0.36 }, tail: { x: -hl, y0: -0.26, y1: 0.36 }, stripe: { y: 0.04, h: 0.1 },
-        cabin: !o.open,
+        cabin: !o.open, port,
       };
     }
     case 'van':
     case 'bus': {
       const hl = (id === 'bus' ? 2.15 : 1.6) * L;
       const top = (id === 'bus' ? -0.95 : -0.85) * H;
-      // The driver sits in a hatch cut into the roof near the front.
-      const dx = hl - 1.0, hw = 0.31;
+      // The driver sits at the front under the roof (on the lower deck of a tall bus),
+      // behind an open windscreen.
+      const dx = hl - 0.72, hw = 0.31, cy = Math.max(top + 0.37, CAB_SEAT);
+      const sill = cy + 0.3, lid = cy - 0.29;
       const polys = [
         R(-hl, top, dx - hw, 0.3, m),
-        R(dx - hw, top + 0.42, dx + hw, 0.3, m),
-        P([[dx + hw, top], [hl - 0.45, top], [hl, top + 0.5], [hl, 0.3], [dx + hw, 0.3]], m),
+        P([[dx - hw, sill], [hl - 0.08, sill], [hl, sill + 0.1], [hl, 0.3], [dx - hw, 0.3]], m),
+        R(dx - hw, top, dx + ROOF_OVER, lid, m),
       ];
-      const windows: Pt[][] = [[[hl - 0.42, top + 0.06], [hl - 0.06, top + 0.5], [hl - 0.42, top + 0.5]]];
+      const windows: Pt[][] = [];
+      const port: Pt[][] = [[[dx - hw, lid], [dx + ROOF_OVER + 0.02, lid], [hl - 0.05, sill - 0.14], [hl - 0.05, sill], [dx - hw, sill]]];
       const n = Math.max(1, Math.floor((hl * 2 - 0.9) / 0.62));
       for (let i = 0; i < n; i++) {
         const x0 = -hl + 0.2 + i * 0.62;
-        if (x0 + 0.46 > hl - 0.5) break;
+        if (x0 + 0.46 > dx - hw - 0.05) break;
         windows.push([[x0, top + 0.12], [x0 + 0.46, top + 0.12], [x0 + 0.46, top + 0.48], [x0, top + 0.48]]);
       }
       const wr = 0.42 * wk;
@@ -185,9 +213,9 @@ function frame(id: FrameId, o: FrameOpts): Frame {
         : [W(-hl + 0.6, 0.3 + wr * 0.2, wr, rim), W(hl - 0.65, 0.3 + wr * 0.2, wr, rim)];
       return {
         arch: id === 'bus' ? 'long' : 'tall', polys, windows, wheels,
-        head: { x: dx, y: top + 0.02, r: 0.28 }, cabin: true,
-        deck: { x0: -hl + 0.1, x1: hl - 1.3, y: top }, roof: { x0: -hl, x1: hl - 0.45, y: top },
-        nose: { x: hl, y0: top + 0.5, y1: 0.3 }, tail: { x: -hl, y0: top, y1: 0.3 }, stripe: { y: 0.02, h: 0.1 },
+        head: { x: dx, y: cy, r: 0.28 }, cabin: true, port,
+        deck: { x0: -hl + 0.1, x1: hl - 1.3, y: top }, roof: { x0: -hl, x1: dx + ROOF_OVER, y: top },
+        nose: { x: hl, y0: sill, y1: 0.3 }, tail: { x: -hl, y0: top, y1: 0.3 }, stripe: { y: 0.02, h: 0.1 },
         com: [0, 0.32 * H],
       };
     }
@@ -198,21 +226,23 @@ function frame(id: FrameId, o: FrameOpts): Frame {
       const nw = o.wheels ?? 3;
       const wr = 0.42 * wk;
       const wy = 0.3 + wr * 0.2;
+      const hx = cx0 + 0.42, cy = Math.max(top + 0.37, CAB_SEAT - 0.1), sill = cy + 0.3, lid = cy - 0.29;
       const wheels = nw >= 3 ? [W(-hl + 0.55, wy, wr, rim), W(-hl + 1.45, wy, wr, rim), W(hl - 0.5, wy, wr, rim)] : [W(-hl + 0.7, wy, wr, rim), W(hl - 0.5, wy, wr, rim)];
       return {
         arch: 'long',
         polys: [
           R(-hl, -0.12, cx0, 0.3, 'dark'),
-          // Cab with a hatch in the roof for the driver: back wall behind, windscreen in front.
+          // Cab: back wall behind the driver, roof above, an open windscreen in front.
           R(cx0, top, cx0 + 0.1, 0.3, m),
-          R(cx0 + 0.1, top + 0.42, cx0 + 0.7, 0.3, m),
-          P([[cx0 + 0.7, top + 0.1], [hl, top + 0.45], [hl, 0.3], [cx0 + 0.7, 0.3]], m),
+          P([[cx0 + 0.1, sill], [hl - 0.08, sill], [hl, sill + 0.1], [hl, 0.3], [cx0 + 0.1, 0.3]], m),
+          R(cx0, top, hx + ROOF_OVER, lid, m),
         ],
-        windows: [[[hl - 0.5, top + 0.08], [hl - 0.24, top + 0.08], [hl - 0.06, top + 0.42], [hl - 0.5, top + 0.42]]],
+        windows: [],
         wheels,
-        head: { x: cx0 + 0.4, y: top + 0.02, r: 0.28 }, cabin: true,
-        deck: { x0: -hl + 0.05, x1: cx0 - 0.08, y: -0.12 }, roof: { x0: cx0, x1: hl - 0.22, y: top },
-        nose: { x: hl, y0: top + 0.45, y1: 0.3 }, tail: { x: -hl, y0: -0.12, y1: 0.3 }, stripe: { y: 0.05, h: 0.09 },
+        head: { x: hx, y: cy, r: 0.28 }, cabin: true,
+        port: [[[cx0 + 0.1, lid], [hx + ROOF_OVER + 0.02, lid], [hl - 0.05, sill - 0.14], [hl - 0.05, sill], [cx0 + 0.1, sill]]],
+        deck: { x0: -hl + 0.05, x1: cx0 - 0.08, y: -0.12 }, roof: { x0: cx0, x1: hx + ROOF_OVER, y: top },
+        nose: { x: hl, y0: sill, y1: 0.3 }, tail: { x: -hl, y0: -0.12, y1: 0.3 }, stripe: { y: 0.05, h: 0.09 },
         com: [0, 0.2],
       };
     }
@@ -981,6 +1011,18 @@ export function buildCar(spec: CarSpec): CarDef {
   const polys = skinned ? f.polys.map((p) => ({ ...p, hide: true })) : [...f.polys];
   const windows = skinned ? [] : [...f.windows];
   if (spec.skin) for (const p of spec.skin(f)) polys.push({ ...p, deco: true });
+  if (f.port && f.cabin && !spec.head && spec.headOn === undefined) {
+    // No glass where the driver is: the cab window there is an open hole, cut right through the art.
+    let ax = Infinity, bx = -Infinity, ay = Infinity, by = -Infinity;
+    for (const w of f.port) for (const [px, py] of w) { ax = Math.min(ax, px); bx = Math.max(bx, px); ay = Math.min(ay, py); by = Math.max(by, py); }
+    for (let i = polys.length - 1; i >= 0; i--) {
+      const q = polys[i];
+      if (!q.deco || q.mat !== 'glass') continue;
+      const cx = q.pts.reduce((t, v) => t + v[0], 0) / q.pts.length, cyy = q.pts.reduce((t, v) => t + v[1], 0) / q.pts.length;
+      if (cx > ax - 0.05 && cx < bx + 0.05 && cyy > ay - 0.05 && cyy < by + 0.05) polys.splice(i, 1);
+    }
+    for (const w of f.port) polys.push({ pts: w, deco: true, cut: true });
+  }
   let boost = false;
   let arch: Archetype = f.arch;
   const autoLinks: LinkSpec[] = [...(f.limbs ?? [])];
