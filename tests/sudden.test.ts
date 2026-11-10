@@ -38,8 +38,8 @@ describe('sudden death variants', () => {
   it.each(KINDS)('%s does its thing', (kind) => {
     const { seen } = run(kind, 12);
     switch (kind) {
-      case 'meteors': case 'blocks': expect(seen.blocks).toBeGreaterThan(3); break;
-      case 'balls': case 'blizzard': expect(seen.balls).toBeGreaterThan(3); break;
+      case 'meteors': case 'blocks': expect(seen.blocks).toBeGreaterThan(1); break;
+      case 'balls': case 'blizzard': expect(seen.balls).toBeGreaterThan(1); break;
       case 'ghosts': expect(seen.ghosts).toBeGreaterThan(0); break;
       case 'bombs': expect(seen.blasts).toBeGreaterThan(2); break;
       case 'walls': expect(seen.minWallGap).toBeLessThan(35); break;

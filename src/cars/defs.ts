@@ -584,7 +584,7 @@ const ORIGINALS: CarDef[] = [
 export const CARS: CarDef[] = [
   ...ORIGINALS.map((c) => skinOriginal({ ...c, category: 'originals' as const })),
   ...ROSTER.map(buildCar),
-].map(applyKit).map(openCockpit);
+].map(applyKit).map(openCockpit).map(chunkyWheels);
 
 /**
  * Where the driver sits there is no glass: the head pokes out of an open cockpit,
@@ -605,6 +605,36 @@ function openCockpit(def: CarDef): CarDef {
     body: def.body.filter((p) => !(p.mat === 'glass' && p.deco && near(p.pts))),
     windows: def.windows?.filter((w) => !near(w)),
   };
+}
+
+
+/**
+ * Wheels a size up: chunky, toy-like proportions read better than scale-model ones.
+ * A wheel only grows as far as its neighbours and the driver's head leave room; the
+ * motor is re-geared so the car pulls and tops out as before. A few cars whose balance
+ * on two wheels (or on mismatched axles) depends on the wheels they have are left alone.
+ */
+function chunkyWheels(def: CarDef): CarDef {
+  if (['farm-tractor', 'motocross-bike', 'motorbike', 'space-bike', 'personal-transporter'].includes(def.id)) return def;
+  let sum = 0, n = 0;
+  const wheels = def.wheels.map((w, i) => {
+    if (w.hidden) return w;
+    let r = w.r * (w.r >= 0.6 ? 1.08 : 1.2);
+    for (let j = 0; j < def.wheels.length; j++) {
+      if (j === i) continue;
+      const o = def.wheels[j];
+      r = Math.min(r, (Math.hypot(o.x - w.x, o.y - w.y) / (w.r + o.r)) * w.r * 0.97);
+    }
+    r = Math.min(r, 0.95);
+    const clear = (q: number) => Math.hypot(def.head.x - w.x, def.head.y - (w.y - (q - w.r))) > q + def.head.r + 0.04;
+    while (r > w.r && !clear(r)) r -= 0.01;
+    r = Math.max(w.r, +r.toFixed(3));
+    if (w.drive ?? true) { sum += r / w.r; n++; }
+    // The tyre grows upwards into the arch: the car keeps its ride height.
+    return { ...w, r, y: +(w.y - (r - w.r)).toFixed(3) };
+  });
+  const k = n ? sum / n : 1;
+  return { ...def, wheels, motor: { ...def.motor, torque: +(def.motor.torque * k * (1 + (k - 1) * 0.9)).toFixed(2) } };
 }
 
 export const CAR_BY_ID: Record<string, CarDef> = Object.fromEntries(CARS.map((c) => [c.id, c]));
