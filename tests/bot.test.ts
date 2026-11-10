@@ -36,3 +36,17 @@ describe('bot', () => {
     }
   });
 });
+
+describe('bot and lasers', () => {
+  it('does not drive into the bunker laser against a player who just waits', () => {
+    for (const lv of ['easy', 'normal', 'hard'] as const) {
+      const g = new Game({ cars: [CAR_BY_ID.sparrow, CAR_BY_ID.sparrow], maps: [MAP_BY_ID.bunker], randomMaps: false, target: 999, roundTime: 30, seed: 7 });
+      g.controllers[1] = new Bot(lv, 3);
+      let lasered = 0;
+      g.on((e) => { if (e.type === 'death' && e.player === 1 && e.cause === 'hazard') lasered++; });
+      let n = 0;
+      while (g.match.round <= 6 && n++ < 60 * 60 * 10) g.step();
+      expect(lasered, lv).toBeLessThanOrEqual(1);
+    }
+  }, 60000);
+});

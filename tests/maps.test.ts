@@ -80,3 +80,31 @@ describe('themed arenas & decor', () => {
     expect(ball.body.getPosition().y).toBeLessThan(MAP_BY_ID.stadium.killY);
   });
 });
+
+import { CAVE_MAPS } from '../src/maps/caves';
+import { CAR_BY_ID } from '../src/cars/defs';
+
+describe('spawns fit every car', () => {
+  // Tall, long, low and tiny cars: a fixed spawn height used to sink some wheels and drop others.
+  const picks = ['sparrow', 'longhorn', 'limo', 'monster-bus', 'dragster', 'go-kart', 'stilts', 'baby-carriage', 'bumper-car'].map((id) => CAR_BY_ID[id]).filter(Boolean);
+  it.each(MAPS.map((m) => [m.id, m] as const))('%s: wheels start on the ground, not in it', (_id, map) => {
+    for (const car of picks) {
+      const g = new Game({ cars: [car, car], maps: [map], randomMaps: false, target: 3, roundTime: 60, seed: 5 });
+      for (const c of g.cars) {
+        for (const w of c.wheels) {
+          const p = w.getPosition();
+          for (const s of map.solids) expect(pointInPoly(p.x, p.y, s.pts), `${map.id} ${car.id}`).toBe(false);
+        }
+      }
+      g.step();
+      expect(Math.max(...g.cars.map((c) => Math.abs(c.chassis.getLinearVelocity().y))), `${map.id} ${car.id} drops`).toBeLessThan(1.5);
+    }
+  });
+  it.each(CAVE_MAPS.map((m) => [m.id, m] as const))('%s: cars start on level ground', (_id, map) => {
+    for (const car of picks) {
+      const g = new Game({ cars: [car, car], maps: [map], randomMaps: false, target: 3, roundTime: 60, seed: 5 });
+      for (let i = 0; i < 170; i++) g.step();
+      for (const c of g.cars) expect(Math.abs(c.angle), `${map.id} ${car.id}`).toBeLessThan(car.id === 'dragster' ? 0.6 : 0.3);
+    }
+  });
+});

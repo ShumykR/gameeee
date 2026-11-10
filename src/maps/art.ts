@@ -47,6 +47,8 @@ export function terrainPalette(): (RGB | null)[] {
 
 export interface TerrainArt {
   grid: PixelGrid;
+  /** Dark cave back wall (behind background props), when the map has one. */
+  back: PixelGrid | null;
   palette: (RGB | null)[];
   /** World coords of grid pixel (0,0). */
   x0: number;
@@ -83,7 +85,9 @@ export function generateTerrain(map: MapDef, ppm = ART_PPM): TerrainArt {
     }
   }
   // Dark back wall behind caves (render only): cobbles that fade into shadow next to the rock.
-  if (map.backdrop) {
+  // Kept on its own layer so background props stand in front of it but behind the rock.
+  const backOut = map.backdrop ? makeGrid(w, h) : null;
+  if (map.backdrop && backOut) {
     const back = makeGrid(w, h);
     for (const b of map.backdrop) fillPoly(toPx(b), w, h, (x, y) => gset(back, x, y, 1));
     const bb = (MATS.indexOf('back')) * SLOTS + 1;
@@ -106,7 +110,7 @@ export function generateTerrain(map: MapDef, ppm = ART_PPM): TerrainArt {
         const cell = cobble(x, y, 13);
         let sl = cell.edge ? 7 : cell.v > 0.66 ? 1 : cell.v > 0.33 ? 2 : 3;
         if (a < 4 || (a < 7 && bayer(x, y) * 7 > a - 2)) sl = cell.edge ? 0 : 5;
-        gset(out, x, y, bb + sl);
+        gset(backOut, x, y, bb + sl);
       }
     }
   }
@@ -226,7 +230,7 @@ export function generateTerrain(map: MapDef, ppm = ART_PPM): TerrainArt {
       gset(out, x, y, base + s);
     }
   }
-  return { grid: out, palette: terrainPalette(), x0, y0, ppm };
+  return { grid: out, back: backOut, palette: terrainPalette(), x0, y0, ppm };
 }
 
 /** Voronoi-ish cobblestones: which stone a pixel belongs to and whether it is on a joint. */

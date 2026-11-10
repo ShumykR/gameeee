@@ -50,10 +50,16 @@ export class Bot implements Controller {
     const close = Math.abs(foe.position.x - me.position.x) < 4;
     if (this.out !== 0 && close && me.speed < 1.2 && !me.inAir) this.stuckT += dt;
     else this.stuckT = Math.max(0, this.stuckT - dt);
-    if (this.timer > 0) return this.out;
-    this.timer = this.cfg.think * (0.75 + this.rng() * 0.5);
-    this.out = this.think(game, me, foe);
-    if (this.rng() < this.cfg.noise) this.out = ([-1, 0, 1] as const)[Math.floor(this.rng() * 3)];
+    if (this.timer <= 0) {
+      this.timer = this.cfg.think * (0.75 + this.rng() * 0.5);
+      this.out = this.think(game, me, foe);
+      if (this.rng() < this.cfg.noise) this.out = ([-1, 0, 1] as const)[Math.floor(this.rng() * 3)];
+    }
+    // Lasers are a reflex, not a decision: never drive the head into a live beam, even on a whim.
+    if (this.out !== 0 && me.alive && !me.inAir) {
+      const hold = this.laserCheck(game, me, this.out);
+      if (hold !== null) return hold;
+    }
     return this.out;
   }
 
@@ -156,6 +162,43 @@ export class Bot implements Controller {
       case 'shield': case 'shell': case 'heavy': case 'invis': return dist < 3.2;
     }
     return false;
+  }
+
+  /**
+   * Lasers kill heads, so a bot that just charges at a foe across one dies as soon as it
+   * switches on. Returns the move to make (hold back / wait) when a beam is ahead and it
+   * isn't safe to cross, or null when the way is clear.
+   */
+  private laserCheck(game: Game, me: Car, dir: -1 | 1): -1 | 0 | 1 | null {
+    const head = me.headWorld();
+    const r = me.def.head.r;
+    const v = me.chassis.getLinearVelocity().x * dir; // speed toward the beam
+    for (const f of game.arena.fields) {
+      const d = f.def;
+      if (d.kind !== 'laser') continue;
+      if (head.y + r < d.y || head.y - r > d.y + d.h) continue;
+      const near = dir > 0 ? d.x - (head.x + r) : head.x - r - (d.x + d.w);
+      if (near < -(d.w + 2 * r)) continue; // already past it
+      // Room needed to stop short of the beam at this speed (reversing brakes at ~8 m/s²).
+      const stop = 1.2 + Math.max(0, v) ** 2 / 14 + Math.max(0, v) * this.cfg.think;
+      if (near > stop + 3) continue;
+      // How long the beam stays in its current state.
+      let on = true, left = Infinity;
+      const c = d.cycle;
+      if (c) {
+        const t = (game.arena.time + (d.phase ?? 0)) % (c[0] + c[1]);
+        on = t < c[0];
+        left = on ? c[0] - t : c[0] + c[1] - t;
+      } else if (!f.on) continue;
+      if (near < 0) return dir; // the head is in the beam: get through
+      // Time to carry the head right through, accelerating from the current speed.
+      const span = near + d.w + 2 * r + 0.3;
+      const cross = span / Math.max(2.5, v * 0.8 + 3) + (this.cfg.think + 0.15);
+      if (!on && left > cross + 0.25) return null; // off for long enough: go
+      if (near > stop + 0.8) return null; // still far: keep closing in
+      return near < stop ? ((-dir) as -1 | 1) : 0;
+    }
+    return null;
   }
 
   /** Raycast down a few meters ahead: true if there's lava or no ground (cliff). */

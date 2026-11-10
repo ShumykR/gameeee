@@ -86,6 +86,8 @@ const BONE_TOP: (x: number) => number = (x) => 24 - BONE_BOT(x);
 
 const DONUT = { cx: 24, cy: 12.5, rx: 21, ry: 9.5 };
 const ell = (e: typeof DONUT, s: 1 | -1) => (x: number) => e.cy + s * e.ry * Math.sqrt(Math.max(0, 1 - ((x - e.cx) / e.rx) ** 2));
+/** The ring's floor: a squarer curve (superellipse) so there's level ground to start on and steep sides to climb. */
+const DONUT_FLOOR = (x: number) => DONUT.cy + DONUT.ry * Math.max(0, 1 - Math.abs((x - DONUT.cx) / DONUT.rx) ** 4.5) ** (1 / 4.5);
 
 const MINE_TOP = curve([[2, 13], [3, 8], [6, 5.2], [14, 4.4], [24, 5.0], [34, 4.4], [42, 5.2], [45, 8], [46, 13]]);
 
@@ -116,7 +118,7 @@ export const CAVE_MAPS: MapDef[] = [
     blurb: 'Катакомба у формі кістки: сталева балка посередині ділить її на два поверхи.',
     bounds: { x0: 1, y0: 4.5, x1: 47, y1: 19.5 },
     killY: 34,
-    spawns: [[8.6, 15.4], [39.4, 15.4]],
+    spawns: [[13, 15.4], [35, 15.4]],
     solids: [
       ...cavern({ x0: -10, y0: -10, x1: 58, y1: 34 }, sample(2, 46, BONE_TOP), sample(2, 46, BONE_BOT), 'cave'),
       { mat: 'steel', pts: capsule(16.5, 31.5, 12, 0.42) },
@@ -132,17 +134,17 @@ export const CAVE_MAPS: MapDef[] = [
     blurb: 'Кільцевий грот довкола острова. Сині промені на краях закидають нагору.',
     bounds: { x0: 2, y0: 2.5, x1: 46, y1: 22.5 },
     killY: 36,
-    spawns: [[10.5, 19.2], [37.5, 19.2]],
+    spawns: [[11.5, 21], [36.5, 21]],
     solids: [
-      ...cavern({ x0: -10, y0: -10, x1: 58, y1: 36 }, sample(3, 45, ell(DONUT, -1), 0.3), sample(3, 45, ell(DONUT, 1), 0.3), 'cave'),
+      ...cavern({ x0: -10, y0: -10, x1: 58, y1: 36 }, sample(3, 45, ell(DONUT, -1), 0.3), sample(3, 45, DONUT_FLOOR, 0.3), 'cave'),
       { mat: 'cave', pts: oval(24, 12.5, 10.5, 3.1, 44) },
     ],
     fields: [
-      { kind: 'lift', x: 6.4, y: 7.2, w: 2.4, h: 11.6 },
-      { kind: 'lift', x: 39.2, y: 7.2, w: 2.4, h: 11.6 },
+      { kind: 'lift', x: 6.4, y: 7.2, w: 2.4, h: 14 },
+      { kind: 'lift', x: 39.2, y: 7.2, w: 2.4, h: 14 },
     ],
     backdrop: [rect(-10, -10, 58, 36)],
-    decor: [{ kind: 'crystal', x: 16.5, y: 9.75 }, { kind: 'crystal', x: 31.5, y: 9.75, seed: 2 }],
+    decor: [{ kind: 'crystal', x: 16.5, y: 10.4 }, { kind: 'crystal', x: 31.5, y: 10.4, seed: 2 }],
     suddenDeathY: 24,
   },
   {
@@ -172,7 +174,7 @@ export const CAVE_MAPS: MapDef[] = [
     blurb: 'Ґратчастий міст над прірвою і верхні ферми. Трампліни на скелях закидають на них.',
     bounds: { x0: 0, y0: -2, x1: 48, y1: 24 },
     killY: 32,
-    spawns: [[6.5, 12.8], [41.5, 12.8]],
+    spawns: [[6.3, 13.8], [41.7, 13.8]],
     solids: [
       { mat: 'cave', pts: [[-6, -10], [1.2, -10], [1.2, 9], [2.5, 13.5], [4.5, 15.0], [11.6, 15.0], [12.4, 15.6], [11.8, 18], [10.2, 21], [9.6, 30], [-6, 30]] },
       { mat: 'cave', pts: [[54, -10], [46.8, -10], [46.8, 9], [45.5, 13.5], [43.5, 15.0], [36.4, 15.0], [35.6, 15.6], [36.2, 18], [37.8, 21], [38.4, 30], [54, 30]] },
@@ -182,8 +184,8 @@ export const CAVE_MAPS: MapDef[] = [
       { mat: 'girder', pts: rect(19.5, 9.6, 28.5, 10.4) },
     ],
     pads: [
-      { x: 9.2, y: 15.0, w: 1.6, angle: 0.25, power: 15 },
-      { x: 38.8, y: 15.0, w: 1.6, angle: -0.25, power: 15 },
+      { x: 9.6, y: 15.0, w: 1.6, angle: 0.25, power: 15 },
+      { x: 38.4, y: 15.0, w: 1.6, angle: -0.25, power: 15 },
     ],
     suddenDeathY: 26,
   },

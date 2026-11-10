@@ -763,6 +763,12 @@ export class GameView {
     const terrain = new Sprite(cached(`terrain:${map.id}`, () => gridTexture(art.grid, art.palette)));
     terrain.position.set(art.x0, art.y0);
     terrain.scale.set(1 / art.ppm);
+    if (art.back) {
+      const back = new Sprite(cached(`terrainBack:${map.id}`, () => gridTexture(art.back!, art.palette)));
+      back.position.set(art.x0, art.y0);
+      back.scale.set(1 / art.ppm);
+      this.mapLayer.addChild(back);
+    }
 
     // lava pools
     this.lavaTiles = [];

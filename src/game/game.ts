@@ -180,7 +180,7 @@ export class Game {
     this.world.on('pre-solve', (c: Contact) => this.onPreSolve(c));
     this.arena = new Arena(this.world, this.map, Math.floor(this.rand() * 1e9));
     this.cars = [0, 1].map((p) => {
-      const [x, y] = this.map.spawns[p];
+      const [x, y] = this.spawnPoint(p, this.roundCars[p]);
       return new Car(this.world, this.roundCars[p], p, x, y, p === 0 ? 1 : -1);
     });
     this.ragdolls = [];
@@ -1241,13 +1241,41 @@ export class Game {
     }
   }
 
+  /**
+   * Where a car starts: the map's spawn spot, lowered or raised so its lowest wheel (or
+   * hull corner) just rests on the ground below. One fixed height can't suit every car:
+   * tall cars would drop and topple, low ones would start with a wheel in the ground.
+   */
+  spawnPoint(player: number, def: CarDef): [number, number] {
+    const [x, y] = this.map.spawns[player];
+    const f = player === 0 ? 1 : -1;
+    const feet: [number, number][] = [];
+    // A few points along each tyre's lower arc, so a step beside the contact point counts too.
+    for (const w of def.wheels) for (const k of [-0.75, -0.4, 0, 0.4, 0.75]) feet.push([(w.x + k * w.r) * f, w.y + w.r * Math.sqrt(1 - k * k)]);
+    for (const p of def.body) if (!p.deco) for (const [px, py] of p.pts) feet.push([px * f, py]);
+    let best = Infinity;
+    for (const [fx, fy] of feet) {
+      let g = Infinity;
+      // Ground up to 1.5 m above where the foot sits now counts (a hump under a long car);
+      // anything higher is a beam overhead.
+      this.world.rayCast(new Vec2(x + fx, y + fy - 1.5), new Vec2(x + fx, y + fy + 4), (fix, point) => {
+        const k = tagOf(fix)?.kind;
+        if (fix.isSensor() || (k !== 'terrain' && k !== 'platform' && k !== 'field')) return -1;
+        g = Math.min(g, point.y);
+        return -1;
+      });
+      if (g < Infinity) best = Math.min(best, g - fy);
+    }
+    return [x, best < Infinity ? best - 0.04 : y];
+  }
+
   kill(player: number, cause: 'hit' | 'hazard' | 'fall' | 'ground', by?: number) {
     const car = this.cars[player];
     if (!car.alive) return;
     if (this.phase !== 'play' && this.phase !== 'countdown') return;
     // Nobody loses before the start: a car that rolled over during the countdown goes back to its spot.
     if (this.phase === 'countdown') {
-      const [x, y] = this.map.spawns[player];
+      const [x, y] = this.spawnPoint(player, car.def);
       car.reset(x, y);
       return;
     }
