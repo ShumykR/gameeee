@@ -81,7 +81,7 @@ export const ALIEN = group('alien', [
     ],
   }],
   ['shredder', 'Shredder', 'Броньовик-подрібнювач із дисковою пилкою.', 'tracked', ['#5a5a6a', '#ffd23f'], {
-    parts: [['saw', 0.8]], accel: 1.15,
+    parts: [['saw', 0.8]], accel: 1.3,
     skin: (f) => [
       ...tankHull(f),
       rr(-0.8, -0.72, 0.4, -0.35, 0.08, 'body'), rect(-0.6, -0.62, 0.2, -0.52, 'black', { flat: true }),

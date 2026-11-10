@@ -89,7 +89,10 @@ describe('moving pieces', () => {
       top = Math.max(top, Math.abs(c.chassis.getLinearVelocity().x));
       for (const b of c.allBodies) expect(Number.isFinite(b.getPosition().x)).toBe(true);
       // pieces stay hinged to the car
-      for (const l of c.links) expect(Math.hypot(l.getPosition().x - c.chassis.getPosition().x, l.getPosition().y - c.chassis.getPosition().y)).toBeLessThan(1.5);
+      for (const j of c.linkJoints) {
+        const a = j.getAnchorA(), b = j.getAnchorB();
+        expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeLessThan(0.8);
+      }
     }
     expect(top).toBeGreaterThan(def.motor.speed * 0.6);
   });

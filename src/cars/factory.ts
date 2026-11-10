@@ -806,8 +806,22 @@ function part(f: Frame, id: PartId, k = 1): { polys: CarPoly[]; windows?: Pt[][]
       return { polys: [P([[n.x - 0.05, n.y0], [n.x + 0.15, n.y0 - 0.05], [n.x + 0.7, n.y1 - 0.08], [n.x - 0.05, n.y1 - 0.06]], 'scoop', { density: 0.5 })], arch: 'scoop' };
     case 'forks':
       return { polys: [R(n.x, n.y0 - 0.9, n.x + 0.12, n.y1, 'dark'), R(n.x + 0.12, n.y1 - 0.12, n.x + 1.0, n.y1 - 0.02, 'metal')], arch: 'scoop' };
-    case 'saw':
-      return { polys: [R(n.x - 0.1, ny - 0.05, n.x + 0.3, ny + 0.05, 'dark'), O(n.x + 0.5 * k, ny - 0.05, 0.38 * k, 0.38 * k, 'spike', { density: 0.4 })], arch: 'spike' };
+    case 'saw': {
+      // A big circular saw on an arm: its own spinning body, teeth and all. It throws up whatever it bites.
+      const r = 0.56 * k, cx = n.x + 0.2 + r, cy = ny;
+      const art: CarPoly[] = [];
+      const nt = 10;
+      for (let i = 0; i < nt; i++) {
+        const a0 = (i / nt) * Math.PI * 2, a1 = ((i + 0.62) / nt) * Math.PI * 2, at = ((i + 0.1) / nt) * Math.PI * 2;
+        art.push(P([[cx + Math.cos(a0) * r * 0.86, cy + Math.sin(a0) * r * 0.86], [cx + Math.cos(at) * r * 1.2, cy + Math.sin(at) * r * 1.2], [cx + Math.cos(a1) * r * 0.86, cy + Math.sin(a1) * r * 0.86]], 'white', { deco: true }));
+      }
+      art.push(O(cx, cy, r * 0.92, r * 0.92, 'metal', { deco: true }, 12), O(cx, cy, r * 0.42, r * 0.42, 'red', { deco: true }, 10), O(cx, cy, r * 0.14, r * 0.14, 'black', { deco: true }));
+      return {
+        polys: [R(n.x - 0.15, ny - 0.06, cx, ny + 0.06, 'dark')],
+        arch: 'spike',
+        links: [{ at: [cx, cy], spin: -14, density: 0.15, hit: [O(cx, cy, r * 1.08, r * 1.08, 'metal')], art }],
+      };
+    }
     case 'jaw':
     case 'teeth':
     case 'fangs': {

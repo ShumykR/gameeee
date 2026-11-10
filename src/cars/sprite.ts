@@ -268,9 +268,13 @@ export function driverPalette(playerColor: string): (RGB | null)[] {
   return [null, [16, 14, 24], shade(c, 0.65), c, shade(c, 1.4), [30, 34, 52], [130, 200, 240], [236, 184, 140], shade(c, 0.85), shade(c, 0.5)];
 }
 
+/** How much bigger the helmet is drawn than the head it protects. */
+export const HELMET_SCALE = 1.2;
+
 /** Helmet facing +x. Origin is the head center. */
 export function generateHeadGrid(r: number, ppm = CAR_PPM): PixelGrid {
-  const R = Math.max(3, Math.round(r * ppm));
+  // The helmet is drawn a size up on the head: the driver is what the eye should find first.
+  const R = Math.max(3, Math.round(r * ppm * HELMET_SCALE));
   const size = R * 2 + 1;
   const g = makeGrid(size, size, R, R);
   for (let y = 0; y < size; y++) {
