@@ -24,6 +24,10 @@ export function estimateMass(def: CarDef): number {
   let m = 0;
   for (const p of def.body) if (!p.deco) m += polyArea(p.pts) * (p.density ?? def.density);
   for (const w of def.wheels) m += Math.PI * w.r * w.r * (w.density ?? 1.2);
+  for (const l of def.links ?? []) {
+    for (const p of l.polys) if (!p.deco) m += polyArea(p.pts) * (p.density ?? l.density ?? 0.5);
+    for (const w of l.wheels ?? []) m += Math.PI * w.r * w.r * (w.density ?? 0.8);
+  }
   return m;
 }
 
@@ -70,6 +74,16 @@ export function validateCar(def: CarDef): string[] {
     if (!p.deco && !isConvex(p.pts)) errs.push(`poly ${i}: not convex`);
     if (polyArea(p.pts) < (p.deco ? 1e-4 : 0.005)) errs.push(`poly ${i}: degenerate`);
   });
+  (def.links ?? []).forEach((l, li) => {
+    if (!l.polys.some((p) => !p.deco)) errs.push(`link ${li}: nothing to collide with`);
+    if (l.to !== undefined && (l.to < 0 || l.to >= li)) errs.push(`link ${li}: hangs off a later link`);
+    l.polys.forEach((p, i) => {
+      if (p.pts.length < 3 || p.pts.length > (p.deco ? 256 : 8)) errs.push(`link ${li} poly ${i}: ${p.pts.length} vertices`);
+      if (!p.deco && !isConvex(p.pts)) errs.push(`link ${li} poly ${i}: not convex`);
+      if (!p.deco && polyArea(p.pts) < 0.005) errs.push(`link ${li} poly ${i}: degenerate`);
+    });
+  });
+  if (def.headOn !== undefined && !def.links?.[def.headOn]) errs.push('driver rides a missing link');
   if (def.wheels.length < 2) errs.push('needs at least 2 wheels');
   if (!def.wheels.some((w) => w.drive ?? true)) errs.push('no driven wheel');
   for (const w of def.wheels) if (w.r < 0.2 || w.r > 1) errs.push(`wheel radius ${w.r} out of range`);

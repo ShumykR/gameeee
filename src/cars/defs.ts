@@ -582,6 +582,25 @@ const ORIGINALS: CarDef[] = [
 export const CARS: CarDef[] = [
   ...ORIGINALS.map((c) => skinOriginal({ ...c, category: 'originals' as const })),
   ...ROSTER.map(buildCar),
-].map(applyKit);
+].map(applyKit).map(openCockpit);
+
+/**
+ * Where the driver sits there is no glass: the head pokes out of an open cockpit,
+ * it never sits on (or behind) a window. Panes that overlap the driver are dropped.
+ */
+function openCockpit(def: CarDef): CarDef {
+  const { x, y, r } = def.head;
+  const x0 = x - r * 1.5, x1 = x + r * 1.5, y0 = y - r, y1 = y + r * 3;
+  const near = (pts: readonly (readonly [number, number])[]) => {
+    let ax = Infinity, bx = -Infinity, ay = Infinity, by = -Infinity;
+    for (const [px, py] of pts) { ax = Math.min(ax, px); bx = Math.max(bx, px); ay = Math.min(ay, py); by = Math.max(by, py); }
+    return ax < x1 && bx > x0 && ay < y1 && by > y0;
+  };
+  return {
+    ...def,
+    body: def.body.filter((p) => !(p.mat === 'glass' && p.deco && near(p.pts))),
+    windows: def.windows?.filter((w) => !near(w)),
+  };
+}
 
 export const CAR_BY_ID: Record<string, CarDef> = Object.fromEntries(CARS.map((c) => [c.id, c]));

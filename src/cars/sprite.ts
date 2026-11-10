@@ -219,6 +219,11 @@ export function generateCarGrid(def: CarDef, ppm = CAR_PPM): PixelGrid {
 /** Wheel palette slots */
 export const WP = { NONE: 0, OUTLINE: 1, TIRE: 2, TIRE_L: 3, RIM_D: 4, RIM: 5, RIM_L: 6, HUB: 7 } as const;
 
+/** Sprite of one moving piece (see LinkDef); same origin as the car sprite at rest. */
+export function generateLinkGrid(def: CarDef, i: number, ppm = CAR_PPM): PixelGrid {
+  return generateCarGrid({ ...def, body: def.links![i].polys, windows: [], wheels: [], stripe: undefined, lights: false, links: undefined }, ppm);
+}
+
 export function wheelPalette(p: CarPalette): (RGB | null)[] {
   const acc = hex(p.accent);
   return [null, [14, 12, 18], [40, 38, 46], [70, 68, 78], shade(acc, 0.6), mix(acc, [200, 205, 215], 0.45), [230, 234, 240], [28, 26, 32]];

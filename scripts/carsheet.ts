@@ -7,7 +7,7 @@ import { writeFileSync } from 'node:fs';
 import { deflateSync } from 'node:zlib';
 import { CARS } from '../src/cars/defs';
 import { CAR_PPM } from '../src/physics/constants';
-import { carPalette, driverPalette, generateCarGrid, generateHeadGrid, generateTorsoGrid, generateWheelGrid, wheelPalette } from '../src/cars/sprite';
+import { carPalette, driverPalette, generateCarGrid, generateHeadGrid, generateLinkGrid, generateTorsoGrid, generateWheelGrid, wheelPalette } from '../src/cars/sprite';
 import { ITEMS, cargoSlots } from '../src/game/abilities';
 import { DECOR_PAL, flailGrid, itemGrid } from '../src/maps/decor';
 import type { PixelGrid } from '../src/render/grid';
@@ -57,12 +57,23 @@ cars.forEach((def, i) => {
     const ig = itemGrid(def.cargo.kind, info.w, info.h, CAR_PPM);
     for (const [x, y] of cargoSlots(def.cargo)) blit(ig, DECOR_PAL, Math.round(ox + x * CAR_PPM - ig.ox), Math.round(oy + y * CAR_PPM - ig.oy));
   }
+  const drawLinks = (behind: boolean) => (def.links ?? []).forEach((ld, li) => {
+    if (!!ld.behind !== behind) return;
+    const lg = generateLinkGrid(def, li);
+    blit(lg, carPalette(def.palette), ox - lg.ox, oy - lg.oy);
+  });
+  drawLinks(true);
   const body = generateCarGrid(def);
   blit(body, carPalette(def.palette), ox - body.ox, oy - body.oy);
   const head = generateHeadGrid(def.head.r);
   blit(head, dpal, Math.round(ox + def.head.x * CAR_PPM - head.ox), Math.round(oy + def.head.y * CAR_PPM - head.oy));
   for (const w of def.wheels) {
     if (w.hidden) continue;
+    const g = generateWheelGrid(w);
+    blit(g, wheelPalette(def.palette), Math.round(ox + w.x * CAR_PPM - g.ox), Math.round(oy + w.y * CAR_PPM - g.oy));
+  }
+  drawLinks(false);
+  for (const ld of def.links ?? []) for (const w of ld.wheels ?? []) {
     const g = generateWheelGrid(w);
     blit(g, wheelPalette(def.palette), Math.round(ox + w.x * CAR_PPM - g.ox), Math.round(oy + w.y * CAR_PPM - g.oy));
   }

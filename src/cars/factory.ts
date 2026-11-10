@@ -1,4 +1,4 @@
-import type { Archetype, CarDef, CarMat, CarPoly, CategoryId, FlailDef, ItemKind, Pt, WheelDef } from './types';
+import type { Archetype, CarDef, CarMat, CarPoly, CategoryId, FlailDef, ItemKind, LinkDef, Pt, WheelDef } from './types';
 import { estimateMass } from './stats';
 
 /*
@@ -828,6 +828,36 @@ const PRESETS: Record<Archetype, Preset> = {
 
 // ---------------------------------------------------------------- builder
 
+export interface LinkSpec {
+  art: CarPoly[];
+  hit?: CarPoly[];
+  at: Pt;
+  to?: number;
+  /** Swing limits around rest, degrees [lo, hi] (positive = clockwise for a car facing right). */
+  swing?: [number, number];
+  spring?: number;
+  spin?: number;
+  wheels?: WheelDef[];
+  density?: number;
+  behind?: boolean;
+}
+
+/** Turn a link spec into a definition (render-only art + hidden collision shapes), scaled. */
+export function makeLink(l: LinkSpec, s = 1): LinkDef {
+  const sp = (p: CarPoly) => ({ ...p, pts: p.pts.map((q) => scalePt(q, s)) });
+  return {
+    polys: [...l.art.map((p) => ({ ...sp(p), deco: true })), ...(l.hit ?? []).map((p) => ({ ...sp(p), deco: false, hide: true }))],
+    at: scalePt(l.at, s),
+    to: l.to,
+    swing: l.swing ? [+(l.swing[0] * Math.PI / 180).toFixed(3), +(l.swing[1] * Math.PI / 180).toFixed(3)] : undefined,
+    spring: l.spring,
+    spin: l.spin,
+    wheels: l.wheels?.map((w) => ({ ...w, x: +(w.x * s).toFixed(3), y: +(w.y * s).toFixed(3), r: +(w.r * s).toFixed(3) })),
+    density: l.density,
+    behind: l.behind,
+  };
+}
+
 export interface CarSpec {
   id: string;
   name: string;
@@ -844,7 +874,7 @@ export interface CarSpec {
   /** Loose cargo in the bed at round start. */
   cargo?: [ItemKind, number];
   /** Weight on a chain, hung from a frame anchor. */
-  flail?: { from: 'deck' | 'roof' | 'tail' | 'nose' | Pt; len: number; r: number; look: FlailDef['look'] };
+  flail?: { from: 'deck' | 'roof' | 'tail' | 'nose' | Pt; len: number; r: number; look: FlailDef['look']; on?: number };
   /** Extra drawing on top of the frame (render-only unless a poly sets deco: false). */
   art?: (f: Frame) => CarPoly[];
   /**
@@ -858,6 +888,15 @@ export interface CarSpec {
    * runners or skirt touch the ground).
    */
   glide?: number;
+  /**
+   * Moving pieces with their own physics (trailers, booms, tails, saws…). `art` is what
+   * is drawn, `hit` the convex collision shapes; swing limits are in degrees.
+   */
+  links?: (f: Frame) => LinkSpec[];
+  /** The driver rides on this link (index into `links`). */
+  headOn?: number;
+  /** Move the driver: car-local head position override. */
+  head?: (f: Frame) => Pt;
   /** The drawn barrel / launcher: muzzle point(s) and launch angle in degrees above forward. */
   gun?: (f: Frame) => { at: Pt[]; aim: number };
   /** With a skin: also hide the bolted-on parts (the skin draws them itself). */
@@ -897,6 +936,7 @@ export function buildCar(spec: CarSpec): CarDef {
     const g = glide;
     f.wheels = f.wheels.map((w) => ({ ...w, y: +(g - w.r).toFixed(3), hidden: true }));
   }
+  if (spec.head) { const [hx, hy] = spec.head(f); f.head = { ...f.head, x: hx, y: hy }; }
   const skinned = !!spec.skin;
   const polys = skinned ? f.polys.map((p) => ({ ...p, hide: true })) : [...f.polys];
   const windows = skinned ? [] : [...f.windows];
@@ -974,12 +1014,14 @@ export function buildCar(spec: CarSpec): CarDef {
       : fl.from === 'roof' ? [f.roof.x1 - 0.1, f.roof.y]
       : fl.from === 'tail' ? [f.tail.x, (f.tail.y0 + f.tail.y1) / 2]
       : [f.nose.x, f.nose.y0];
-    def.flail = { at: scalePt(at, s), len: fl.len * s, r: fl.r * s, look: fl.look };
+    def.flail = { at: scalePt(at, s), len: fl.len * s, r: fl.r * s, look: fl.look, on: fl.on };
   }
   if (spec.gun) {
     const g = spec.gun(f);
     def.gun = { at: g.at.map((q) => scalePt(q, s)), aim: +((g.aim * Math.PI) / 180).toFixed(3) };
   }
+  if (spec.links) def.links = spec.links(f).map((l) => makeLink(l, s));
+  if (spec.headOn !== undefined) def.headOn = spec.headOn;
   if (spec.float ?? f.float) def.float = spec.float ?? f.float;
   if (spec.bounce) def.restitution = spec.bounce;
   // Normalize chassis density so the car hits its target mass, then torque for target accel.

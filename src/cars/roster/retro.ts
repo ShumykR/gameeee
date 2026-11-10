@@ -1,5 +1,5 @@
 import { tailgate } from '../art';
-import { beacon, blob, bumper, checkers, circ, door, ell, flameDecal, grille, headlight, ladder, lightbar, pane, path, plus, poly, rect, rr, seat, seg, spare, stack, starShape, stripe, taillight, tank, truss, windows } from '../draw';
+import { beacon, blob, bumper, checkers, circ, door, ell, fender, flameDecal, grille, headlight, ladder, lightbar, pane, path, plus, poly, rect, rr, seat, seg, spare, stack, starShape, stripe, taillight, tank, truss, windows } from '../draw';
 import { bike, boxy, carriage, fenders, formula, kart, monsterChassis, pickup, sedan, tracks, tractor, truckCab } from '../skins';
 import type { CarPoly } from '../types';
 import { group, o } from './util';
@@ -128,15 +128,19 @@ export const RETRO = group('retro', [
     ],
   }],
   ['skid-steer', 'Skid-Steer Loader', 'Компактний навантажувач із ковшем: підчіплює суперника знизу.', 'box', ['#f0b020', '#2a2a2a'], {
-    s: 0.8, parts: ['scoop'], hideParts: true,
+    s: 0.8,
     skin: (f) => [
       rr(f.tail.x, -0.3, f.nose.x - 0.2, 0.3, 0.12, 'body'),
       rect(f.tail.x + 0.1, f.roof.y, f.tail.x + 0.2, -0.3, 'dark'), rect(0.0, f.roof.y, 0.1, -0.3, 'dark'), rr(f.tail.x, f.roof.y - 0.1, 0.3, f.roof.y + 0.04, 0.04, 'body'),
       ...[0, 1, 2, 3].map((i) => rect(0.15, f.roof.y + 0.1 + i * 0.13, 0.2, f.roof.y + 0.15 + i * 0.13, 'dark', { flat: true })),
-      ...path([[f.tail.x + 0.2, -0.2], [0.9, -0.75], [f.nose.x + 0.2, -0.2]], 0.16, 'dark'),
-      poly([[f.nose.x + 0.15, -0.35], [f.nose.x + 0.35, -0.38], [f.nose.x + 0.85, 0.22], [f.nose.x + 0.35, 0.28]], 'scoop'),
-      rr(f.tail.x - 0.08, 0.05, f.tail.x + 0.15, 0.25, 0.04, 'black'),
+      rr(f.tail.x - 0.08, 0.05, f.tail.x + 0.15, 0.25, 0.04, 'black'), circ(f.tail.x + 0.2, -0.2, 0.1, 'grey'),
     ],
+    // Lift arms pivot at the back: the bucket rides over bumps and flips up whatever it scoops.
+    links: (f) => [{
+      at: [f.tail.x + 0.2, -0.2], swing: [-38, 6], spring: 45, density: 0.45,
+      hit: [seg([0.9, -0.75], [f.nose.x + 0.2, -0.2], 0.16), poly([[f.nose.x + 0.15, -0.35], [f.nose.x + 0.35, -0.38], [f.nose.x + 0.85, 0.22], [f.nose.x + 0.35, 0.28]])],
+      art: [...path([[f.tail.x + 0.2, -0.2], [0.9, -0.75], [f.nose.x + 0.2, -0.2]], 0.16, 'dark'), poly([[f.nose.x + 0.15, -0.35], [f.nose.x + 0.35, -0.38], [f.nose.x + 0.85, 0.22], [f.nose.x + 0.35, 0.28]], 'scoop')],
+    }],
   }],
   ['hippie-van', 'Hippie Van', 'Вінтажний мікроавтобус хіпі з квітами і знаком миру.', 'van', ['#f0e0b0', '#ff7aa0'], {
     parts: ['flag'], hideParts: true,
@@ -166,18 +170,34 @@ export const RETRO = group('retro', [
     },
   }],
   ['excavator', 'Excavator', 'Будівельний екскаватор. Б\'є ковшем об землю — хвиля відкидає суперника.', 'digger', ['#ffc020', '#2a2a2a'], {
-    parts: ['bucketarm'], hideParts: true,
     skin: (f) => [
       ...tracks(f),
       rr(f.tail.x + 0.05, -0.32, f.nose.x - 0.15, -0.08, 0.06, 'dark'),
       rr(f.tail.x - 0.05, -0.75, -0.05, -0.28, 0.08, 'body'),
       rr(f.tail.x + 0.1, f.roof.y, -0.05, -0.3, 0.08, 'body'), rect(f.tail.x + 0.28, f.roof.y + 0.1, -0.15, -0.5, 'glass'),
       rr(f.tail.x - 0.12, -0.7, f.tail.x + 0.3, -0.32, 0.08, 'dark'),
-      ...path([[0.05, -0.55], [0.9, -1.4], [1.75, -1.25], [f.nose.x + 0.85, -0.4]], 0.2, 'body'),
-      seg([0.3, -0.5], [0.95, -1.15], 0.07, 'chrome'),
-      poly([[f.nose.x + 0.6, -0.55], [f.nose.x + 1.0, -0.35], [f.nose.x + 0.9, 0.02], [f.nose.x + 0.55, 0.1], [f.nose.x + 0.5, -0.1]], 'dark'),
-      ...[0, 1, 2].map((i) => poly([[f.nose.x + 0.55 + i * 0.12, 0.08], [f.nose.x + 0.63 + i * 0.12, 0.08], [f.nose.x + 0.58 + i * 0.12, 0.2]], 'chrome')),
+      circ(0.05, -0.55, 0.16, 'dark'),
     ],
+    // Boom and stick are two sprung arms: the bucket swings, digs into the ground and clubs whatever it reaches.
+    links: (f) => {
+      const n = f.nose.x;
+      return [
+        {
+          at: [0.05, -0.55], swing: [-30, 22], spring: 70, density: 0.35,
+          hit: [seg([0.05, -0.55], [0.9, -1.4], 0.2), seg([0.9, -1.4], [1.75, -1.25], 0.2)],
+          art: [...path([[0.05, -0.55], [0.9, -1.4], [1.75, -1.25]], 0.2, 'body'), seg([0.3, -0.5], [0.95, -1.15], 0.07, 'chrome'), circ(0.9, -1.4, 0.09, 'dark')],
+        },
+        {
+          to: 0, at: [1.75, -1.25], swing: [-55, 40], spring: 30, density: 0.4,
+          hit: [seg([1.75, -1.25], [n + 0.85, -0.4], 0.18), poly([[n + 0.6, -0.55], [n + 1.0, -0.35], [n + 0.9, 0.02], [n + 0.55, 0.1], [n + 0.5, -0.1]])],
+          art: [
+            seg([1.75, -1.25], [n + 0.85, -0.4], 0.18, 'body'), circ(1.75, -1.25, 0.1, 'dark'),
+            poly([[n + 0.6, -0.55], [n + 1.0, -0.35], [n + 0.9, 0.02], [n + 0.55, 0.1], [n + 0.5, -0.1]], 'dark'),
+            ...[0, 1, 2].map((i) => poly([[n + 0.55 + i * 0.12, 0.08], [n + 0.63 + i * 0.12, 0.08], [n + 0.58 + i * 0.12, 0.2]], 'chrome')),
+          ],
+        },
+      ];
+    },
   }],
   ['antique-f1', 'Antique F1', 'Болід перших гран-прі: сигара на спицях і шкіряний шолом.', 'formula', ['#2a8a4a', '#e0d0a0'], {
     o: o({ wheel: 1.1, rim: 'spokes' }), accel: 1.15,
@@ -191,14 +211,18 @@ export const RETRO = group('retro', [
     ],
   }],
   ['wrecking-crane', 'Wrecking Ball Crane', 'Кран зі справжнім ядром на ланцюгу: воно розгойдується і трощить усе.', 'truck', ['#f0b020', '#2a2a2a'], {
-    flail: { from: [1.55, -1.45], len: 1.1, r: 0.36, look: 'wrecking' },
-    art: (f) => [hidden(poly([[f.deck.x0 + 0.3, f.deck.y], [f.deck.x0 + 0.6, f.deck.y], [1.6, -1.42], [1.5, -1.5]], 'scoop', { deco: false, density: 0.3 }))],
+    flail: { from: [1.55, -1.45], len: 1.1, r: 0.36, look: 'wrecking', on: 0 },
+    // The jib is hinged at the turret and nods under the swinging ball.
+    links: (f) => [{
+      at: [f.deck.x0 + 0.45, f.deck.y - 0.3], swing: [-14, 14], spring: 260, density: 0.3,
+      hit: [seg([f.deck.x0 + 0.45, f.deck.y - 0.3], [1.55, -1.45], 0.2)],
+      art: [...truss([f.deck.x0 + 0.45, f.deck.y - 0.3], [1.55, -1.45], 0.2, 'body'), circ(1.55, -1.45, 0.08, 'dark')],
+    }],
     skin: (f) => [
       ...truckCab(f),
       rr(f.deck.x0, f.deck.y - 0.5, f.deck.x0 + 1.0, f.deck.y + 0.05, 0.05, 'body'), rect(f.deck.x0 + 0.55, f.deck.y - 0.45, f.deck.x0 + 0.9, f.deck.y - 0.15, 'glass'),
       rect(f.deck.x0 - 0.05, f.deck.y - 0.35, f.deck.x0 + 0.3, f.deck.y, 'grey'),
-      ...truss([f.deck.x0 + 0.45, f.deck.y - 0.3], [1.55, -1.45], 0.2, 'body'),
-      circ(1.55, -1.45, 0.08, 'dark'),
+      circ(f.deck.x0 + 0.45, f.deck.y - 0.3, 0.12, 'dark'),
     ],
   }],
   ['hot-rod', 'Hot Rod', 'Тюнінговане американське купе з вогняним малюнком і закисом азоту.', 'sports', ['#1a1a1a', '#ff5a1a'], {
@@ -211,15 +235,25 @@ export const RETRO = group('retro', [
     ],
   }],
   ['travel-trailer', 'Travel Trailer', 'Легковик із житловим причепом-кемпером на буксирі.', 'coupe', ['#4a8ad8', '#ffffff'], {
-    o: o({ len: 0.9 }), parts: ['trailer'], accel: 1.2, hideParts: true,
-    skin: (f) => [
-      ...sedan(f, { roof: 'hatch' }),
-      seg([f.tail.x + 0.05, 0.16], [f.tail.x - 0.35, 0.16], 0.06, 'dark'),
-      blob([[f.tail.x - 1.4, 0.18], [f.tail.x - 1.42, f.tail.y0 - 0.25], [f.tail.x - 1.1, f.tail.y0 - 0.45], [f.tail.x - 0.5, f.tail.y0 - 0.45], [f.tail.x - 0.25, f.tail.y0 - 0.15], [f.tail.x - 0.25, 0.18]], 'white', {}, 1),
-      stripe(f.tail.x - 1.4, f.tail.x - 0.25, f.tail.y0 + 0.05, 0.06, 'accent'),
-      rr(f.tail.x - 1.25, f.tail.y0 - 0.32, f.tail.x - 0.95, f.tail.y0 - 0.08, 0.04, 'glass'),
-      rect(f.tail.x - 0.75, f.tail.y0 - 0.32, f.tail.x - 0.48, 0.12, 'white', { ring: true }),
-    ],
+    o: o({ len: 0.9 }), accel: 1.2,
+    skin: (f) => [...sedan(f, { roof: 'hatch' }), circ(f.tail.x - 0.02, 0.16, 0.07, 'chrome')],
+    // The camper rides on its own axle behind a ball hitch: it sways, jack-knifes and bucks over bumps.
+    links: (f) => {
+      const x = f.tail.x;
+      return [{
+        at: [x - 0.02, 0.16], swing: [-40, 40],
+        wheels: [{ x: x - 0.95, y: 0.42, r: 0.3, rim: 'disc', drive: false }],
+        hit: [rect(x - 1.55, f.tail.y0 - 0.5, x - 0.35, 0.22)], density: 0.45,
+        art: [
+          seg([x - 0.02, 0.16], [x - 0.4, 0.16], 0.06, 'dark'),
+          blob([[x - 1.55, 0.22], [x - 1.57, f.tail.y0 - 0.3], [x - 1.25, f.tail.y0 - 0.5], [x - 0.6, f.tail.y0 - 0.5], [x - 0.35, f.tail.y0 - 0.2], [x - 0.35, 0.22]], 'white', {}, 1),
+          stripe(x - 1.55, x - 0.35, f.tail.y0 + 0.05, 0.06, 'accent'),
+          rr(x - 1.4, f.tail.y0 - 0.37, x - 1.1, f.tail.y0 - 0.13, 0.04, 'glass'),
+          rect(x - 0.88, f.tail.y0 - 0.37, x - 0.6, 0.14, 'white', { ring: true }),
+          fender(x - 0.95, 0.42, 0.3, 0.08, 'white'),
+        ],
+      }];
+    },
   }],
   ['amphibian', 'Amphibian', 'Колісний всюдихід-амфібія з гвинтом на кормі.', 'boat', ['#4a7a3a', '#e0c060'], {
     o: o({ wheel: 1.4 }),
@@ -338,16 +372,23 @@ export const RETRO = group('retro', [
     ],
   }],
   ['forklift-truck', 'Forklift Truck', 'Складський навантажувач: вила підхоплюють суперника.', 'box', ['#ffc020', '#2a2a2a'], {
-    s: 0.85, parts: ['forks'], hideParts: true,
+    s: 0.85,
     skin: (f) => [
       rr(f.tail.x, -0.35, f.nose.x - 0.1, 0.3, 0.08, 'body'),
       rr(f.tail.x - 0.1, -0.55, f.tail.x + 0.55, 0.15, 0.12, 'dark'),
       ...path([[f.tail.x + 0.4, -0.35], [f.tail.x + 0.45, f.roof.y - 0.6], [f.nose.x - 0.45, f.roof.y - 0.6], [f.nose.x - 0.2, -0.35]], 0.09, 'dark'),
       ...seat(f.head.x - 0.05, -0.35, 0.4),
-      rect(f.nose.x - 0.05, f.nose.y0 - 1.0, f.nose.x + 0.12, f.nose.y1, 'dark'), rect(f.nose.x + 0.02, f.nose.y0 - 1.0, f.nose.x + 0.07, f.nose.y1, 'grey', { flat: true }),
-      rect(f.nose.x + 0.12, f.nose.y1 - 0.12, f.nose.x + 1.0, f.nose.y1 - 0.03, 'chrome'),
       ...beacon(f.tail.x + 0.6, f.roof.y - 0.65, 'orange', 0.14),
     ],
+    // Mast and forks tilt on a hinge at the axle: they slide under a rival and tip back with the load.
+    links: (f) => [{
+      at: [f.nose.x, f.nose.y1 - 0.1], swing: [-22, 9], spring: 60, density: 0.5,
+      hit: [rect(f.nose.x - 0.05, f.nose.y0 - 1.0, f.nose.x + 0.12, f.nose.y1), rect(f.nose.x + 0.12, f.nose.y1 - 0.12, f.nose.x + 1.0, f.nose.y1 - 0.03)],
+      art: [
+        rect(f.nose.x - 0.05, f.nose.y0 - 1.0, f.nose.x + 0.12, f.nose.y1, 'dark'), rect(f.nose.x + 0.02, f.nose.y0 - 1.0, f.nose.x + 0.07, f.nose.y1, 'grey', { flat: true }),
+        rect(f.nose.x + 0.12, f.nose.y1 - 0.12, f.nose.x + 1.0, f.nose.y1 - 0.03, 'chrome'),
+      ],
+    }],
   }],
   ['hog', 'Hog', 'Важкий круїзер-чопер: довга вилка, високий кермо, багато хрому.', 'bike', ['#2a2a2a', '#c0c0c8'], {
     o: o({ len: 1.15 }), mass: 1.3,
@@ -398,18 +439,28 @@ export const RETRO = group('retro', [
     ],
   }],
   ['cherry-picker', 'Cherry Picker', 'Автовишка з люлькою на стрілі.', 'truck', ['#f0f0f0', '#ff8a1a'], {
-    parts: ['boom'], hideParts: true,
+    // The driver works from the basket: the boom sways, and the head rides up there with it.
+    headOn: 0, head: (f) => [f.deck.x0 + 0.52, f.deck.y - 1.95],
+    links: (f) => {
+      const d = f.deck;
+      return [{
+        at: [d.x0 + 0.38, d.y - 0.2], swing: [-28, 28], spring: 16, density: 0.3,
+        hit: [seg([d.x0 + 0.35, d.y - 0.2], [d.x0 + 0.48, d.y - 1.45], 0.16), rect(d.x0 + 0.2, d.y - 1.62, d.x0 + 0.85, d.y - 1.38), rect(d.x0 + 0.2, d.y - 1.9, d.x0 + 0.27, d.y - 1.6), rect(d.x0 + 0.78, d.y - 1.9, d.x0 + 0.85, d.y - 1.6)],
+        art: [
+          ...path([[d.x0 + 0.35, d.y - 0.2], [d.x0 + 0.48, d.y - 1.45]], 0.16, 'accent'),
+          rr(d.x0 + 0.2, d.y - 1.62, d.x0 + 0.85, d.y - 1.38, 0.04, 'accent'),
+          ...[0.2, 0.79].map((dx) => rect(d.x0 + dx, d.y - 1.88, d.x0 + dx + 0.06, d.y - 1.6, 'chrome')),
+          rect(d.x0 + 0.2, d.y - 1.92, d.x0 + 0.85, d.y - 1.85, 'chrome'),
+        ],
+      }];
+    },
     skin: (f) => {
       const d = f.deck;
       return [
         ...truckCab(f),
         stripe(f.tail.x, f.nose.x, 0.04, 0.08, 'accent'),
         rr(d.x0 + 0.05, d.y - 0.3, d.x0 + 0.7, d.y + 0.05, 0.04, 'grey'),
-        ...path([[d.x0 + 0.35, d.y - 0.2], [d.x0 + 0.48, d.y - 1.45]], 0.16, 'accent'),
-        seg([d.x0 + 0.5, d.y - 0.15], [d.x0 + 0.5, d.y - 1.0], 0.06, 'chrome'),
-        rr(d.x0 + 0.2, d.y - 1.62, d.x0 + 0.85, d.y - 1.38, 0.04, 'accent'),
-        ...[0.25, 0.5, 0.75].map((dx) => rect(d.x0 + dx, d.y - 1.88, d.x0 + dx + 0.06, d.y - 1.6, 'chrome')),
-        rect(d.x0 + 0.2, d.y - 1.92, d.x0 + 0.85, d.y - 1.85, 'chrome'),
+        circ(d.x0 + 0.38, d.y - 0.2, 0.12, 'dark'),
         ...beacon(f.roof.x0 + 0.35, f.roof.y, 'orange', 0.14),
         ...[0.1, 1.4].map((dx) => rect(d.x0 + dx, d.y, d.x0 + dx + 0.08, 0.3, 'dark')),
       ];

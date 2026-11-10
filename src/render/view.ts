@@ -4,7 +4,7 @@ import { ART_PPM, CAR_PPM } from '../physics/constants';
 import type { Game, GameEvent } from '../game/game';
 import type { Car } from '../cars/car';
 import type { CarDef, CarPalette } from '../cars/types';
-import { carPalette, driverPalette, generateCarGrid, generateHeadGrid, generateTorsoGrid, generateWheelGrid, wheelPalette } from '../cars/sprite';
+import { carPalette, driverPalette, generateCarGrid, generateHeadGrid, generateTorsoGrid, generateLinkGrid, generateWheelGrid, wheelPalette } from '../cars/sprite';
 import { generateLayer, generateSky, generateTerrain, THEMES } from '../maps/art';
 import type { MapDef } from '../maps/types';
 import { PROP_PAL, crateGrid, hazardStripGrid, lavaGrid, lavaSurfaceGrid, padGrid, plateGrid, sawGrid, spikesGrid, wallGrid, waterGrid, waterSurfaceGrid } from '../maps/props';
@@ -78,6 +78,8 @@ class CarView {
   readonly marker: Sprite;
   readonly flail: Sprite | null = null;
   readonly chain = new Graphics();
+  /** Moving pieces, then their wheels (same order as Car.links / Car.linkWheels). */
+  readonly links: Container[] = [];
 
   constructor(readonly car: Car, alt: boolean) {
     const def = car.def;
@@ -118,7 +120,28 @@ class CarView {
     this.marker = new Sprite(pixelText(PLAYER_NAMES[car.player], { size: 8, color: PLAYER_COLORS[car.player] }));
     this.marker.anchor.set(0.5, 1);
     this.marker.scale.set(1 / ART_PPM);
-    this.root.addChild(this.chain, this.body, ...this.wheels, this.marker);
+    const behind: Container[] = [], front: Container[] = [];
+    (def.links ?? []).forEach((ld, i) => {
+      const lg = generateLinkGrid(def, i);
+      const ls = new Sprite(cached(`link:${def.id}:${i}:${alt}`, () => gridTexture(lg, carPalette(pal))));
+      ls.anchor.set(lg.ox / lg.w, lg.oy / lg.h);
+      ls.scale.set(1 / CAR_PPM);
+      const box = new Container();
+      box.addChild(ls);
+      box.scale.x = car.facing;
+      if (def.headOn === i) { box.addChildAt(this.torso, 0); box.addChild(this.head); }
+      this.links.push(box);
+      (ld.behind ? behind : front).push(box);
+    });
+    for (const lw of car.linkWheels) {
+      const wg = generateWheelGrid(lw.def);
+      const ws = new Sprite(cached(`wheel:${def.id}:${lw.def.r}:${lw.def.rim}:${alt}`, () => gridTexture(wg, wheelPalette(pal))));
+      ws.anchor.set(0.5);
+      ws.scale.set(1 / CAR_PPM);
+      this.links.push(ws);
+      front.push(ws);
+    }
+    this.root.addChild(this.chain, ...behind, this.body, ...this.wheels, ...front, this.marker);
     if (def.flail) {
       const fl = def.flail;
       this.flail = new Sprite(cached(`flail:${fl.look}:${fl.r}`, () => gridTexture(flailGrid(fl.look, fl.r, CAR_PPM), DECOR_PAL)));
@@ -140,12 +163,21 @@ class CarView {
       target.position.set(x, y);
       target.rotation = a;
     }
+    if (this.links.length) {
+      const extra = [...c.links, ...c.linkWheels.map((w) => w.body)];
+      for (let i = 0; i < extra.length; i++) {
+        const b = extra[i], cur = b.getPosition();
+        const p = c.prevExtra[i] ?? { x: cur.x, y: cur.y, a: b.getAngle() };
+        this.links[i].position.set(lerp(p.x, cur.x, alpha), lerp(p.y, cur.y, alpha));
+        this.links[i].rotation = lerpAngle(p.a, b.getAngle(), alpha);
+      }
+    }
     if (this.flail && c.flail) {
       const fp = c.flail.getPosition();
       this.flail.position.set(fp.x, fp.y);
       this.flail.rotation = c.flail.getAngle();
       const fl = c.def.flail!;
-      const a = c.chassis.getWorldPoint(new Vec2(fl.at[0] * c.facing, fl.at[1]));
+      const a = (fl.on !== undefined ? c.links[fl.on] : c.chassis).getWorldPoint(new Vec2(fl.at[0] * c.facing, fl.at[1]));
       const ch = this.chain.clear();
       const n = Math.max(3, Math.round(Vec2.distance(a, fp) / 0.22));
       for (let i = 0; i <= n; i++) {
