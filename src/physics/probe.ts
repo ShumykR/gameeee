@@ -85,15 +85,18 @@ export function measure(def: CarDef): Handling {
 
   // Recovery from upside down
   world = testWorld();
-  car = new Car(world, def, 0, 0, -2.2, 1);
+  // Start high enough that nothing tall on the car (a jib, a ladder, a giant cone) begins inside the ground.
+  const tall = Math.min(0, ...def.body.filter((p) => !p.deco).flatMap((p) => p.pts.map((q) => q[1])), ...(def.links ?? []).flatMap((l) => l.polys.filter((p) => !p.deco).flatMap((p) => p.pts.map((q) => q[1]))));
+  const h0 = Math.max(2.2, -tall + 0.5);
+  car = new Car(world, def, 0, 0, -h0, 1);
   car.chassis.setAngle(Math.PI);
   for (const w of [...car.wheels, ...car.linkWheels.map((lw) => lw.body)]) {
     const p = w.getPosition();
-    w.setPosition(new Vec2(-p.x, -2.2 - (p.y + 2.2)));
+    w.setPosition(new Vec2(-p.x, -h0 - (p.y + h0)));
   }
   for (const l of car.links) {
     const p = l.getPosition();
-    l.setTransform(new Vec2(-p.x, -2.2 - (p.y + 2.2)), Math.PI);
+    l.setTransform(new Vec2(-p.x, -h0 - (p.y + h0)), Math.PI);
   }
   let recover = Infinity;
   for (let i = 0; i < 60 * 8; i++) {

@@ -726,7 +726,7 @@ function part(f: Frame, id: PartId, k = 1): { polys: CarPoly[]; windows?: Pt[][]
       return { polys };
     }
     case 'drum':
-      return { polys: [P([[d.x0 + 0.05, d.y - 0.15], [d.x0 + 0.3, d.y - 0.75], [d.x1 - 0.05, d.y - 0.85], [d.x1 + 0.05, d.y - 0.45], [d.x1 - 0.2, d.y - 0.05]], 'accent', { density: 0.6 })] };
+      return { polys: [P([[d.x0 + 0.05, d.y - 0.15], [d.x0 + 0.25, d.y - 0.95], [d.x0 + 1.3, d.y - 1.4], [d.x1 - 0.1, d.y - 1.15], [d.x1 + 0.02, d.y - 0.55], [d.x1 - 0.2, d.y - 0.05]], 'accent', { density: 0.35 })] };
     case 'tank':
       return { polys: [O(dm, d.y - 0.38, dl / 2, 0.38, 'metal', { density: 0.6 })] };
     case 'cargo':
@@ -772,7 +772,15 @@ function part(f: Frame, id: PartId, k = 1): { polys: CarPoly[]; windows?: Pt[][]
     case 'dish':
       return { polys: [R(dm - 0.05, d.y - 0.5, dm + 0.05, d.y, 'metal'), P([[dm - 0.45, d.y - 0.85], [dm + 0.15, d.y - 0.45], [dm + 0.05, d.y - 0.42], [dm - 0.5, d.y - 0.7]], 'white')] };
     case 'cone':
-      return { polys: [T([r.x0 + 0.15, r.y - 0.35], [r.x0 + 0.45, r.y - 0.35], [r.x0 + 0.3, r.y], 'scoop'), O(r.x0 + 0.3, r.y - 0.45, 0.2, 0.16, 'white')] };
+      // A giant cone on a springy stalk: it wobbles with every bump.
+      return {
+        polys: [],
+        links: [{
+          at: [r.x0 + 0.3, r.y], swing: [-30, 30], spring: 14, density: 0.1,
+          hit: [T([r.x0 + 0.02, r.y - 0.85], [r.x0 + 0.58, r.y - 0.85], [r.x0 + 0.3, r.y], 'scoop'), O(r.x0 + 0.3, r.y - 1.05, 0.36, 0.32, 'white'), O(r.x0 + 0.3, r.y - 1.45, 0.26, 0.24, 'white')],
+          art: [], take: (x, y) => x > r.x0 - 0.15 && x < r.x0 + 0.75 && y < r.y - 0.05,
+        }],
+      };
     case 'siren':
       return { polys: [R(r.x0 + (r.x1 - r.x0) * 0.25, r.y - 0.12, r.x0 + (r.x1 - r.x0) * 0.5, r.y, 'rocket'), R(r.x0 + (r.x1 - r.x0) * 0.5, r.y - 0.12, r.x0 + (r.x1 - r.x0) * 0.75, r.y, 'glass')] };
     case 'sign':
