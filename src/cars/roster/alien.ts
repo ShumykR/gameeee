@@ -81,7 +81,7 @@ export const ALIEN = group('alien', [
     ],
   }],
   ['shredder', 'Shredder', 'Броньовик-подрібнювач із дисковою пилкою.', 'tracked', ['#5a5a6a', '#ffd23f'], {
-    parts: [['saw', 0.8]], accel: 1.15,
+    parts: [['saw', 0.8]], accel: 1.3,
     skin: (f) => [
       ...tankHull(f),
       rr(-0.8, -0.72, 0.4, -0.35, 0.08, 'body'), rect(-0.6, -0.62, 0.2, -0.52, 'black', { flat: true }),
@@ -89,6 +89,7 @@ export const ALIEN = group('alien', [
     ],
   }],
   ['monster-cannon', 'Monster Cannon', 'Самохідна гармата на колесах монстр-трака.', 'monster', ['#4a5a3a', '#ffd23f'], {
+    o: o({ open: true }),
     gun: (f) => ({ at: [[f.deck.x0 + 1.68, -1.5]], aim: 27 }),
     parts: ['cannon'], hideParts: true,
     skin: (f) => [

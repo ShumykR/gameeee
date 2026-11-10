@@ -70,6 +70,7 @@ export const CNY = group('cny', [
     },
   }],
   ['dragon-monster', 'Dragon Monster', 'Монстр-трак із головою дракона. Пихкає вогнем.', 'monster', ['#e02a2a', '#ffd23f'], {
+    o: o({ open: true }),
     parts: ['fangs', 'horns'], hideParts: true,
     skin: (f) => [
       ...monsterChassis(f),

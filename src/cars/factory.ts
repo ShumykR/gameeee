@@ -1,4 +1,4 @@
-import type { Archetype, CarDef, CarMat, CarPoly, CategoryId, FlailDef, ItemKind, Pt, WheelDef } from './types';
+import type { Archetype, CarDef, CarMat, CarPoly, CategoryId, FlailDef, ItemKind, LinkDef, Pt, WheelDef } from './types';
 import { estimateMass } from './stats';
 
 /*
@@ -48,7 +48,15 @@ export interface Frame {
   stripe?: { y: number; h: number };
   /** Extra center-of-mass offset. */
   com?: Pt;
+  /** Forward shift of the center of mass (keeps a car with a hollowed-out cab balanced). */
+  comX?: number;
   float?: number;
+  /** The driver sits inside a cab, under its roof: only the helmet shows, in the open window. */
+  cabin?: boolean;
+  /** Outline of the open window the driver is seen through (convex pieces). */
+  port?: Pt[][];
+  /** Pieces of the frame that move on their own hinge (a creature's neck and head). */
+  limbs?: LinkSpec[];
   /** Handling overrides on top of the archetype preset. */
   tune?: { wheelie?: number; air?: number; accel?: number };
 }
@@ -70,6 +78,8 @@ export interface FrameOpts {
   rim?: WheelDef['rim'];
   /** Open cockpit instead of a closed cabin (sedan/coupe/pickup). */
   open?: boolean;
+  /** Tracked hull with a driver's cab (back wall, roof, open front) instead of a turret. */
+  cab?: boolean;
   /** Creature shape. */
   neck?: 'long' | 'short' | 'raptor' | 'none';
   /** Blob shape. */
@@ -80,33 +90,59 @@ export interface FrameOpts {
 
 const W = (x: number, y: number, r: number, rim?: WheelDef['rim'], extra: Partial<WheelDef> = {}): WheelDef => ({ x, y, r, rim, ...extra });
 
+/** Area-weighted centre (x) of a set of hull pieces. */
+function centreX(ps: CarPoly[]): number {
+  let mx = 0, mm = 0;
+  for (const p of ps) { const [cx, ar] = centroidX(p.pts); mx += cx * ar; mm += ar; }
+  return mm > 0 ? mx / mm : 0;
+}
+
+/** How far a cab roof reaches forward past the middle of the driver's helmet. */
+const ROOF_OVER = 0.16;
+/** Height of the helmet in a tall cab: the driver sits low, not up under the roof. */
+const CAB_SEAT = -0.5;
+
 function frame(id: FrameId, o: FrameOpts): Frame {
   const L = o.len ?? 1, H = o.tall ?? 1, wk = o.wheel ?? 1, rim = o.rim, m = o.mat ?? 'body';
   switch (id) {
     case 'sedan':
     case 'coupe': {
       const hl = (id === 'coupe' ? 1.45 : 1.62) * L;
-      const cab = id === 'coupe' ? 0.46 : 0.52;
+      const cab = id === 'coupe' ? 0.52 : 0.58;
       const polys = [P([[-hl, -0.16], [hl - 0.4, -0.16], [hl, 0.04], [hl - 0.03, 0.32], [-hl, 0.32], [-hl - 0.04, 0.06]], m)];
       const windows: Pt[][] = [];
       let head = { x: -0.25 * L, y: -0.74 * H, r: 0.28 };
+      let rx1 = 0.36 * L;
+      let port: Pt[][] | undefined;
       if (o.open) {
         polys.push(P([[0.32 * L, -0.16], [0.72 * L, -0.16], [0.44 * L, -0.6], [0.3 * L, -0.6]], 'dark'));
         windows.push([[0.36 * L, -0.18], [0.62 * L, -0.18], [0.42 * L, -0.54], [0.34 * L, -0.54]]);
         head = { x: -0.2 * L, y: -0.62, r: 0.28 };
       } else {
         const top = -0.16 - cab * H;
-        polys.push(P([[-1.0 * L, -0.16], [0.78 * L, -0.16], [0.36 * L, top], [-0.84 * L, top]], m));
-        windows.push([[0.04 * L, -0.2], [0.66 * L, -0.2], [0.32 * L, top + 0.06], [0.04 * L, top + 0.06]]);
-        windows.push([[-0.8 * L, -0.2], [-0.06 * L, -0.2], [-0.06 * L, top + 0.06], [-0.72 * L, top + 0.06]]);
-        head = { x: -0.22 * L, y: top - 0.1, r: 0.28 };
+        // The driver sits in the cab, under its roof: solid cab behind, the roof over the helmet,
+        // an open window in front of it (the only way in for a rival's wheel or bumper).
+        const hx = 0.06 * L, hw = 0.31, cy = top + 0.37;
+        rx1 = hx + ROOF_OVER;
+        polys.push(P([[-1.0 * L, -0.16], [hx - hw, -0.16], [hx - hw, top], [-0.84 * L, top]], m));
+        polys.push(R(hx - hw, top, rx1, top + 0.08, m));
+        windows.push([[-0.8 * L, -0.2], [hx - hw - 0.06, -0.2], [hx - hw - 0.06, top + 0.06], [-0.72 * L, top + 0.06]]);
+        head = { x: hx, y: cy, r: 0.28 };
+        port = [
+          [[hx - hw, top + 0.08], [rx1, top + 0.08], [rx1, -0.18], [hx - hw, -0.18]],
+          [[rx1, top - 0.03], [rx1 + 0.75, top - 0.03], [rx1 + 0.75, -0.18], [rx1, -0.18]],
+          [[hx - hw, -0.2], [hx + hw + 0.04, -0.2], [hx + hw + 0.04, cy + 0.3], [hx - hw, cy + 0.3]],
+        ];
       }
       const wx = (hl - 0.55) * 1, wr = 0.42 * wk;
       return {
         arch: 'allround', polys, windows,
         wheels: [W(-wx, 0.3 + wr * 0.2 + 0.0, wr, rim), W(wx, 0.3 + wr * 0.2, wr, rim)],
-        head, deck: { x0: -hl, x1: -1.0 * L, y: -0.16 }, roof: { x0: -0.84 * L, x1: 0.36 * L, y: o.open ? -0.6 : -0.16 - cab * H },
+        head, deck: { x0: -hl, x1: -1.0 * L, y: -0.16 }, roof: { x0: -0.84 * L, x1: rx1, y: o.open ? -0.6 : -0.16 - cab * H },
         nose: { x: hl, y0: -0.16, y1: 0.32 }, tail: { x: -hl, y0: -0.16, y1: 0.32 }, stripe: { y: 0.02, h: 0.08 },
+        cabin: !o.open, port,
+        // The cab is all behind the driver now: keep the weight in the middle of the wheelbase.
+        comX: o.open ? undefined : -centreX(polys),
       };
     }
     case 'sports': {
@@ -130,32 +166,54 @@ function frame(id: FrameId, o: FrameOpts): Frame {
       const polys = [P([[-hl, -0.26], [hl - 0.3, -0.26], [hl, -0.05], [hl, 0.36], [-hl, 0.36]], m)];
       const windows: Pt[][] = [];
       let head;
+      let rx1 = 0.46 * L;
+      let port: Pt[][] | undefined;
       if (o.open) {
         polys.push(P([[0.5 * L, -0.26], [0.85 * L, -0.26], [0.6 * L, -0.74], [0.48 * L, -0.74]], 'dark'));
         head = { x: 0.05 * L, y: -0.72, r: 0.29 };
       } else {
-        polys.push(P([[-0.3 * L, -0.26], [0.78 * L, -0.26], [0.46 * L, top], [-0.26 * L, top]], m));
-        windows.push([[0.08 * L, -0.3], [0.66 * L, -0.3], [0.42 * L, top + 0.07], [0.08 * L, top + 0.07]]);
-        head = { x: 0.08 * L, y: top - 0.1, r: 0.29 };
+        // The driver sits in the cab: back wall behind, roof above, open window in front.
+        const bx = -0.3 * L, hx = bx + 0.1 + 0.32, cy = top + 0.37;
+        rx1 = hx + ROOF_OVER;
+        polys.push(R(bx, top, bx + 0.1, -0.26, m));
+        polys.push(R(bx, top, rx1, top + 0.08, m));
+        head = { x: hx, y: cy, r: 0.29 };
+        port = [
+          [[bx + 0.1, top + 0.08], [rx1, top + 0.08], [rx1, -0.28], [bx + 0.1, -0.28]],
+          [[rx1, top - 0.03], [rx1 + 0.75, top - 0.03], [rx1 + 0.75, -0.28], [rx1, -0.28]],
+        ];
       }
       const wr = 0.46 * wk;
       return {
         arch: 'heavy', polys, windows,
         wheels: [W(-1.1 * L, 0.36 + wr * 0.2, wr, rim ?? 'disc'), W(1.1 * L, 0.36 + wr * 0.2, wr, rim ?? 'disc')],
-        head, deck: { x0: -hl, x1: -0.32 * L, y: -0.26 }, roof: { x0: -0.26 * L, x1: 0.46 * L, y: o.open ? -0.74 : top },
+        head, deck: { x0: -hl, x1: -0.32 * L, y: -0.26 }, roof: { x0: -0.26 * L, x1: rx1, y: o.open ? -0.74 : top },
         nose: { x: hl, y0: -0.26, y1: 0.36 }, tail: { x: -hl, y0: -0.26, y1: 0.36 }, stripe: { y: 0.04, h: 0.1 },
+        cabin: !o.open, port,
       };
     }
     case 'van':
     case 'bus': {
       const hl = (id === 'bus' ? 2.15 : 1.6) * L;
       const top = (id === 'bus' ? -0.95 : -0.85) * H;
-      const polys = [P([[-hl, top], [hl - 0.45, top], [hl, top + 0.5], [hl, 0.3], [-hl, 0.3]], m)];
-      const windows: Pt[][] = [[[hl - 0.42, top + 0.06], [hl - 0.06, top + 0.5], [hl - 0.42, top + 0.5]]];
+      // The driver sits at the front under the roof (on the lower deck of a tall bus),
+      // behind an open windscreen.
+      const dx = hl - 0.72, hw = 0.31, cy = Math.max(top + 0.37, CAB_SEAT);
+      const sill = cy + 0.3, lid = cy - 0.29;
+      const polys = [
+        R(-hl, top, dx - hw, 0.3, m),
+        P([[dx - hw, sill], [hl - 0.08, sill], [hl, sill + 0.1], [hl, 0.3], [dx - hw, 0.3]], m),
+        R(dx - hw, top, dx + ROOF_OVER, lid, m),
+      ];
+      const windows: Pt[][] = [];
+      const port: Pt[][] = [
+        [[dx - hw, lid], [dx + ROOF_OVER, lid], [dx + ROOF_OVER, sill], [dx - hw, sill]],
+        [[dx + ROOF_OVER, top - 0.03], [hl + 0.15, top - 0.03], [hl + 0.15, sill], [dx + ROOF_OVER, sill]],
+      ];
       const n = Math.max(1, Math.floor((hl * 2 - 0.9) / 0.62));
       for (let i = 0; i < n; i++) {
         const x0 = -hl + 0.2 + i * 0.62;
-        if (x0 + 0.46 > hl - 0.5) break;
+        if (x0 + 0.46 > dx - hw - 0.05) break;
         windows.push([[x0, top + 0.12], [x0 + 0.46, top + 0.12], [x0 + 0.46, top + 0.48], [x0, top + 0.48]]);
       }
       const wr = 0.42 * wk;
@@ -164,9 +222,9 @@ function frame(id: FrameId, o: FrameOpts): Frame {
         : [W(-hl + 0.6, 0.3 + wr * 0.2, wr, rim), W(hl - 0.65, 0.3 + wr * 0.2, wr, rim)];
       return {
         arch: id === 'bus' ? 'long' : 'tall', polys, windows, wheels,
-        head: { x: hl - 0.95, y: top - 0.12, r: 0.28 },
-        deck: { x0: -hl + 0.1, x1: hl - 1.3, y: top }, roof: { x0: -hl, x1: hl - 0.45, y: top },
-        nose: { x: hl, y0: top + 0.5, y1: 0.3 }, tail: { x: -hl, y0: top, y1: 0.3 }, stripe: { y: 0.02, h: 0.1 },
+        head: { x: dx, y: cy, r: 0.28 }, cabin: true, port,
+        deck: { x0: -hl + 0.1, x1: hl - 1.3, y: top }, roof: { x0: -hl, x1: dx + ROOF_OVER, y: top },
+        nose: { x: hl, y0: sill, y1: 0.3 }, tail: { x: -hl, y0: top, y1: 0.3 }, stripe: { y: 0.02, h: 0.1 },
         com: [0, 0.32 * H],
       };
     }
@@ -177,18 +235,26 @@ function frame(id: FrameId, o: FrameOpts): Frame {
       const nw = o.wheels ?? 3;
       const wr = 0.42 * wk;
       const wy = 0.3 + wr * 0.2;
+      const hx = cx0 + 0.42, cy = Math.max(top + 0.37, CAB_SEAT - 0.1), sill = cy + 0.3, lid = cy - 0.29;
       const wheels = nw >= 3 ? [W(-hl + 0.55, wy, wr, rim), W(-hl + 1.45, wy, wr, rim), W(hl - 0.5, wy, wr, rim)] : [W(-hl + 0.7, wy, wr, rim), W(hl - 0.5, wy, wr, rim)];
       return {
         arch: 'long',
         polys: [
           R(-hl, -0.12, cx0, 0.3, 'dark'),
-          P([[cx0, top], [hl - 0.22, top], [hl, top + 0.45], [hl, 0.3], [cx0, 0.3]], m),
+          // Cab: back wall behind the driver, roof above, an open windscreen in front.
+          R(cx0, top, cx0 + 0.1, 0.3, m),
+          P([[cx0 + 0.1, sill], [hl - 0.08, sill], [hl, sill + 0.1], [hl, 0.3], [cx0 + 0.1, 0.3]], m),
+          R(cx0, top, hx + ROOF_OVER, lid, m),
         ],
-        windows: [[[hl - 0.5, top + 0.08], [hl - 0.24, top + 0.08], [hl - 0.06, top + 0.42], [hl - 0.5, top + 0.42]]],
+        windows: [],
         wheels,
-        head: { x: cx0 + 0.32, y: top - 0.12, r: 0.28 },
-        deck: { x0: -hl + 0.05, x1: cx0 - 0.08, y: -0.12 }, roof: { x0: cx0, x1: hl - 0.22, y: top },
-        nose: { x: hl, y0: top + 0.45, y1: 0.3 }, tail: { x: -hl, y0: -0.12, y1: 0.3 }, stripe: { y: 0.05, h: 0.09 },
+        head: { x: hx, y: cy, r: 0.28 }, cabin: true,
+        port: [
+          [[cx0 + 0.1, lid], [hx + ROOF_OVER, lid], [hx + ROOF_OVER, sill], [cx0 + 0.1, sill]],
+          [[hx + ROOF_OVER, top - 0.03], [hl + 0.15, top - 0.03], [hl + 0.15, sill], [hx + ROOF_OVER, sill]],
+        ],
+        deck: { x0: -hl + 0.05, x1: cx0 - 0.08, y: -0.12 }, roof: { x0: cx0, x1: hx + ROOF_OVER, y: top },
+        nose: { x: hl, y0: sill, y1: 0.3 }, tail: { x: -hl, y0: -0.12, y1: 0.3 }, stripe: { y: 0.05, h: 0.09 },
         com: [0, 0.2],
       };
     }
@@ -263,20 +329,34 @@ function frame(id: FrameId, o: FrameOpts): Frame {
     }
     case 'monster': {
       const hl = 1.5 * L;
-      const top = -0.55 - 0.55 * H;
       const wr = 0.66 * wk;
+      const hull = P([[-hl, -0.55], [hl - 0.15, -0.55], [hl + 0.05, -0.3], [hl, 0.08], [-hl, 0.08]], m);
+      const rails = R(-hl + 0.1, 0.08, hl - 0.1, 0.24, 'dark');
+      const wheels = [W(-1.15 * L, 0.6, wr, rim ?? 'monster', { density: 0.7 }), W(1.15 * L, 0.6, wr, rim ?? 'monster', { density: 0.7 })];
+      const rest = { nose: { x: hl + 0.05, y0: -0.55, y1: 0.08 }, tail: { x: -hl, y0: -0.55, y1: 0.08 }, stripe: { y: -0.3, h: 0.12 } };
+      if (o.open) {
+        // A beast rather than a truck: the rider sits on its back, behind the hump of the shoulders.
+        const top = -0.55 - 0.55 * H;
+        return {
+          arch: 'monster', wheels, windows: [], ...rest,
+          polys: [hull, P([[-0.25 * L, -0.55], [0.6 * L, -0.55], [0.45 * L, top], [-0.2 * L, top]], m), rails],
+          head: { x: -0.68 * L, y: -0.94, r: 0.31 },
+          deck: { x0: -hl, x1: -0.95 * L, y: -0.55 }, roof: { x0: -0.2 * L, x1: 0.45 * L, y: top },
+        };
+      }
+      // Truck cab: back wall, roof over the driver, open in front.
+      const top = -0.55 - 0.72 * H;
+      const bx = -0.25 * L, hx = bx + 0.44, rx1 = hx + ROOF_OVER;
       return {
-        arch: 'monster',
-        polys: [
-          P([[-hl, -0.55], [hl - 0.15, -0.55], [hl + 0.05, -0.3], [hl, 0.08], [-hl, 0.08]], m),
-          P([[-0.25 * L, -0.55], [0.6 * L, -0.55], [0.45 * L, top], [-0.2 * L, top]], m),
-          R(-hl + 0.1, 0.08, hl - 0.1, 0.24, 'dark'),
+        arch: 'monster', wheels, windows: [], ...rest,
+        polys: [hull, R(bx, top, bx + 0.1, -0.55, m), R(bx, top, rx1, top + 0.08, m), rails],
+        cabin: true,
+        port: [
+          [[bx + 0.1, top + 0.08], [rx1, top + 0.08], [rx1, -0.57], [bx + 0.1, -0.57]],
+          [[rx1, top - 0.03], [rx1 + 0.8, top - 0.03], [rx1 + 0.8, -0.57], [rx1, -0.57]],
         ],
-        windows: [[[0.05 * L, -0.58], [0.47 * L, -0.58], [0.36 * L, top + 0.1], [0.05 * L, top + 0.1]]],
-        wheels: [W(-1.15 * L, 0.6, wr, rim ?? 'monster', { density: 0.7 }), W(1.15 * L, 0.6, wr, rim ?? 'monster', { density: 0.7 })],
-        head: { x: -0.68 * L, y: -0.94, r: 0.31 },
-        deck: { x0: -hl, x1: -0.95 * L, y: -0.55 }, roof: { x0: -0.2 * L, x1: 0.45 * L, y: top },
-        nose: { x: hl + 0.05, y0: -0.55, y1: 0.08 }, tail: { x: -hl, y0: -0.55, y1: 0.08 }, stripe: { y: -0.3, h: 0.12 },
+        head: { x: hx, y: top + 0.4, r: 0.31 },
+        deck: { x0: -hl, x1: bx - 0.05, y: -0.55 }, roof: { x0: bx, x1: rx1, y: top },
       };
     }
     case 'tracked':
@@ -292,17 +372,29 @@ function frame(id: FrameId, o: FrameOpts): Frame {
       ];
       let head = { x: -0.3 * L, y: -0.78, r: 0.28 };
       let roof = { x0: -0.75 * L, x1: 0.35 * L, y: -0.56 };
-      if (id === 'tracked') polys.push(P([[-0.75 * L, -0.18], [0.5 * L, -0.18], [0.35 * L, -0.56], [-0.6 * L, -0.56]], m));
+      let port: Pt[][] | undefined;
+      if (id === 'tracked' && o.cab) {
+        const top = -0.18 - 0.74 * H, bx = -0.62 * L, hx = bx + 0.42, rx1 = hx + ROOF_OVER;
+        polys.push(R(bx, top, bx + 0.1, -0.18, m), R(bx, top, rx1, top + 0.08, m));
+        head = { x: hx, y: top + 0.37, r: 0.28 };
+        roof = { x0: bx, x1: rx1, y: top };
+        port = [
+          [[bx + 0.1, top + 0.08], [rx1, top + 0.08], [rx1, -0.2], [bx + 0.1, -0.2]],
+          [[rx1, top - 0.03], [rx1 + 0.8, top - 0.03], [rx1 + 0.8, -0.2], [rx1, -0.2]],
+        ];
+      } else if (id === 'tracked') polys.push(P([[-0.75 * L, -0.18], [0.5 * L, -0.18], [0.35 * L, -0.56], [-0.6 * L, -0.56]], m));
       else {
         // digger: cab with window at the back of the hull
         polys.push(R(-hl + 0.15, -1.05 * H, -hl + 0.28, -0.18, 'dark'));
         polys.push(R(-hl + 0.1, -1.15 * H, -0.05, -1.03 * H, m));
         head = { x: -hl + 0.75, y: -0.62, r: 0.28 };
         roof = { x0: -hl + 0.1, x1: -0.05, y: -1.15 * H };
+        port = [[[-hl + 0.28, -1.03 * H], [0.0, -1.03 * H], [0.0, -0.2], [-hl + 0.28, -0.2]]];
       }
       return {
-        arch: id === 'digger' ? 'scoop' : 'heavy', polys, windows: id === 'digger' ? [[[-hl + 0.28, -1.03 * H], [-0.08, -1.03 * H], [-0.08, -0.5], [-hl + 0.28, -0.5]]] : [], wheels, tune: id === 'digger' ? { air: 14, accel: 1.2 } : { wheelie: 0.6, air: 14, accel: 1.2 },
-        head, deck: { x0: 0.0, x1: hl - 0.35, y: -0.18 }, roof,
+        arch: id === 'digger' ? 'scoop' : 'heavy', polys, windows: id === 'digger' ? [[[-hl + 0.28, -1.03 * H], [-0.08, -1.03 * H], [-0.08, -0.5], [-hl + 0.28, -0.5]]] : [], wheels, tune: id === 'digger' ? { air: 14, accel: 1.2 } : { wheelie: o.cab ? 0.45 : 0.6, air: 14, accel: 1.2 },
+        head, deck: { x0: 0.0, x1: hl - 0.35, y: -0.18 }, roof, port, cabin: !!port,
+        comX: id === 'tracked' && o.cab ? -centreX(polys) : undefined, com: id === 'tracked' && o.cab ? [0, 0.13] : undefined,
         nose: { x: hl + 0.05, y0: -0.18, y1: 0.12 }, tail: { x: -hl - 0.05, y0: -0.18, y1: 0.32 }, stripe: { y: 0.0, h: 0.08 },
       };
     }
@@ -346,16 +438,25 @@ function frame(id: FrameId, o: FrameOpts): Frame {
       const hw = 1.05 * L;
       const top = -1.0 * H;
       const wr = 0.48 * wk;
+      const cdx = hw - 0.62, cov = ROOF_OVER + 0.26, ccy = top + 0.37, csill = ccy + 0.3, clid = ccy - 0.29;
       return {
         arch: 'tall', tune: { wheelie: 0.6 },
         polys: [
-          P([[-hw, top + 0.2], [-hw + 0.25, top], [hw - 0.25, top], [hw, top + 0.2], [hw - 0.1, 0.2], [-hw + 0.1, 0.2]], m),
+          // The coachman rides up front under the roof, open to the road ahead.
+          P([[-hw, top + 0.2], [-hw + 0.25, top], [cdx - 0.31, top], [cdx - 0.31, 0.2], [-hw + 0.1, 0.2]], m),
+          P([[cdx - 0.31, csill], [hw - 0.03, csill], [hw - 0.1, 0.2], [cdx - 0.31, 0.2]], m),
+          R(cdx - 0.31, top, cdx + cov, clid, m),
           R(-hw - 0.45, 0.06, hw + 0.45, 0.2, 'dark'),
         ],
-        windows: [[[-0.4 * L, top + 0.18], [0.4 * L, top + 0.18], [0.4 * L, top + 0.6], [-0.4 * L, top + 0.6]]],
+        windows: [[[-0.4 * L, top + 0.18], [Math.min(0.4 * L, cdx - 0.42), top + 0.18], [Math.min(0.4 * L, cdx - 0.42), top + 0.6], [-0.4 * L, top + 0.6]]],
+        cabin: true,
+        port: [
+          [[cdx - 0.31, clid], [cdx + cov, clid], [cdx + cov, csill], [cdx - 0.31, csill]],
+          [[cdx + cov, top - 0.03], [hw + 0.15, top - 0.03], [hw + 0.15, csill], [cdx + cov, csill]],
+        ],
         wheels: [W(-1.0 * L, 0.36, wr, rim ?? 'spokes'), W(1.0 * L, 0.36, wr, rim ?? 'spokes')],
-        head: { x: 0.0, y: top - 0.14, r: 0.28 },
-        deck: { x0: -hw + 0.25, x1: hw - 0.25, y: top }, roof: { x0: -hw + 0.25, x1: hw - 0.25, y: top },
+        head: { x: cdx, y: ccy, r: 0.28 },
+        deck: { x0: -hw + 0.25, x1: cdx - 0.35, y: top }, roof: { x0: -hw + 0.25, x1: cdx + cov, y: top },
         nose: { x: hw + 0.45, y0: top + 0.2, y1: 0.2 }, tail: { x: -hw - 0.45, y0: top + 0.2, y1: 0.2 },
         com: [0, 0.35],
       };
@@ -364,6 +465,7 @@ function frame(id: FrameId, o: FrameOpts): Frame {
       const neck = o.neck ?? 'short';
       const bx = 1.05 * L, by = 0.42 * H;
       const polys = [O(0, -0.2, bx, by, m)];
+      const body1 = polys.length;
       // legs (render only)
       for (const lx of [-0.62, 0.62]) polys.push(R(lx * L - 0.12, 0.1, lx * L + 0.12, 0.42, m, deco));
       let headEnd: Pt = [bx, -0.4];
@@ -382,6 +484,14 @@ function frame(id: FrameId, o: FrameOpts): Frame {
       }
       // eye
       if (neck !== 'none') polys.push(O(headEnd[0] - 0.22, headEnd[1] - 0.06, 0.06, 0.06, 'white', deco, 6));
+      // Neck and head are one sprung piece: the head bobs over bumps and nods on landings.
+      const limbs: LinkSpec[] = [];
+      if (neck !== 'none') {
+        const legs = 2;
+        const hit = polys.splice(body1 + legs, 2);
+        const nx = (neck === 'long' ? 0.72 : neck === 'short' ? 0.78 : 0.85) * L;
+        limbs.push({ at: [nx, -0.4], swing: [-16, 14], spring: 14, density: 0.9, hit, art: [], take: (x, y) => x > nx + 0.02 && y < -0.3 });
+      }
       const wr = 0.34 * wk;
       return {
         arch: 'allround', polys, windows: [],
@@ -389,7 +499,7 @@ function frame(id: FrameId, o: FrameOpts): Frame {
         head: { x: -0.2 * L, y: -0.2 - by - 0.18, r: 0.27 },
         deck: { x0: -0.9 * L, x1: 0.4 * L, y: -0.2 - by * 0.9 }, roof: { x0: -0.6 * L, x1: 0.4 * L, y: -0.2 - by },
         nose: { x: headEnd[0], y0: headEnd[1] - 0.1, y1: headEnd[1] + 0.1 }, tail: { x: -bx, y0: -0.4, y1: 0.0 },
-        com: [0, 0.2],
+        com: [0, 0.2], limbs,
       };
     }
     case 'boat': {
@@ -529,7 +639,10 @@ function frame(id: FrameId, o: FrameOpts): Frame {
         ],
         windows: [],
         wheels: [W(-hl + 0.6, 0.42, 0.38 * wk, rim ?? 'spokes'), W(0.25, 0.42, 0.38 * wk, rim ?? 'spokes'), W(hl - 0.55, 0.42, 0.38 * wk, rim ?? 'spokes')],
-        head: { x: -hl + 0.75, y: -0.66, r: 0.28 },
+        // The footplate: wall behind, roof above, open towards the boiler.
+        cabin: true,
+        port: [[[-hl + 0.16, -1.12 * H], [-0.3, -1.12 * H], [-0.3, -0.38], [-hl + 0.16, -0.38]]],
+        head: { x: -hl + 0.6, y: -0.68, r: 0.28 },
         deck: { x0: -0.2, x1: 0.85 * L, y: -0.62 }, roof: { x0: -hl, x1: -0.2, y: -1.25 * H },
         nose: { x: hl + 0.3, y0: -0.4, y1: 0.3 }, tail: { x: -hl - 0.08, y0: -0.38, y1: 0.3 }, stripe: { y: -0.3, h: 0.08 },
       };
@@ -556,13 +669,23 @@ function frame(id: FrameId, o: FrameOpts): Frame {
     case 'box': {
       const hl = 1.5 * L;
       const top = -0.9 * H;
+      // The driver's seat is a nook at the front, under the roof and open ahead.
+      // (A low box has no room for a roof over the seat: the nook is open-topped.)
+      const dx = hl - 0.72, cy = Math.min(Math.max(top + 0.37, CAB_SEAT), -0.38), sill = cy + 0.3, lid = Math.max(cy - 0.29, top - 0.03);
+      const polys = [R(-hl, top, dx - 0.31, 0.3, m), R(dx - 0.31, sill, hl, 0.3, m)];
+      if (lid > top + 0.04) polys.push(R(dx - 0.31, top, dx + ROOF_OVER, lid, m));
       return {
-        arch: 'heavy',
-        polys: [R(-hl, top, hl, 0.3, m)],
-        windows: [[[hl - 0.7, top + 0.12], [hl - 0.12, top + 0.12], [hl - 0.12, top + 0.48], [hl - 0.7, top + 0.48]]],
+        arch: 'heavy', comX: -centreX(polys) * 0.5,
+        polys,
+        windows: [],
+        cabin: true,
+        port: [
+          [[dx - 0.31, lid], [dx + ROOF_OVER, lid], [dx + ROOF_OVER, sill], [dx - 0.31, sill]],
+          [[dx + ROOF_OVER, top - 0.03], [hl + 0.15, top - 0.03], [hl + 0.15, sill], [dx + ROOF_OVER, sill]],
+        ],
         wheels: [W(-hl + 0.55, 0.38, 0.42 * wk, rim ?? 'disc'), W(hl - 0.55, 0.38, 0.42 * wk, rim ?? 'disc')],
-        head: { x: hl - 1.05, y: top - 0.12, r: 0.28 },
-        deck: { x0: -hl, x1: hl - 1.5, y: top }, roof: { x0: -hl, x1: hl, y: top },
+        head: { x: dx, y: cy, r: 0.28 },
+        deck: { x0: -hl, x1: hl - 1.5, y: top }, roof: { x0: -hl, x1: dx + ROOF_OVER, y: top },
         nose: { x: hl, y0: top, y1: 0.3 }, tail: { x: -hl, y0: top, y1: 0.3 }, stripe: { y: 0.0, h: 0.09 },
         com: [0, 0.3],
       };
@@ -583,7 +706,7 @@ export type PartId =
 
 type Part = PartId | [PartId, number?];
 
-function part(f: Frame, id: PartId, k = 1): { polys: CarPoly[]; windows?: Pt[][]; boost?: boolean; arch?: Archetype } {
+function part(f: Frame, id: PartId, k = 1): { polys: CarPoly[]; windows?: Pt[][]; boost?: boolean; arch?: Archetype; links?: LinkSpec[] } {
   const d = f.deck, n = f.nose, t = f.tail;
   // Roof gear goes on whichever end of the roof is farther from the driver's head.
   const hx = f.head.x;
@@ -659,8 +782,8 @@ function part(f: Frame, id: PartId, k = 1): { polys: CarPoly[]; windows?: Pt[][]
     case 'spikes':
       return {
         polys: [
-          T([n.x - 0.05, n.y0], [n.x - 0.05, ny], [n.x + 0.5 * k, (n.y0 + ny) / 2], 'spike'),
-          T([n.x - 0.05, ny], [n.x - 0.05, n.y1], [n.x + 0.5 * k, (ny + n.y1) / 2], 'spike'),
+          T([n.x - 0.05, n.y0], [n.x - 0.05, ny], [n.x + 0.95 * k, (n.y0 + ny) / 2 - 0.08], 'spike'),
+          T([n.x - 0.05, ny], [n.x - 0.05, n.y1], [n.x + 0.95 * k, ny + 0.02], 'spike'),
         ],
         arch: 'spike',
       };
@@ -670,9 +793,9 @@ function part(f: Frame, id: PartId, k = 1): { polys: CarPoly[]; windows?: Pt[][]
       for (let i = 0; i < 3; i++) {
         const x = r.x0 + w * (0.15 + i * 0.32);
         if (Math.abs(x - f.head.x) < f.head.r + 0.12) continue;
-        polys.push(T([x - 0.12, r.y], [x + 0.12, r.y], [x, r.y - 0.35], 'spike', deco));
+        polys.push(T([x - 0.14, r.y], [x + 0.14, r.y], [x, r.y - 0.6], 'spike', deco));
       }
-      polys.push(T([t.x + 0.05, t.y0 + 0.02], [t.x + 0.05, t.y0 + 0.25], [t.x - 0.35, t.y0 + 0.05], 'spike'));
+      polys.push(T([t.x + 0.05, t.y0 + 0.02], [t.x + 0.05, t.y0 + 0.28], [t.x - 0.7, t.y0 + 0.05], 'spike'));
       return { polys, arch: 'spike' };
     }
     case 'scoop':
@@ -683,8 +806,23 @@ function part(f: Frame, id: PartId, k = 1): { polys: CarPoly[]; windows?: Pt[][]
       return { polys: [P([[n.x - 0.05, n.y0], [n.x + 0.15, n.y0 - 0.05], [n.x + 0.7, n.y1 - 0.08], [n.x - 0.05, n.y1 - 0.06]], 'scoop', { density: 0.5 })], arch: 'scoop' };
     case 'forks':
       return { polys: [R(n.x, n.y0 - 0.9, n.x + 0.12, n.y1, 'dark'), R(n.x + 0.12, n.y1 - 0.12, n.x + 1.0, n.y1 - 0.02, 'metal')], arch: 'scoop' };
-    case 'saw':
-      return { polys: [R(n.x - 0.1, ny - 0.05, n.x + 0.3, ny + 0.05, 'dark'), O(n.x + 0.5 * k, ny - 0.05, 0.38 * k, 0.38 * k, 'spike', { density: 0.4 })], arch: 'spike' };
+    case 'saw': {
+      // A big circular saw on an arm: its own spinning body, teeth and all. It throws up whatever it bites.
+      const r = 0.9 * k, cx = n.x + 0.12 + r;
+      const cy = Math.min(ny, Math.max(...f.wheels.map((w) => w.y + w.r)) - r * 1.22 - 0.06);
+      const art: CarPoly[] = [];
+      const nt = 14;
+      for (let i = 0; i < nt; i++) {
+        const a0 = (i / nt) * Math.PI * 2, a1 = ((i + 0.62) / nt) * Math.PI * 2, at = ((i + 0.1) / nt) * Math.PI * 2;
+        art.push(P([[cx + Math.cos(a0) * r * 0.86, cy + Math.sin(a0) * r * 0.86], [cx + Math.cos(at) * r * 1.2, cy + Math.sin(at) * r * 1.2], [cx + Math.cos(a1) * r * 0.86, cy + Math.sin(a1) * r * 0.86]], 'white', { deco: true }));
+      }
+      art.push(O(cx, cy, r * 0.92, r * 0.92, 'metal', { deco: true }, 12), O(cx, cy, r * 0.42, r * 0.42, 'red', { deco: true }, 10), O(cx, cy, r * 0.14, r * 0.14, 'black', { deco: true }));
+      return {
+        polys: [P([[n.x - 0.15, ny - 0.07], [n.x - 0.15, ny + 0.07], [cx, cy + 0.07], [cx, cy - 0.07]], 'dark')],
+        arch: 'spike',
+        links: [{ at: [cx, cy], spin: -14, density: 0.15, hit: [O(cx, cy, r * 1.08, r * 1.08, 'metal')], art }],
+      };
+    }
     case 'jaw':
     case 'teeth':
     case 'fangs': {
@@ -697,7 +835,7 @@ function part(f: Frame, id: PartId, k = 1): { polys: CarPoly[]; windows?: Pt[][]
       return { polys, arch: 'spike' };
     }
     case 'horns':
-      return { polys: [T([r.x1 - 0.25, r.y], [r.x1 - 0.05, r.y + 0.05], [r.x1 + 0.4, r.y - 0.45], 'bone'), T([r.x0 + 0.05, r.y + 0.05], [r.x0 + 0.25, r.y], [r.x0 - 0.3, r.y - 0.4], 'bone', deco)] };
+      return { polys: [T([r.x1 - 0.3, r.y], [r.x1 - 0.02, r.y + 0.05], [r.x1 + 0.7, r.y - 0.75], 'bone'), T([r.x0 + 0.02, r.y + 0.05], [r.x0 + 0.3, r.y], [r.x0 - 0.5, r.y - 0.7], 'bone', deco)] };
     case 'drill':
       return { polys: [P([[n.x - 0.05, n.y0], [n.x + 0.15, n.y0], [n.x + 0.85 * k, ny], [n.x + 0.15, n.y1], [n.x - 0.05, n.y1]], 'metal', { density: 1.2 })], arch: 'spike' };
     case 'claw':
@@ -720,8 +858,11 @@ function part(f: Frame, id: PartId, k = 1): { polys: CarPoly[]; windows?: Pt[][]
       return { polys: [R(t.x - 0.32, t.y0 + 0.02, t.x + 0.05, t.y1 - 0.06, 'rocket'), R(t.x - 0.4, t.y0 + 0.08, t.x - 0.3, t.y1 - 0.12, 'dark')], boost: true, arch: 'rocket' };
     case 'jets':
       return { polys: [R(t.x - 0.3, t.y0 + 0.05, t.x + 0.1, t.y0 + 0.2, 'rocket'), R(t.x - 0.3, t.y1 - 0.25, t.x + 0.1, t.y1 - 0.1, 'rocket')], boost: true };
-    case 'tail':
-      return { polys: [P([[t.x + 0.25, t.y0], [t.x + 0.25, t.y1 - 0.1], [t.x - 0.95 * k, (t.y0 + t.y1) / 2 - 0.1]], 'body')] };
+    case 'tail': {
+      // A tail wags: it is its own piece on a hinge at the rump.
+      const tri = P([[t.x + 0.25, t.y0], [t.x + 0.25, t.y1 - 0.1], [t.x - 0.95 * k, (t.y0 + t.y1) / 2 - 0.1]], 'body');
+      return { polys: [], links: [{ at: [t.x + 0.2, (t.y0 + t.y1) / 2 - 0.05], swing: [-24, 24], spring: 8, density: 0.9, hit: [tri], art: [], take: (x) => x < t.x - 0.08 }] };
+    }
     case 'mace':
       return { polys: [P([[t.x + 0.25, t.y0], [t.x + 0.25, t.y1 - 0.1], [t.x - 0.75, (t.y0 + t.y1) / 2 - 0.1]], 'body'), O(t.x - 0.85, (t.y0 + t.y1) / 2 - 0.1, 0.22, 0.2, 'bone', { density: 1.2 })] };
     case 'plates': {
@@ -828,6 +969,40 @@ const PRESETS: Record<Archetype, Preset> = {
 
 // ---------------------------------------------------------------- builder
 
+export interface LinkSpec {
+  art: CarPoly[];
+  /** Also takes every drawn piece of the car whose centre is in this region (so a skin's head art follows the neck). */
+  take?: (x: number, y: number) => boolean;
+  hit?: CarPoly[];
+  at: Pt;
+  to?: number;
+  /** Swing limits around rest, degrees [lo, hi] (positive = clockwise for a car facing right). */
+  swing?: [number, number];
+  spring?: number;
+  spin?: number;
+  wheels?: WheelDef[];
+  density?: number;
+  behind?: boolean;
+  trim?: boolean;
+}
+
+/** Turn a link spec into a definition (render-only art + hidden collision shapes), scaled. */
+export function makeLink(l: LinkSpec, s = 1): LinkDef {
+  const sp = (p: CarPoly) => ({ ...p, pts: p.pts.map((q) => scalePt(q, s)) });
+  return {
+    polys: [...l.art.map((p) => ({ ...sp(p), deco: true })), ...(l.hit ?? []).map((p) => ({ ...sp(p), deco: false, hide: true }))],
+    at: scalePt(l.at, s),
+    to: l.to,
+    swing: l.swing ? [+(l.swing[0] * Math.PI / 180).toFixed(3), +(l.swing[1] * Math.PI / 180).toFixed(3)] : undefined,
+    spring: l.spring,
+    spin: l.spin,
+    wheels: l.wheels?.map((w) => ({ ...w, x: +(w.x * s).toFixed(3), y: +(w.y * s).toFixed(3), r: +(w.r * s).toFixed(3) })),
+    density: l.density,
+    behind: l.behind,
+    trim: l.trim,
+  };
+}
+
 export interface CarSpec {
   id: string;
   name: string;
@@ -844,7 +1019,7 @@ export interface CarSpec {
   /** Loose cargo in the bed at round start. */
   cargo?: [ItemKind, number];
   /** Weight on a chain, hung from a frame anchor. */
-  flail?: { from: 'deck' | 'roof' | 'tail' | 'nose' | Pt; len: number; r: number; look: FlailDef['look'] };
+  flail?: { from: 'deck' | 'roof' | 'tail' | 'nose' | Pt; len: number; r: number; look: FlailDef['look']; on?: number };
   /** Extra drawing on top of the frame (render-only unless a poly sets deco: false). */
   art?: (f: Frame) => CarPoly[];
   /**
@@ -858,6 +1033,15 @@ export interface CarSpec {
    * runners or skirt touch the ground).
    */
   glide?: number;
+  /**
+   * Moving pieces with their own physics (trailers, booms, tails, saws…). `art` is what
+   * is drawn, `hit` the convex collision shapes; swing limits are in degrees.
+   */
+  links?: (f: Frame) => LinkSpec[];
+  /** The driver rides on this link (index into `links`). */
+  headOn?: number;
+  /** Move the driver: car-local head position override. */
+  head?: (f: Frame) => Pt;
   /** The drawn barrel / launcher: muzzle point(s) and launch angle in degrees above forward. */
   gun?: (f: Frame) => { at: Pt[]; aim: number };
   /** With a skin: also hide the bolted-on parts (the skin draws them itself). */
@@ -897,12 +1081,26 @@ export function buildCar(spec: CarSpec): CarDef {
     const g = glide;
     f.wheels = f.wheels.map((w) => ({ ...w, y: +(g - w.r).toFixed(3), hidden: true }));
   }
+  if (spec.head) { const [hx, hy] = spec.head(f); f.head = { ...f.head, x: hx, y: hy }; }
   const skinned = !!spec.skin;
   const polys = skinned ? f.polys.map((p) => ({ ...p, hide: true })) : [...f.polys];
   const windows = skinned ? [] : [...f.windows];
   if (spec.skin) for (const p of spec.skin(f)) polys.push({ ...p, deco: true });
+  if (f.port && f.cabin && !spec.head && spec.headOn === undefined) {
+    // No glass where the driver is: the cab window there is an open hole, cut right through the art.
+    let ax = Infinity, bx = -Infinity, ay = Infinity, by = -Infinity;
+    for (const w of f.port) for (const [px, py] of w) { ax = Math.min(ax, px); bx = Math.max(bx, px); ay = Math.min(ay, py); by = Math.max(by, py); }
+    for (let i = polys.length - 1; i >= 0; i--) {
+      const q = polys[i];
+      if (!q.deco || q.mat !== 'glass') continue;
+      const cx = q.pts.reduce((t, v) => t + v[0], 0) / q.pts.length, cyy = q.pts.reduce((t, v) => t + v[1], 0) / q.pts.length;
+      if (cx > ax - 0.05 && cx < bx + 0.05 && cyy > ay - 0.05 && cyy < by + 0.05) polys.splice(i, 1);
+    }
+    for (const w of f.port) polys.push({ pts: w, deco: true, cut: true });
+  }
   let boost = false;
   let arch: Archetype = f.arch;
+  const autoLinks: LinkSpec[] = [...(f.limbs ?? [])];
   for (const pp of spec.parts ?? []) {
     const [id, k] = Array.isArray(pp) ? pp : [pp, undefined];
     const r = part(f, id, k ?? 1);
@@ -912,6 +1110,7 @@ export function buildCar(spec: CarSpec): CarDef {
     if (r.windows && !(skinned && spec.hideParts)) windows.push(...r.windows);
     if (r.boost) boost = true;
     if (r.arch) arch = r.arch;
+    if (r.links) autoLinks.push(...r.links);
   }
   if (spec.arch) arch = spec.arch;
   // Gliders sit low on hidden wheels: trim the hull so it clears the ground by the
@@ -974,12 +1173,36 @@ export function buildCar(spec: CarSpec): CarDef {
       : fl.from === 'roof' ? [f.roof.x1 - 0.1, f.roof.y]
       : fl.from === 'tail' ? [f.tail.x, (f.tail.y0 + f.tail.y1) / 2]
       : [f.nose.x, f.nose.y0];
-    def.flail = { at: scalePt(at, s), len: fl.len * s, r: fl.r * s, look: fl.look };
+    def.flail = { at: scalePt(at, s), len: fl.len * s, r: fl.r * s, look: fl.look, on: fl.on };
   }
   if (spec.gun) {
     const g = spec.gun(f);
     def.gun = { at: g.at.map((q) => scalePt(q, s)), aim: +((g.aim * Math.PI) / 180).toFixed(3) };
   }
+  // Frame limbs first (so a car's own links can hang off them: a jaw on a neck), then the car's, then its parts'.
+  const nLimb = f.limbs?.length ?? 0;
+  const linkSpecs = [...autoLinks.slice(0, nLimb), ...(spec.links?.(f) ?? []), ...autoLinks.slice(nLimb)];
+  if (linkSpecs.length) {
+    // Collision shapes of frame limbs and parts are drawn as they are unless a skin draws the car.
+    const showHit = !skinned;
+    def.links = linkSpecs.map((l) => {
+      const art = [...l.art];
+      if (l.take) {
+        for (let i = def.body.length - 1; i >= 0; i--) {
+          const p = def.body[i];
+          if (!p.deco || p.hide) continue;
+          let ax = Infinity, bx = -Infinity, ay = Infinity, by = -Infinity;
+          for (const [px, py] of p.pts) { ax = Math.min(ax, px); bx = Math.max(bx, px); ay = Math.min(ay, py); by = Math.max(by, py); }
+          if (l.take((ax + bx) / 2 / s, (ay + by) / 2 / s)) { art.unshift({ ...p, pts: p.pts.map((q) => scalePt(q, 1 / s)) }); def.body.splice(i, 1); }
+        }
+      }
+      const ld = makeLink({ ...l, art }, s);
+      if (showHit && !l.art.length) for (const p of ld.polys) if (p.hide) p.hide = false;
+      return ld;
+    });
+  }
+  if (spec.headOn !== undefined) def.headOn = spec.headOn;
+  if (f.cabin && !spec.head && spec.headOn === undefined) def.cabin = true;
   if (spec.float ?? f.float) def.float = spec.float ?? f.float;
   if (spec.bounce) def.restitution = spec.bounce;
   // Normalize chassis density so the car hits its target mass, then torque for target accel.
@@ -1008,7 +1231,7 @@ export function buildCar(spec: CarSpec): CarDef {
   };
   const nFrame = f.polys.length;
   const shift = comX(body) - comX(body.slice(0, nFrame));
-  def.com = [+(-shift).toFixed(3), def.com?.[1] ?? 0];
+  def.com = [+(-shift + (f.comX ?? 0) * s).toFixed(3), def.com?.[1] ?? 0];
   // Tall builds (snowmen, cannons on monster trucks…) get some ballast down low.
   const topOf = (ps: CarPoly[]) => Math.min(...ps.filter((p) => !p.deco).flatMap((p) => p.pts.map((q) => q[1])));
   const raised = Math.max(0, topOf(f.polys) - topOf(polys)) * s;

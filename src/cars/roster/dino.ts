@@ -83,15 +83,23 @@ export const DINO = group('dino', [
   }],
   ['t-rex', 'T. Rex', 'Тиранозавр: величезна паща, крихітні лапки і рик, що зносить машини.', 'creature', ['#4a7a3a', '#e0e0c0'], {
     o: o({ neck: 'raptor', len: 1.15, tall: 1.2 }), parts: ['tail'], noLights: true, hideParts: true,
+    // The lower jaw hangs on its own hinge under the skull: it drops open on bumps and snaps shut.
+    links: () => {
+      const L = 1.15;
+      return [{
+        to: 0, at: [1.22 * L, -0.55], swing: [-2, 30], spring: 1.2, density: 0.6,
+        hit: [poly([[1.2 * L, -0.6], [1.9 * L, -0.6], [1.85 * L, -0.42], [1.25 * L, -0.4]])],
+        art: [blob([[1.2 * L, -0.6], [1.9 * L, -0.6], [1.85 * L, -0.42], [1.25 * L, -0.4]], 'body', {}, 1), ...fangs(1.35 * L, 1.85 * L, -0.56, 5, 0.08, true)],
+      }];
+    },
     skin: (f) => {
       const L = 1.15;
       return [
         tail(f.tail.x, -0.35, 0.9), ...beast(f, { rx: 1.2, ry: 0.5, belly: 'accent' }),
         ...path([[0.8, -0.45], [1.25, -0.75]], 0.42, 'body'),
         blob([[1.05 * L, -1.05], [1.5 * L, -1.12], [1.95 * L, -0.92], [1.95 * L, -0.7], [1.2 * L, -0.62]], 'body', {}, 1),
-        blob([[1.2 * L, -0.6], [1.9 * L, -0.6], [1.85 * L, -0.42], [1.25 * L, -0.4]], 'body', {}, 1),
         rect(1.25 * L, -0.65, 1.92 * L, -0.58, 'black'),
-        ...fangs(1.3 * L, 1.92 * L, -0.66, 6, 0.1), ...fangs(1.35 * L, 1.85 * L, -0.56, 5, 0.08, true),
+        ...fangs(1.3 * L, 1.92 * L, -0.66, 6, 0.1),
         ...eyeball(1.45 * L, -0.92, 0.08, 'red'), poly([[1.4 * L, -1.05], [1.62 * L, -1.02], [1.5 * L, -0.98]], 'dark'),
         ...path([[0.95, -0.3], [1.2, -0.15], [1.25, -0.05]], 0.08, 'body'),
       ];
@@ -169,7 +177,20 @@ export const DINO = group('dino', [
   }],
   ['mechasaurus', 'Mechasaurus', 'Кібердинозавр із ракетними пускачами на спині.', 'creature', ['#a0a8b8', '#e02a2a'], {
     gun: () => ({ at: [[-0.32, -0.98], [-0.1, -0.98], [0.12, -0.98]], aim: 35 }),
-    o: o({ neck: 'raptor', mat: 'metal' }), parts: ['teeth', 'tail', 'antenna'], noLights: true, hideParts: true,
+    o: o({ neck: 'raptor', mat: 'metal' }), parts: ['teeth', 'tail'], noLights: true, hideParts: true,
+    // Every piece of the machine is bolted on separately: neck, steel jaw, whip antenna, tail.
+    links: () => [
+      {
+        to: 0, at: [1.3, -0.56], swing: [-2, 32], spring: 1.2, density: 0.7,
+        hit: [poly([[1.28, -0.58], [1.8, -0.58], [1.74, -0.42], [1.34, -0.4]])],
+        art: [poly([[1.28, -0.58], [1.8, -0.58], [1.74, -0.42], [1.34, -0.4]], 'grey'), ...fangs(1.4, 1.76, -0.56, 3, 0.07, true), circ(1.33, -0.5, 0.05, 'dark')],
+      },
+      {
+        to: 0, at: [1.2, -0.88], swing: [-40, 40], spring: 0.5, density: 0.8, trim: true,
+        hit: [seg([1.2, -0.88], [1.15, -1.3], 0.1)],
+        art: [...path([[1.2, -0.88], [1.15, -1.25]], 0.04, 'grey'), circ(1.15, -1.28, 0.06, 'red')],
+      },
+    ],
     skin: (f) => {
       const h = dinoHead('raptor', 1, 'metal');
       return [
@@ -178,7 +199,6 @@ export const DINO = group('dino', [
         ...[-0.8, -0.3, 0.2, 0.7].map((x) => circ(x, -0.25, 0.05, 'black')),
         rect(1.3, -0.6, 1.8, -0.56, 'black'), ...fangs(1.32, 1.78, -0.6, 4, 0.09, false),
         circ(h.eye[0], h.eye[1], 0.09, 'red'), circ(h.eye[0] + 0.02, h.eye[1], 0.04, 'light'),
-        ...path([[1.2, -0.88], [1.15, -1.25]], 0.04, 'grey'), circ(1.15, -1.28, 0.06, 'red'),
         stripe(-0.9, 0.9, -0.05, 0.06, 'accent'),
       ];
     },

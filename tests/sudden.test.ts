@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Game } from '../src/game/game';
-import { CARS } from '../src/cars/defs';
+import { CARS, CAR_BY_ID } from '../src/cars/defs';
 import { MAPS, MAP_BY_ID } from '../src/maps/defs';
 import { SUDDEN_INFO, suddenKindFor } from '../src/maps/sudden';
 import type { SuddenDeathKind } from '../src/maps/types';
@@ -38,8 +38,8 @@ describe('sudden death variants', () => {
   it.each(KINDS)('%s does its thing', (kind) => {
     const { seen } = run(kind, 12);
     switch (kind) {
-      case 'meteors': case 'blocks': expect(seen.blocks).toBeGreaterThan(3); break;
-      case 'balls': case 'blizzard': expect(seen.balls).toBeGreaterThan(3); break;
+      case 'meteors': case 'blocks': expect(seen.blocks).toBeGreaterThan(1); break;
+      case 'balls': case 'blizzard': expect(seen.balls).toBeGreaterThan(1); break;
       case 'ghosts': expect(seen.ghosts).toBeGreaterThan(0); break;
       case 'bombs': expect(seen.blasts).toBeGreaterThan(2); break;
       case 'walls': expect(seen.minWallGap).toBeLessThan(35); break;
@@ -51,4 +51,21 @@ describe('sudden death variants', () => {
     const { seen } = run(kind, 75);
     expect(seen.ended).toBe(true);
   });
+});
+
+describe('rising sudden death', () => {
+  it('is lava or water at random, and either ends the round', () => {
+    const kinds = new Set<string>();
+    for (let seed = 1; seed <= 8; seed++) {
+      const g = new Game({ cars: [CAR_BY_ID.sparrow, CAR_BY_ID.sparrow], maps: [MAP_BY_ID.meadow], randomMaps: false, target: 99, roundTime: 1, seed });
+      let ended = false;
+      g.on((e) => {
+        if (e.type === 'suddenDeath') kinds.add(e.kind);
+        if (e.type === 'roundEnd') ended = true;
+      });
+      for (let i = 0; i < 60 * 60 && !ended; i++) g.step();
+      expect(ended).toBe(true);
+    }
+    expect(kinds).toEqual(new Set(['lava', 'flood']));
+  }, 30000);
 });

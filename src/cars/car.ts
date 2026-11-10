@@ -1,11 +1,11 @@
-import { World, Body, Polygon, Circle, WheelJoint, RopeJoint, Vec2, Fixture } from 'planck';
+import { World, Body, Polygon, Circle, WheelJoint, RopeJoint, RevoluteJoint, Vec2, Fixture } from 'planck';
 import { CAT, MASK, STEP_DT, DEFAULT_GRAVITY } from '../physics/constants';
 
 /** Tuning knobs shared by all cars. */
 export const TUNE = { groundTilt: 1.6, maxSpin: 7.5, selfRight: 14 };
 const SELF_RIGHT = TUNE.selfRight;
 import type { FixtureTag } from '../physics/tags';
-import type { AbilityDef, CarDef, Pt } from './types';
+import type { AbilityDef, CarDef, Pt, WheelDef } from './types';
 import { abilityOf, abilityCd } from '../game/abilities';
 
 export interface BodyState { x: number; y: number; a: number }
@@ -25,7 +25,9 @@ export class Car {
   readonly wheels: Body[] = [];
   readonly joints: WheelJoint[] = [];
   readonly drive: boolean[] = [];
-  headFixture: Fixture | null;
+  headFixture: Fixture | null = null;
+  /** Body the head sensor sits on (the chassis, or a link the driver rides). */
+  headBody!: Body;
   alive = true;
   /** -1, 0, +1 world direction requested this step. */
   input = 0;
@@ -39,6 +41,8 @@ export class Car {
   /** Number of wheels touching something this step. */
   wheelsOnGround = 0;
   chassisTouching = false;
+  /** A hinged piece (neck, arm, trailer) is touching something. */
+  linkTouching = false;
   /** Special action and its runtime state. */
   readonly ability: AbilityDef | null;
   /** Seconds until the ability is ready again. */
@@ -55,6 +59,15 @@ export class Car {
   liftT = 0;
   /** Swinging weight on a chain, if the car has one. */
   readonly flail: Body | null = null;
+  /** Moving pieces on hinges (see LinkDef), in def.links order. */
+  readonly links: Body[] = [];
+  readonly linkJoints: RevoluteJoint[] = [];
+  /** Trim links: they never collide (see LinkDef.trim). */
+  private readonly trim = new Set<Body>();
+  /** Wheels of the links (trailers): [body, link index, wheel def]. */
+  readonly linkWheels: { body: Body; link: number; def: WheelDef }[] = [];
+  /** Previous-step transforms of links, then link wheels (render interpolation). */
+  prevExtra: BodyState[] = [];
   /** Diving after a mid-air slam; the shockwave fires on landing. */
   slamming = false;
   /** Seconds before a stomp jump arms its landing shockwave. */
@@ -132,15 +145,6 @@ export class Car {
         userData: chassisTag,
       });
     }
-    this.headFixture = this.chassis.createFixture({
-      shape: new Circle(new Vec2(def.head.x * f, def.head.y), def.head.r),
-      density: 0,
-      isSensor: true,
-      filterGroupIndex: group,
-      filterCategoryBits: CAT.HEAD,
-      filterMaskBits: MASK.HEAD,
-      userData: { kind: 'head', player } satisfies FixtureTag,
-    });
     if (def.com) {
       const md = { mass: 0, center: new Vec2(), I: 0 };
       this.chassis.getMassData(md);
@@ -183,6 +187,58 @@ export class Car {
       this.drive.push(wd.drive ?? true);
       this.restAnchors.push(new Vec2(wd.x * f, wd.y));
     }
+    (def.links ?? []).forEach((ld, li) => {
+      // The link's body shares the car's origin at rest, so its polygons are plain car-local coordinates.
+      const lb = world.createBody({ type: 'dynamic', position: new Vec2(x, y), angularDamping: ld.spin ? 0 : 0.6 });
+      for (const p of ld.polys) {
+        if (p.deco) continue;
+        lb.createFixture({
+          shape: new Polygon(p.pts.map(m)),
+          density: p.density ?? ld.density ?? 0.5,
+          friction: p.friction ?? 0.4,
+          restitution: 0.05,
+          filterGroupIndex: group,
+          filterCategoryBits: CAT.CAR,
+          filterMaskBits: ld.trim ? 0 : MASK.CAR,
+          userData: chassisTag,
+        });
+      }
+      if (ld.trim) this.trim.add(lb);
+      const parent = ld.to !== undefined ? this.links[ld.to] : this.chassis;
+      const jd: Record<string, unknown> = {};
+      if (ld.swing) {
+        jd.enableLimit = true;
+        jd.lowerAngle = f > 0 ? ld.swing[0] : -ld.swing[1];
+        jd.upperAngle = f > 0 ? ld.swing[1] : -ld.swing[0];
+      }
+      if (ld.spin) {
+        jd.enableMotor = true;
+        jd.motorSpeed = ld.spin * f;
+        jd.maxMotorTorque = 60;
+      } else if (ld.spring) {
+        jd.enableMotor = true;
+        jd.maxMotorTorque = ld.spring;
+      }
+      const j = world.createJoint(new RevoluteJoint(jd, parent, lb, new Vec2(x + ld.at[0] * f, y + ld.at[1])))!;
+      this.links.push(lb);
+      this.linkJoints.push(j);
+      for (const wd of ld.wheels ?? []) {
+        const wp = new Vec2(x + wd.x * f, y + wd.y);
+        const wb = world.createBody({ type: 'dynamic', position: wp, angularDamping: 0.3 });
+        wb.createFixture({
+          shape: new Circle(wd.r),
+          density: wd.density ?? 0.8,
+          friction: this.tireGrip,
+          restitution: 0.1,
+          filterGroupIndex: group,
+          filterCategoryBits: CAT.CAR,
+          filterMaskBits: MASK.CAR,
+          userData: wheelTag,
+        });
+        world.createJoint(new WheelJoint({ frequencyHz: def.suspension.hz, dampingRatio: def.suspension.damping }, lb, wb, wp, new Vec2(0, 1)));
+        this.linkWheels.push({ body: wb, link: li, def: wd });
+      }
+    });
     if (def.flail) {
       const fl = def.flail;
       const anchor = new Vec2(x + fl.at[0] * f, y + fl.at[1]);
@@ -197,9 +253,20 @@ export class Car {
         filterMaskBits: MASK.CAR,
         userData: chassisTag,
       });
-      world.createJoint(new RopeJoint({ bodyA: this.chassis, bodyB: fb, maxLength: fl.len, localAnchorA: new Vec2(fl.at[0] * f, fl.at[1]), localAnchorB: new Vec2(0, 0) }));
+      world.createJoint(new RopeJoint({ bodyA: fl.on !== undefined ? this.links[fl.on] : this.chassis, bodyB: fb, maxLength: fl.len, localAnchorA: new Vec2(fl.at[0] * f, fl.at[1]), localAnchorB: new Vec2(0, 0) }));
       this.flail = fb;
     }
+    // The driver's head: on the chassis, or on the link the driver rides.
+    this.headBody = def.headOn !== undefined ? this.links[def.headOn] : this.chassis;
+    this.headFixture = this.headBody.createFixture({
+      shape: new Circle(new Vec2(def.head.x * f, def.head.y), def.head.r),
+      density: 0,
+      isSensor: true,
+      filterGroupIndex: group,
+      filterCategoryBits: CAT.HEAD,
+      filterMaskBits: MASK.HEAD,
+      userData: { kind: 'head', player } satisfies FixtureTag,
+    });
     this.ability = abilityOf(def);
     this.applyGravity();
     this.boostFuel = def.boost?.fuel ?? 0;
@@ -221,7 +288,9 @@ export class Car {
 
   /** Every body including the chain weight (for moving the whole car). */
   get allBodies(): Body[] {
-    return this.flail ? [...this.bodies, this.flail] : this.bodies;
+    const all = [...this.bodies, ...this.links, ...this.linkWheels.map((w) => w.body)];
+    if (this.flail) all.push(this.flail);
+    return all;
   }
 
   /** Gravity scale from flight / bubble / the car's own floatiness. */
@@ -237,7 +306,7 @@ export class Car {
   }
 
   get mass(): number {
-    return this.bodies.reduce((s, b) => s + b.getMass(), 0);
+    return [...this.bodies, ...this.links, ...this.linkWheels.map((w) => w.body)].reduce((s, b) => s + b.getMass(), 0);
   }
 
   get position() {
@@ -253,7 +322,7 @@ export class Car {
   }
 
   get inAir(): boolean {
-    return this.wheelsOnGround === 0 && !this.chassisTouching;
+    return this.wheelsOnGround === 0 && !this.chassisTouching && !this.linkTouching;
   }
 
   /** 0 = just used, 1 = ready. */
@@ -331,6 +400,8 @@ export class Car {
       const fl = this.def.flail;
       this.flail.setTransform(new Vec2(x + fl.at[0] * f - 0.3 * f, y + fl.at[1] + fl.len * 0.9), 0);
     }
+    for (const lb of this.links) lb.setTransform(new Vec2(x, y), 0);
+    for (const w of this.linkWheels) w.body.setTransform(new Vec2(x + w.def.x * f, y + w.def.y), 0);
     for (const b of this.allBodies) {
       b.setLinearVelocity(new Vec2(0, 0));
       b.setAngularVelocity(0);
@@ -373,6 +444,7 @@ export class Car {
   setPhased(on: boolean) {
     const solid = on ? CAT.TERRAIN | CAT.PLATFORM | CAT.HAZARD : MASK.CAR;
     for (const b of this.allBodies) {
+      if (this.trim.has(b)) continue;
       for (let fx = b.getFixtureList(); fx; fx = fx.getNext()) {
         if (fx === this.headFixture) fx.setFilterData({ groupIndex: -(this.player + 1), categoryBits: CAT.HEAD, maskBits: on ? CAT.TERRAIN | CAT.PLATFORM | CAT.HAZARD : MASK.HEAD });
         else fx.setFilterData({ groupIndex: -(this.player + 1), categoryBits: CAT.CAR, maskBits: solid });
@@ -381,17 +453,18 @@ export class Car {
   }
 
   headWorld() {
-    return this.chassis.getWorldPoint(new Vec2(this.def.head.x * this.facing, this.def.head.y));
+    return this.headBody.getWorldPoint(new Vec2(this.def.head.x * this.facing, this.def.head.y));
   }
 
   snapshot() {
     this.prev = this.bodies.map((b) => ({ x: b.getPosition().x, y: b.getPosition().y, a: b.getAngle() }));
+    if (this.links.length) this.prevExtra = [...this.links, ...this.linkWheels.map((w) => w.body)].map((b) => ({ x: b.getPosition().x, y: b.getPosition().y, a: b.getAngle() }));
   }
 
   /** Remove the driver head sensor (driver ejected). */
   ejectHead() {
     if (this.headFixture) {
-      this.chassis.destroyFixture(this.headFixture);
+      this.headBody.destroyFixture(this.headFixture);
       this.headFixture = null;
     }
   }
@@ -407,14 +480,15 @@ export class Car {
         }
       }
     }
-    this.chassisTouching = false;
-    for (let ce = this.chassis.getContactList(); ce; ce = ce.next!) {
-      const c = ce.contact;
-      if (c.isTouching() && !c.getFixtureA().isSensor() && !c.getFixtureB().isSensor()) {
-        this.chassisTouching = true;
-        break;
+    const touching = (b: Body) => {
+      for (let ce = b.getContactList(); ce; ce = ce.next!) {
+        const c = ce.contact;
+        if (c.isTouching() && !c.getFixtureA().isSensor() && !c.getFixtureB().isSensor()) return true;
       }
-    }
+      return false;
+    };
+    this.chassisTouching = touching(this.chassis);
+    this.linkTouching = this.links.some(touching);
   }
 
   /** Called every fixed step before world.step(). */
@@ -422,6 +496,26 @@ export class Car {
     this.snapshot();
     this.scanContacts();
     const d = this.def;
+    // Sprung links ease back to their rest pose.
+    for (let i = 0; i < this.linkJoints.length; i++) {
+      const ld = d.links![i];
+      const j = this.linkJoints[i];
+      if (ld.spring && !ld.spin) j.setMotorSpeed(Math.max(-8, Math.min(8, -j.getJointAngle() * 10)));
+      // A light piece wedged between the car and the ground can be forced past its stops:
+      // put it back at the stop, so at full swing it behaves like a rigid part of the car.
+      if (ld.swing) {
+        const lo = j.getLowerLimit(), hi = j.getUpperLimit(), a = j.getJointAngle();
+        if (a < lo - 0.1 || a > hi + 0.1) {
+          const parent = j.getBodyA(), lb = this.links[i];
+          const ang = parent.getAngle() + Math.max(lo, Math.min(hi, a));
+          const anchor = parent.getWorldPoint(j.getLocalAnchorA());
+          const la = j.getLocalAnchorB(), c = Math.cos(ang), sn = Math.sin(ang);
+          lb.setTransform(new Vec2(anchor.x - (c * la.x - sn * la.y), anchor.y - (sn * la.x + c * la.y)), ang);
+          lb.setAngularVelocity(parent.getAngularVelocity());
+          lb.setLinearVelocity(parent.getLinearVelocityFromWorldPoint(lb.getWorldCenter()));
+        }
+      }
+    }
     const dir = this.alive && this.stunT <= 0 && this.shellT <= 0 && this.stasisT <= 0 ? this.input : 0;
     const spd = (this.turboT > 0 ? 1.5 : 1) * (this.slowT > 0 ? 0.4 : 1) * (this.flatT > 0 ? 0.55 : 1);
     const trq = (this.turboT > 0 ? 1.4 : 1) * (this.heavyT > 0 ? 2.6 : 1) * (this.slowT > 0 ? 0.6 : 1);
@@ -442,7 +536,7 @@ export class Car {
       }
     }
 
-    const I = this.chassis.getInertia() + this.wheels.reduce((s, w) => s + w.getMass() * Vec2.distanceSquared(w.getPosition(), this.chassis.getWorldCenter()), 0);
+    const I = this.chassis.getInertia() + [...this.wheels, ...this.links].reduce((s, w) => s + w.getMass() * Vec2.distanceSquared(w.getWorldCenter(), this.chassis.getWorldCenter()), 0);
     const w = this.chassis.getAngularVelocity();
     const maxSpin = TUNE.maxSpin;
     // Air control: pressing toward a direction rotates the car the way the
@@ -478,7 +572,7 @@ export class Car {
       // Still stuck after a while (e.g. propped on a wheel): push progressively harder.
       const extra = Math.min(2, Math.max(0, this.flipTimer - 1.6));
       if (Math.abs(w) < 3.5) this.chassis.applyTorque(this.flipDir * (SELF_RIGHT * k * I + extra * this.mass * DEFAULT_GRAVITY * 0.5), true);
-      if (this.chassisTouching) this.chassis.applyForceToCenter(new Vec2(0, -this.mass * DEFAULT_GRAVITY * 0.75 * k), true);
+      if (this.chassisTouching || this.linkTouching) this.chassis.applyForceToCenter(new Vec2(0, -this.mass * DEFAULT_GRAVITY * 0.75 * k), true);
     }
 
     // Rocket booster.

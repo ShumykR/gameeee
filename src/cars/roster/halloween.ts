@@ -116,6 +116,7 @@ export const HALLOWEEN = group('halloween', [
     ],
   }],
   ['beast', 'Beast', 'Ікластий монстр-кар із рогами. Ричить так, що відлітають машини.', 'monster', ['#5a2a6a', '#ff3a3a'], {
+    o: o({ open: true }),
     parts: ['fangs', 'horns'], hideParts: true,
     skin: (f) => [
       ...f.wheels.map((w) => seg([w.x, w.y], [w.x * 0.8, -0.1], 0.14, 'dark')),

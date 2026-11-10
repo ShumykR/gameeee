@@ -19,6 +19,8 @@ export interface CarPoly {
   friction?: number;
   /** Render-only piece (no collision). */
   deco?: boolean;
+  /** Render only: cuts a see-through hole in everything drawn before it (an open cab window). */
+  cut?: boolean;
   /** Physics-only piece (not drawn; a skin draws the look instead). */
   hide?: boolean;
   /** Draw a dark seam around this piece even over the same material (panels, doors). */
@@ -120,6 +122,35 @@ export interface FlailDef {
   len: number;
   r: number;
   look: 'wrecking' | 'mace' | 'anchor';
+  /** Hangs off this link (a crane boom) instead of the chassis. */
+  on?: number;
+}
+
+/**
+ * A moving piece of the car with its own physics: a trailer on a hitch, a crane boom,
+ * a tail, a jaw, a spinning saw. It hangs off the chassis (or off another link) on a hinge.
+ */
+export interface LinkDef {
+  /** Polygons in car-local coordinates at rest (same flags as the body: deco = drawn only, hide = physics only). */
+  polys: CarPoly[];
+  /** Hinge point, car-local. */
+  at: Pt;
+  /** Index of the link this one hangs off (arm segments, tail chains); the chassis when omitted. */
+  to?: number;
+  /** Swing limits around the rest pose, radians, for a car facing right (positive = clockwise on screen). Omit for a free hinge. */
+  swing?: [number, number];
+  /** Springiness pulling the piece back to rest (motor torque, N·m). */
+  spring?: number;
+  /** Motor spin, rad/s (saws, rollers, propellers). */
+  spin?: number;
+  /** The piece's own free-rolling wheels (trailers). */
+  wheels?: WheelDef[];
+  /** Density of the colliding polygons (default 0.5). */
+  density?: number;
+  /** Drawn behind the body instead of in front. */
+  behind?: boolean;
+  /** Trim (antenna, flag, ribbon): it sways with the car but collides with nothing. */
+  trim?: boolean;
 }
 
 /** Collection a car belongs to (menu filter + themed arenas). */
@@ -178,6 +209,12 @@ export interface CarDef {
   cargo?: CargoDef;
   /** Swinging weight on a chain. */
   flail?: FlailDef;
+  /** The driver sits inside a cab under a roof: only the helmet shows, in the open window. */
+  cabin?: boolean;
+  /** Moving pieces on hinges (trailers, booms, tails, saws). */
+  links?: LinkDef[];
+  /** The driver rides on this link (a crane basket, a howdah) instead of the chassis; `head` stays in car-local rest coordinates. */
+  headOn?: number;
   /** Draw head/tail lights (default true). */
   lights?: boolean;
   /** Where the car's own barrel / launcher is: shots leave from here (see AbilityDef.muzzle). */

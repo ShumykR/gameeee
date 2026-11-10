@@ -95,10 +95,11 @@ const ORIGINALS: CarDef[] = [
     palette: { body: '#36c26a', accent: '#ffe24a', dark: '#1a2a20', glass: '#a8ecff', light: '#fff6c0' },
     body: [
       poly([[-1.5, -0.55], [1.35, -0.55], [1.55, -0.3], [1.5, 0.08], [-1.5, 0.08]]),
-      poly([[-0.25, -0.55], [0.6, -0.55], [0.45, -1.1], [-0.2, -1.1]]),
+      // Cab: back wall and a roof over the driver, open in front.
+      box(-0.25, -1.27, -0.15, -0.55),
+      box(-0.25, -1.27, 0.35, -1.19),
       box(-1.4, 0.08, 1.4, 0.24, { mat: 'dark' }),
     ],
-    windows: [[[0.05, -0.58], [0.47, -0.58], [0.36, -1.0], [0.05, -1.0]]],
     stripe: { y: -0.3, h: 0.12 },
     wheels: [
       { x: -1.15, y: 0.6, r: 0.66, rim: 'monster', density: 0.7 },
@@ -108,7 +109,8 @@ const ORIGINALS: CarDef[] = [
     motor: { torque: 42, speed: 12.5 },
     density: 1.2,
     tireFriction: 1.2,
-    head: { x: -0.68, y: -0.94, r: 0.31 },
+    head: { x: 0.19, y: -0.87, r: 0.31 },
+    cabin: true,
     air: 10,
     wheelie: 0.4,
   },
@@ -582,6 +584,57 @@ const ORIGINALS: CarDef[] = [
 export const CARS: CarDef[] = [
   ...ORIGINALS.map((c) => skinOriginal({ ...c, category: 'originals' as const })),
   ...ROSTER.map(buildCar),
-].map(applyKit);
+].map(applyKit).map(openCockpit).map(chunkyWheels);
+
+/**
+ * Where the driver sits there is no glass: the head pokes out of an open cockpit,
+ * it never sits on (or behind) a window. Panes that overlap the driver are dropped.
+ */
+function openCockpit(def: CarDef): CarDef {
+  const { x, y, r } = def.head;
+  // A cab's open window is cut by the frame itself.
+  if (def.cabin) return def;
+  const x0 = x - r * 1.5, x1 = x + r * 1.5, y0 = y - r, y1 = y + r * 3;
+  const near = (pts: readonly (readonly [number, number])[]) => {
+    let ax = Infinity, bx = -Infinity, ay = Infinity, by = -Infinity;
+    for (const [px, py] of pts) { ax = Math.min(ax, px); bx = Math.max(bx, px); ay = Math.min(ay, py); by = Math.max(by, py); }
+    return ax < x1 && bx > x0 && ay < y1 && by > y0;
+  };
+  return {
+    ...def,
+    body: def.body.filter((p) => !(p.mat === 'glass' && p.deco && near(p.pts))),
+    windows: def.windows?.filter((w) => !near(w)),
+  };
+}
+
+
+/**
+ * Wheels a size up: chunky, toy-like proportions read better than scale-model ones.
+ * A wheel only grows as far as its neighbours and the driver's head leave room; the
+ * motor is re-geared so the car pulls and tops out as before. A few cars whose balance
+ * on two wheels (or on mismatched axles) depends on the wheels they have are left alone.
+ */
+function chunkyWheels(def: CarDef): CarDef {
+  if (['farm-tractor', 'motocross-bike', 'motorbike', 'space-bike', 'personal-transporter'].includes(def.id)) return def;
+  let sum = 0, n = 0;
+  const wheels = def.wheels.map((w, i) => {
+    if (w.hidden) return w;
+    let r = w.r * (w.r >= 0.6 ? 1.08 : 1.2);
+    for (let j = 0; j < def.wheels.length; j++) {
+      if (j === i) continue;
+      const o = def.wheels[j];
+      r = Math.min(r, (Math.hypot(o.x - w.x, o.y - w.y) / (w.r + o.r)) * w.r * 0.97);
+    }
+    r = Math.min(r, 0.95);
+    const clear = (q: number) => Math.hypot(def.head.x - w.x, def.head.y - (w.y - (q - w.r))) > q + def.head.r + 0.04;
+    while (r > w.r && !clear(r)) r -= 0.01;
+    r = Math.max(w.r, +r.toFixed(3));
+    if (w.drive ?? true) { sum += r / w.r; n++; }
+    // The tyre grows upwards into the arch: the car keeps its ride height.
+    return { ...w, r, y: +(w.y - (r - w.r)).toFixed(3) };
+  });
+  const k = n ? sum / n : 1;
+  return { ...def, wheels, motor: { ...def.motor, torque: +(def.motor.torque * k * (1 + (k - 1) * 0.9)).toFixed(2) } };
+}
 
 export const CAR_BY_ID: Record<string, CarDef> = Object.fromEntries(CARS.map((c) => [c.id, c]));

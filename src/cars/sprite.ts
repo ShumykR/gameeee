@@ -94,8 +94,8 @@ export function generateCarGrid(def: CarDef, ppm = CAR_PPM): PixelGrid {
     ringOf.push(!!poly.ring);
     flatOf.push(!!poly.flat);
     fillPoly(toPx(poly.pts), w, h, (x, y) => {
-      gset(mats, x, y, id);
-      owner[y * w + x] = i + 1;
+      gset(mats, x, y, poly.cut ? 0 : id);
+      owner[y * w + x] = poly.cut ? 0 : i + 1;
     });
   });
   const own = (x: number, y: number) => (x < 0 || y < 0 || x >= w || y >= h ? 0 : owner[y * w + x]);
@@ -219,6 +219,11 @@ export function generateCarGrid(def: CarDef, ppm = CAR_PPM): PixelGrid {
 /** Wheel palette slots */
 export const WP = { NONE: 0, OUTLINE: 1, TIRE: 2, TIRE_L: 3, RIM_D: 4, RIM: 5, RIM_L: 6, HUB: 7 } as const;
 
+/** Sprite of one moving piece (see LinkDef); same origin as the car sprite at rest. */
+export function generateLinkGrid(def: CarDef, i: number, ppm = CAR_PPM): PixelGrid {
+  return generateCarGrid({ ...def, body: def.links![i].polys, windows: [], wheels: [], stripe: undefined, lights: false, links: undefined }, ppm);
+}
+
 export function wheelPalette(p: CarPalette): (RGB | null)[] {
   const acc = hex(p.accent);
   return [null, [14, 12, 18], [40, 38, 46], [70, 68, 78], shade(acc, 0.6), mix(acc, [200, 205, 215], 0.45), [230, 234, 240], [28, 26, 32]];
@@ -263,9 +268,13 @@ export function driverPalette(playerColor: string): (RGB | null)[] {
   return [null, [16, 14, 24], shade(c, 0.65), c, shade(c, 1.4), [30, 34, 52], [130, 200, 240], [236, 184, 140], shade(c, 0.85), shade(c, 0.5)];
 }
 
+/** How much bigger the helmet is drawn than the head it protects. */
+export const HELMET_SCALE = 1.2;
+
 /** Helmet facing +x. Origin is the head center. */
 export function generateHeadGrid(r: number, ppm = CAR_PPM): PixelGrid {
-  const R = Math.max(3, Math.round(r * ppm));
+  // The helmet is drawn a size up on the head: the driver is what the eye should find first.
+  const R = Math.max(3, Math.round(r * ppm * HELMET_SCALE));
   const size = R * 2 + 1;
   const g = makeGrid(size, size, R, R);
   for (let y = 0; y < size; y++) {

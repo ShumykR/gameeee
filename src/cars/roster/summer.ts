@@ -10,6 +10,18 @@ export const SUMMER = group('summer', [
   ['harvester', 'Harvester', 'Зернозбиральний комбайн із мотовилом. Скидає тюки сіна.', 'box', ['#3aa04a', '#ffd23f'], {
     o: o({ len: 1.15, tall: 1.2 }), parts: ['plow'], cargo: ['hay', 2], hideParts: true,
     art: (f) => [hidden(tailgate(f.deck.x0, f.deck.y, 0.3, 'accent'))],
+    // The reel is absurdly big and really turns: it combs whatever is in front up and over the header.
+    links: (f) => {
+      const cx = f.nose.x + 0.75, cy = -0.75, r = 0.85;
+      const art: CarPoly[] = [];
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2, c = Math.cos(a), sn = Math.sin(a);
+        art.push(seg([cx, cy], [cx + c * r, cy + sn * r], 0.07, 'red'));
+        art.push(seg([cx + c * r - sn * 0.22, cy + sn * r + c * 0.22], [cx + c * r + sn * 0.22, cy + sn * r - c * 0.22], 0.13, 'yellow'));
+      }
+      art.push(circ(cx, cy, 0.2, 'red'), circ(cx, cy, 0.08, 'dark'));
+      return [{ at: [cx, cy], spin: -7, density: 0.03, hit: [ell(cx, cy, r, r, 'red', {}, 8)], art }];
+    },
     skin: (f) => [
       rr(f.tail.x, f.roof.y + 0.15, f.nose.x - 0.2, 0.25, 0.1, 'body'),
       rr(f.nose.x - 1.05, f.roof.y - 0.35, f.nose.x - 0.25, f.roof.y + 0.5, 0.08, 'body'), rr(f.nose.x - 0.95, f.roof.y - 0.25, f.nose.x - 0.35, f.roof.y + 0.3, 0.05, 'glass'),
@@ -17,8 +29,7 @@ export const SUMMER = group('summer', [
       stripe(f.tail.x, f.nose.x - 0.2, -0.05, 0.08, 'accent'),
       poly([[f.nose.x - 0.2, -0.3], [f.nose.x + 0.7, -0.15], [f.nose.x + 0.75, 0.3], [f.nose.x - 0.2, 0.3]], 'yellow'),
       ...[0, 1, 2, 3].map((i) => poly([[f.nose.x + 0.05 + i * 0.17, 0.3], [f.nose.x + 0.13 + i * 0.17, 0.3], [f.nose.x + 0.09 + i * 0.17, 0.45]], 'chrome')),
-      circ(f.nose.x + 0.35, -0.55, 0.36, 'red'), circ(f.nose.x + 0.35, -0.55, 0.28, 'dark'), circ(f.nose.x + 0.35, -0.55, 0.08, 'red'),
-      ...[0, 1, 2].map((i) => seg([f.nose.x + 0.35 + Math.cos(i * 1.05) * 0.3, -0.55 + Math.sin(i * 1.05) * 0.3], [f.nose.x + 0.35 - Math.cos(i * 1.05) * 0.3, -0.55 - Math.sin(i * 1.05) * 0.3], 0.05, 'red')),
+      ...path([[f.nose.x - 0.3, -0.5], [f.nose.x + 0.75, -0.75]], 0.12, 'dark'),
       ...stack(f.tail.x + 0.8, f.roof.y + 0.15, 0.4, 0.09, 'dark'),
     ],
   }],
@@ -39,7 +50,7 @@ export const SUMMER = group('summer', [
     o: o({ wheel: 1.1 }),
     skin: (f) => [
       ...monsterChassis(f),
-      ...pickup({ ...f, nose: { ...f.nose, y0: -0.5, y1: 0.06 }, tail: { ...f.tail, y0: -0.5, y1: 0.06 }, roof: { x0: -1.0, x1: -0.1, y: -1.12 } }),
+      ...pickup({ ...f, nose: { ...f.nose, y0: -0.5, y1: 0.06 }, tail: { ...f.tail, y0: -0.5, y1: 0.06 }, roof: f.roof }),
       starShape(0.4, -0.25, 0.16, 'white'), stripe(f.tail.x, f.nose.x, -0.08, 0.06, 'white'),
     ],
   }],
@@ -131,12 +142,12 @@ export const SUMMER = group('summer', [
     ],
   }],
   ['bulldozer', 'Bulldozer', 'Бульдозер із масивним відвалом.', 'tracked', ['#f0b020', '#2a2a2a'], {
-    parts: ['blade'], hideParts: true,
+    o: o({ cab: true }), parts: ['blade'], hideParts: true,
     skin: (f) => [
       ...tracks(f),
       blob([[-1.6, 0.0], [-1.55, -0.45], [0.6, -0.5], [1.4, -0.3], [1.5, 0.0]], 'body', {}, 1),
       ...[0.7, 0.9, 1.1].map((x) => rect(x, -0.42, x + 0.06, -0.1, 'dark', { flat: true })),
-      rr(-1.2, -1.15, -0.1, -0.45, 0.06, 'body'), rect(-1.05, -1.0, -0.25, -0.6, 'glass'), rr(-1.3, -1.22, 0.0, -1.1, 0.04, 'dark'),
+      rr(f.roof.x0 - 0.45, f.roof.y, f.roof.x1 + 0.4, -0.45, 0.06, 'body'), rect(f.roof.x0 - 0.36, f.roof.y + 0.12, f.roof.x0 - 0.06, -0.6, 'glass'), rr(f.roof.x0 - 0.5, f.roof.y - 0.1, f.roof.x1 + 0.05, f.roof.y + 0.02, 0.04, 'dark'),
       ...stack(0.4, -0.45, 0.45, 0.09, 'black'),
       ...path([[0.9, -0.15], [f.nose.x + 0.2, -0.05]], 0.12, 'dark'),
       blob([[f.nose.x + 0.25, -0.65], [f.nose.x + 0.5, -0.55], [f.nose.x + 0.55, 0.42], [f.nose.x + 0.25, 0.42], [f.nose.x + 0.35, -0.1]], 'body', {}, 1),

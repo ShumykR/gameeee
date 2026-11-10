@@ -65,7 +65,7 @@ describe('abilities', () => {
   it('the hearse carries its coffin inside the body, not on the roof', () => {
     const def = CAR_BY_ID.hearse;
     expect(def.cargo?.kind).toBe('coffin');
-    const roof = Math.min(...def.body.flatMap((p) => p.pts.map((q) => q[1])).filter((y) => y > def.head.y));
+    const roof = Math.min(...def.body.flatMap((p) => p.pts.map((q) => q[1])));
     expect(def.cargo!.at[2]).toBeGreaterThan(roof + 0.4);
   });
   it('sleds and the bumper car hide their wheels', () => {
@@ -189,9 +189,10 @@ describe('abilities', () => {
     const events: string[] = [];
     g.on((e) => { if (e.type === 'blast') events.push(e.kind); });
     // drive the opponent onto it
+    const from = g.cars[1].position.clone(), to = mine!.body.getPosition().clone();
     for (const b of g.cars[1].allBodies) {
       const p = b.getPosition();
-      b.setPosition(new Vec2(p.x - g.cars[1].position.x + mine!.body.getPosition().x, p.y - g.cars[1].position.y + mine!.body.getPosition().y - 1.2));
+      b.setPosition(new Vec2(p.x - from.x + to.x, p.y - from.y + to.y - 1.2));
     }
     for (let i = 0; i < 60 && !events.length; i++) g.step();
     expect(events).toContain('bomb');

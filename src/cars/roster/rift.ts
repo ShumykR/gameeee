@@ -230,6 +230,7 @@ export const RIFT = group('rift', [
     ],
   }],
   ['rift-monster', 'Rift Monster', 'Істота з порталу: зникає й з\'являється ближче до тебе.', 'monster', ['#3a1a4a', '#ff3aa0'], {
+    o: o({ open: true }),
     parts: ['fangs'], hideParts: true,
     skin: (f) => [
       ...monsterChassis(f, 'purple'),

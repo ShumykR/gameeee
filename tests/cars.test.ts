@@ -65,3 +65,35 @@ describe('sprite generator', () => {
     expect(g.data[g.ox + g.oy * g.w]).not.toBe(0);
   });
 });
+
+import { Game } from '../src/game/game';
+import { MAP_BY_ID } from '../src/maps/defs';
+
+describe('moving pieces', () => {
+  const linked = CARS.filter((c) => c.links?.length);
+  it('some cars have them', () => {
+    expect(linked.length).toBeGreaterThan(5);
+  });
+  it.each(linked.map((c) => [c.id, c] as const))('%s drives with its pieces attached', (_id, def) => {
+    const g = new Game({ cars: [def, CARS[0]], maps: [MAP_BY_ID.bunker], randomMaps: false, target: 99, roundTime: 60, seed: 5 });
+    const c = g.cars[0];
+    let top = 0;
+    for (let i = 0; i < 60 * 6; i++) {
+      g.inputs[0] = i < 330 ? 1 : -1;
+      g.step();
+      if (i === 170) {
+        // settled through the countdown: upright, pieces near their rest pose
+        expect(c.alive).toBe(true);
+        expect(Math.abs(c.angle)).toBeLessThan(0.35);
+      }
+      top = Math.max(top, Math.abs(c.chassis.getLinearVelocity().x));
+      for (const b of c.allBodies) expect(Number.isFinite(b.getPosition().x)).toBe(true);
+      // pieces stay hinged to the car
+      for (const j of c.linkJoints) {
+        const a = j.getAnchorA(), b = j.getAnchorB();
+        expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeLessThan(0.8);
+      }
+    }
+    expect(top).toBeGreaterThan(def.motor.speed * 0.6);
+  });
+});

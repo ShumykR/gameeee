@@ -51,12 +51,15 @@ export const ORIGINAL_SKINS: Record<string, (d: CarDef) => CarPoly[]> = {
     ];
   },
   mammoth: (d) => {
-    const f = fr(d, { x0: -1.5, x1: 1.55, y0: -0.55, y1: 0.08, roof: [-1.05, -0.15, -1.15] });
+    const f = fr(d, { x0: -1.5, x1: 1.55, y0: -0.55, y1: 0.08, roof: [-0.25, 0.35, -1.27] });
     return [
       ...monsterChassis(f),
       ...pickup(f),
       ...flameDecal(1.3, -0.4, -0.25, 0.3),
-      rr(-1.0, -1.28, -0.2, -1.17, 0.04, 'black'), ...[-0.85, -0.6, -0.35].map((x) => circ(x, -1.23, 0.05, 'light')),
+      rr(-0.22, -1.4, 0.35, -1.29, 0.04, 'black'), ...[-0.08, 0.1, 0.28].map((x) => circ(x, -1.35, 0.05, 'light')),
+      // The cab is open in front of the driver.
+      { ...poly([[-0.15, -1.19], [0.35, -1.19], [0.35, -0.57], [-0.15, -0.57]]), cut: true },
+      { ...poly([[0.35, -1.3], [1.15, -1.3], [1.15, -0.57], [0.35, -0.57]]), cut: true },
     ];
   },
   pebble: (d) => {

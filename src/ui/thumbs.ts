@@ -24,6 +24,13 @@ export function mapThumb(map: MapDef): string {
   ctx.drawImage(sc, 0, 0, c.width, c.height);
   ctx.fillStyle = '#2a8ad8';
   for (const wv of map.water ?? []) ctx.fillRect((wv.x - art.x0) * ppm, (wv.y - art.y0) * ppm, wv.w * ppm, wv.h * ppm);
+  if (art.back) {
+    const bc = document.createElement('canvas');
+    bc.width = art.back.w;
+    bc.height = art.back.h;
+    bc.getContext('2d')!.putImageData(new ImageData(gridToRGBA(art.back, art.palette) as any, art.back.w, art.back.h), 0, 0);
+    ctx.drawImage(bc, 0, 0);
+  }
   // props, scaled down from art resolution
   const k = ppm / 14;
   for (const d of placedDecor(map)) {

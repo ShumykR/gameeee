@@ -75,12 +75,12 @@ export const WINTER = group('winter', [
     ],
   }],
   ['snowcat', 'Snowcat', 'Важкий гусеничний ратрак із відвалом і прожекторами.', 'tracked', ['#e04a2a', '#f0f0f0'], {
-    parts: ['plow'], hideParts: true,
+    o: o({ cab: true }), parts: ['plow'], hideParts: true,
     skin: (f) => [
       ...trackedBody(f, 'body', 0.3),
-      rr(-0.85, -0.95, 0.55, -0.3, 0.08, 'body'),
-      ...windows(-0.75, 0.45, -0.85, -0.5, 2, 0.1),
-      rr(-0.8, -1.08, 0.5, -0.95, 0.04, 'dark'), ...[-0.6, -0.3, 0.0, 0.3].map((x) => circ(x, -1.1, 0.06, 'light')),
+      rr(f.roof.x0 - 0.5, f.roof.y, f.roof.x1 + 0.5, -0.3, 0.08, 'body'),
+      ...windows(f.roof.x0 - 0.42, f.roof.x0 - 0.06, f.roof.y + 0.1, -0.5, 1, 0.1),
+      rr(f.roof.x0 - 0.45, f.roof.y - 0.13, f.roof.x1, f.roof.y, 0.04, 'dark'), ...[0.0, 0.3, 0.6, 0.9].map((x) => circ(f.roof.x0 - 0.3 + x, f.roof.y - 0.15, 0.06, 'light')),
       stripe(-1.6, 1.5, -0.25, 0.08, 'accent'),
       poly([[f.nose.x - 0.1, -0.35], [f.nose.x + 0.2, -0.4], [f.nose.x + 0.75, 0.22], [f.nose.x + 0.1, 0.3]], 'chrome'),
       seg([f.nose.x - 0.4, -0.1], [f.nose.x + 0.25, -0.05], 0.1, 'dark'),
@@ -285,10 +285,21 @@ export const WINTER = group('winter', [
     ],
   }],
   ['sled-dog', 'Sled Dog', 'Хаскі в упряжі тягне за собою сани.', 'creature', ['#8a6a4a', '#f0f0f0'], {
-    parts: ['ears', 'trailer'], noLights: true, hideParts: true,
+    parts: ['ears'], noLights: true, hideParts: true,
+    // The sled is towed on a harness: it fishtails behind the dog and bucks over bumps.
+    links: () => [{
+      at: [-1.0, 0.1], swing: [-40, 40], density: 0.5, behind: true,
+      wheels: [{ x: -2.25, y: 0.58, r: 0.22, hidden: true, drive: false }, { x: -1.6, y: 0.58, r: 0.22, hidden: true, drive: false }],
+      hit: [rect(-2.5, 0.2, -1.4, 0.62)],
+      art: [
+        seg([-1.0, 0.1], [-1.45, 0.45], 0.05, 'red'),
+        ...path([[-2.55, 0.62], [-2.45, 0.78], [-1.45, 0.78], [-1.3, 0.6]], 0.07, 'chrome'),
+        seg([-2.3, 0.6], [-2.3, 0.78], 0.05, 'chrome'), seg([-1.65, 0.6], [-1.65, 0.78], 0.05, 'chrome'),
+        blob([[-2.5, 0.62], [-2.58, 0.15], [-2.38, 0.1], [-2.28, 0.38], [-1.45, 0.38], [-1.4, 0.62]], 'wood', {}, 1),
+        rect(-2.2, 0.2, -1.85, 0.4, 'red', { ring: true }), rect(-2.05, 0.2, -2.0, 0.4, 'gold', { flat: true }),
+      ],
+    }],
     skin: (f) => [
-      ...path([[-1.6, 0.35], [-0.6, 0.35], [-0.4, 0.2]], 0.07, 'chrome'),
-      blob([[-1.65, 0.3], [-1.7, -0.15], [-1.5, -0.2], [-1.4, 0.0], [-0.8, 0.0], [-0.75, 0.3]], 'wood', {}, 1),
       ...beast(f, { mat: 'grey', belly: 'white', cx: 0.1, ry: 0.36 }),
       ...path([[0.7, -0.35], [1.25, -0.8]], 0.3, 'grey'),
       blob([[1.05, -0.95], [1.25, -1.15], [1.6, -1.05], [1.95, -0.88], [1.9, -0.75], [1.3, -0.7]], 'grey', {}, 1),
