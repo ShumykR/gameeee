@@ -33,7 +33,7 @@ export function carPreviewCanvas(def: CarDef, palette: CarPalette, playerColor: 
     const ic = gridCanvas(ig, DECOR_PAL);
     for (const [x, y] of cargoSlots(def.cargo)) items.push({ g: ig, c: ic, x: x * CAR_PPM - ig.ox, y: y * CAR_PPM - ig.oy });
   }
-  items.push({ g: torso, c: gridCanvas(torso, dpal), x: def.head.x * CAR_PPM - torso.ox - def.head.r * CAR_PPM * 0.1, y: (def.head.y + def.head.r * 0.6) * CAR_PPM });
+  if (!def.cabin) items.push({ g: torso, c: gridCanvas(torso, dpal), x: def.head.x * CAR_PPM - torso.ox - def.head.r * CAR_PPM * 0.1, y: (def.head.y + def.head.r * 0.6) * CAR_PPM });
   const linkItems = (behind: boolean) => (def.links ?? []).forEach((ld, i) => {
     if (!!ld.behind !== behind) return;
     const lg = generateLinkGrid(def, i);

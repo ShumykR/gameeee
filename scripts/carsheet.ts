@@ -50,7 +50,7 @@ cars.forEach((def, i) => {
   const ox = Math.round(cx / scale + CW / scale / 2), oy = Math.round(cy / scale + CH / scale * 0.6);
   const dpal = driverPalette('#3ec1ff');
   const torso = generateTorsoGrid(def.head.r);
-  blit(torso, dpal, Math.round(ox + def.head.x * CAR_PPM - torso.ox - def.head.r * CAR_PPM * 0.1), Math.round(oy + (def.head.y + def.head.r * 0.6) * CAR_PPM));
+  if (!def.cabin) blit(torso, dpal, Math.round(ox + def.head.x * CAR_PPM - torso.ox - def.head.r * CAR_PPM * 0.1), Math.round(oy + (def.head.y + def.head.r * 0.6) * CAR_PPM));
   // Cargo lies in the bed behind the body (as in the game).
   if (def.cargo) {
     const info = ITEMS[def.cargo.kind];

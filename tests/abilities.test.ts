@@ -65,7 +65,7 @@ describe('abilities', () => {
   it('the hearse carries its coffin inside the body, not on the roof', () => {
     const def = CAR_BY_ID.hearse;
     expect(def.cargo?.kind).toBe('coffin');
-    const roof = Math.min(...def.body.flatMap((p) => p.pts.map((q) => q[1])).filter((y) => y > def.head.y));
+    const roof = Math.min(...def.body.flatMap((p) => p.pts.map((q) => q[1])));
     expect(def.cargo!.at[2]).toBeGreaterThan(roof + 0.4);
   });
   it('sleds and the bumper car hide their wheels', () => {

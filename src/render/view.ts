@@ -100,6 +100,7 @@ class CarView {
     this.torso.anchor.set(tg.ox / tg.w, 0);
     this.torso.scale.set(1 / CAR_PPM);
     this.torso.position.set(def.head.x - def.head.r * 0.1, def.head.y + def.head.r * 0.6);
+    this.torso.visible = !def.cabin;
 
     this.flame = new Sprite(whiteTexture());
     this.flame.anchor.set(1, 0.5);
@@ -200,7 +201,7 @@ class CarView {
     this.body.scale.set(c.facing * puff, puff);
     const alive = c.alive;
     this.head.visible = alive;
-    this.torso.visible = alive;
+    this.torso.visible = alive && !this.car.def.cabin;
     this.marker.visible = alive && c.invisT <= 0;
     this.marker.position.set(this.body.x, this.body.y - 2.1 + Math.sin(time * 4) * 0.08);
     const def = c.def;

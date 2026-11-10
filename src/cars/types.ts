@@ -207,6 +207,8 @@ export interface CarDef {
   cargo?: CargoDef;
   /** Swinging weight on a chain. */
   flail?: FlailDef;
+  /** The driver sits inside a cab under a roof: only the helmet shows, in the open window. */
+  cabin?: boolean;
   /** Moving pieces on hinges (trailers, booms, tails, saws). */
   links?: LinkDef[];
   /** The driver rides on this link (a crane basket, a howdah) instead of the chassis; `head` stays in car-local rest coordinates. */
