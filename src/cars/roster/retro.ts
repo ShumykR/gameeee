@@ -128,7 +128,7 @@ export const RETRO = group('retro', [
     ],
   }],
   ['skid-steer', 'Skid-Steer Loader', 'Компактний навантажувач із ковшем: підчіплює суперника знизу.', 'box', ['#f0b020', '#2a2a2a'], {
-    s: 0.8,
+    s: 0.8, arch: 'scoop',
     skin: (f) => [
       rr(f.tail.x, -0.3, f.nose.x - 0.2, 0.3, 0.12, 'body'),
       rect(f.tail.x + 0.1, f.roof.y, f.tail.x + 0.2, -0.3, 'dark'), rect(0.0, f.roof.y, 0.1, -0.3, 'dark'), rr(f.tail.x, f.roof.y - 0.1, 0.3, f.roof.y + 0.04, 0.04, 'body'),
@@ -137,7 +137,7 @@ export const RETRO = group('retro', [
     ],
     // Lift arms pivot at the back: the bucket rides over bumps and flips up whatever it scoops.
     links: (f) => [{
-      at: [f.tail.x + 0.2, -0.2], swing: [-38, 6], spring: 45, density: 0.45,
+      at: [f.tail.x + 0.2, -0.2], swing: [-38, 6], spring: 35, density: 0.2,
       hit: [seg([0.9, -0.75], [f.nose.x + 0.2, -0.2], 0.16), poly([[f.nose.x + 0.15, -0.35], [f.nose.x + 0.35, -0.38], [f.nose.x + 0.85, 0.22], [f.nose.x + 0.35, 0.28]])],
       art: [...path([[f.tail.x + 0.2, -0.2], [0.9, -0.75], [f.nose.x + 0.2, -0.2]], 0.16, 'dark'), poly([[f.nose.x + 0.15, -0.35], [f.nose.x + 0.35, -0.38], [f.nose.x + 0.85, 0.22], [f.nose.x + 0.35, 0.28]], 'scoop')],
     }],
@@ -372,7 +372,7 @@ export const RETRO = group('retro', [
     ],
   }],
   ['forklift-truck', 'Forklift Truck', 'Складський навантажувач: вила підхоплюють суперника.', 'box', ['#ffc020', '#2a2a2a'], {
-    s: 0.85,
+    s: 0.85, arch: 'scoop',
     skin: (f) => [
       rr(f.tail.x, -0.35, f.nose.x - 0.1, 0.3, 0.08, 'body'),
       rr(f.tail.x - 0.1, -0.55, f.tail.x + 0.55, 0.15, 0.12, 'dark'),
@@ -382,7 +382,7 @@ export const RETRO = group('retro', [
     ],
     // Mast and forks tilt on a hinge at the axle: they slide under a rival and tip back with the load.
     links: (f) => [{
-      at: [f.nose.x, f.nose.y1 - 0.1], swing: [-22, 9], spring: 60, density: 0.5,
+      at: [f.nose.x, f.nose.y1 - 0.1], swing: [-22, 9], spring: 45, density: 0.22,
       hit: [rect(f.nose.x - 0.05, f.nose.y0 - 1.0, f.nose.x + 0.12, f.nose.y1), rect(f.nose.x + 0.12, f.nose.y1 - 0.12, f.nose.x + 1.0, f.nose.y1 - 0.03)],
       art: [
         rect(f.nose.x - 0.05, f.nose.y0 - 1.0, f.nose.x + 0.12, f.nose.y1, 'dark'), rect(f.nose.x + 0.02, f.nose.y0 - 1.0, f.nose.x + 0.07, f.nose.y1, 'grey', { flat: true }),
