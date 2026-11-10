@@ -95,7 +95,7 @@ export const PROJECTILES: Record<ProjectileKind, ProjectileInfo> = {
   snowball: { r: 0.22, speed: 20, density: 1.2, gravity: 1, life: 2.2, bounce: 0.05, name: 'сніжка', pop: true },
   ball: { r: 0.34, speed: 18, density: 0.6, gravity: 1, life: 3.2, bounce: 0.75, name: 'м\'яч' },
   laser: { r: 0.12, speed: 34, density: 2, gravity: 0, life: 0.7, bounce: 0, name: 'лазер', pop: true },
-  firework: { r: 0.18, speed: 19, density: 1, gravity: 0.35, life: 1.4, bounce: 0, name: 'петарда', pop: true, effect: 'boom', blast: 2.6 },
+  firework: { r: 0.18, speed: 15.5, density: 1, gravity: 1, life: 2.2, bounce: 0, name: 'петарда', pop: true, effect: 'boom', blast: 2.6 },
   toast: { r: 0.2, speed: 15, density: 0.8, gravity: 1, life: 2.4, bounce: 0.2, name: 'тости', count: 2, spread: 0.25, flight: 'lob' },
   harpoon: { r: 0.14, speed: 28, density: 2, gravity: 0.3, life: 1.0, bounce: 0, name: 'гарпун', pop: true, effect: 'pull' },
   bubble: { r: 0.4, speed: 9, density: 0.1, gravity: -0.05, life: 2.6, bounce: 0.9, name: 'бульбашка', pop: true, effect: 'lift', harmless: true },
@@ -126,6 +126,14 @@ export const PROJECTILES: Record<ProjectileKind, ProjectileInfo> = {
   atom: { r: 0.26, speed: 15, density: 1, gravity: 0.5, life: 1.8, bounce: 0, name: 'атомний заряд', pop: true, effect: 'boom', blast: 4.6, cd: 1.6 },
   hook: { r: 0.15, speed: 24, density: 1.5, gravity: 0.4, life: 1.0, bounce: 0, name: 'гак на тросі', pop: true, effect: 'tether', harmless: true },
   quill: { r: 0.07, speed: 24, density: 2, gravity: 0.5, life: 0.8, bounce: 0, name: 'голки', pop: true, count: 5, spread: 0.6 },
+  popshell: { r: 0.13, speed: 25, density: 2.2, gravity: 0.6, life: 1.3, bounce: 0, name: 'міні-снаряд', pop: true, effect: 'knock', cd: 0.75 },
+  grapeshot: { r: 0.08, speed: 26, density: 2.5, gravity: 0.5, life: 0.7, bounce: 0, name: 'картеч', pop: true, count: 6, spread: 0.35 },
+  slush: { r: 0.22, speed: 19, density: 0.8, gravity: 0.8, life: 1.6, bounce: 0, name: 'крижана каша', pop: true, effect: 'slow' },
+  twinsnow: { r: 0.2, speed: 21, density: 1.2, gravity: 1, life: 2, bounce: 0.05, name: 'подвійна сніжка', pop: true, count: 2, spread: 0.14 },
+  twinball: { r: 0.28, speed: 16, density: 0.6, gravity: 1, life: 3, bounce: 0.75, name: 'два м\'ячі', count: 2, spread: 0.18, flight: 'lob' },
+  tracer: { r: 0.07, speed: 36, density: 3, gravity: 0.1, life: 0.7, bounce: 0, name: 'трасер', pop: true, cd: 0.55, recoil: 0.5 },
+  dragonshell: { r: 0.2, speed: 20, density: 1, gravity: 0.6, life: 1.6, bounce: 0, name: 'драконячий снаряд', pop: true, effect: 'boom', blast: 2 },
+  chainshot: { r: 0.26, speed: 18, density: 3.5, gravity: 1, life: 2.4, bounce: 0.2, name: 'ланцюгове ядро', effect: 'knock', recoil: 1.5 },
   ink: { r: 0.3, speed: 14, density: 0.3, gravity: 0.5, life: 1.3, bounce: 0, name: 'чорнило', pop: true, effect: 'slow', harmless: true },
 };
 

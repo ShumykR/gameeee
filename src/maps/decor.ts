@@ -508,7 +508,7 @@ const centered = (p: Pen) => {
 
 /** Projectile sprites (origin at the center; long shots point along +x). */
 export function shotGrid(kind: ProjectileKind, r: number, ppm: number): PixelGrid {
-  if (kind === 'ball') return ballGrid(r, ppm);
+  if (kind === 'ball' || kind === 'twinball') return ballGrid(r, ppm);
   const R = Math.max(2, Math.round(r * ppm));
   const D = R * 2;
   let p: Pen;
@@ -649,10 +649,11 @@ export function shotGrid(kind: ProjectileKind, r: number, ppm: number): PixelGri
       p.ell(R, R, R, R, C.W, (dx, dy) => (dx + dy > 0.6 ? C.LG : C.W));
       break;
     }
+    case 'tracer':
     case 'bullet': {
       p = new Pen(R * 4, D);
-      p.rect(0, 0, R * 3, D, C.GO);
-      p.ell(R * 3, R, R, R, C.GO);
+      p.rect(0, 0, R * 3, D, kind === 'tracer' ? C.Y : C.GO);
+      p.ell(R * 3, R, R, R, kind === 'tracer' ? C.W : C.GO);
       break;
     }
     case 'web': {
@@ -665,7 +666,9 @@ export function shotGrid(kind: ProjectileKind, r: number, ppm: number): PixelGri
     }
     default: {
       p = new Pen(D, D);
-      if (kind === 'snowball' || kind === 'bigsnow') p.ell(R, R, R, R, C.W, (dx, dy) => (dx + dy > 0.5 ? C.SN : C.W));
+      if (kind === 'slush') p.ell(R, R, R, R, C.CY, (dx, dy) => (dx + dy < -0.5 ? C.W : (dx * 3 + dy * 5) % 1 > 0.6 ? C.W : C.CY));
+      else if (kind === 'dragonshell') p.ell(R, R, R, R, C.Y, (dx, dy) => (dx + dy < -0.6 ? C.W : dx + dy > 0.5 ? C.R : C.Y));
+      else if (kind === 'snowball' || kind === 'bigsnow' || kind === 'twinsnow') p.ell(R, R, R, R, C.W, (dx, dy) => (dx + dy > 0.5 ? C.SN : C.W));
       else p.ell(R, R, R, R, C.DG, (dx, dy) => (dx + dy < -0.6 ? C.G : C.DG));
     }
   }

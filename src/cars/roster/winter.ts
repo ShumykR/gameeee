@@ -49,7 +49,9 @@ export const WINTER = group('winter', [
     skin: (f) => {
       const a = f.wheels[0];
       return [
-        rr(f.tail.x - 0.05, a.y - a.r - 0.06, -0.1, a.y + a.r + 0.06, a.r + 0.06, 'rubber'),
+        // Rear drive track down to the snow (the wheels are hidden under it).
+        rr(f.tail.x - 0.05, a.y + a.r - 0.5, -0.1, a.y + a.r, 0.2, 'rubber'),
+        ...[f.tail.x + 0.2, -0.65, -0.3].map((x) => circ(x, a.y + a.r - 0.25, 0.1, 'dark')),
         ...path([[0.3, 0.08], [f.nose.x - 0.1, 0.24], [f.nose.x + 0.15, 0.18], [f.nose.x + 0.25, 0.02]], 0.08, 'chrome'),
         seg([0.6, 0.0], [0.65, 0.22], 0.07, 'dark'),
         blob([[f.tail.x, 0.1], [f.tail.x, -0.18], [-0.6, -0.22], [0.2, -0.28], [f.nose.x - 0.1, -0.12], [f.nose.x + 0.15, 0.06], [0.4, 0.12]], 'body', {}, 1),
@@ -96,6 +98,7 @@ export const WINTER = group('winter', [
     ],
   }],
   ['snowman', 'Snowman', 'Сніговик на колесах: морквяний ніс, циліндр і сніжки напоготові.', 'blob', ['#f4f8ff', '#ff8a1a'], {
+    gun: () => ({ at: [[0.98, -0.87]], aim: 25 }),
     o: o({ shape: 'snowman', mat: 'white' }), ballast: 0.15, noLights: true,
     skin: () => [
       circ(0, -0.2, 0.75, 'white'), circ(0.05, -1.05, 0.48, 'white'),
@@ -107,6 +110,7 @@ export const WINTER = group('winter', [
     ],
   }],
   ['snowball-cannon', 'Snowball Cannon', 'Гусенична сніжкова гармата: б\'є точно в шолом.', 'tracked', ['#5a8ad8', '#ffffff'], {
+    gun: () => ({ at: [[1.66, -1.11]], aim: 28 }),
     s: 0.9, parts: ['cannon'], hideParts: true,
     skin: (f) => [
       ...trackedBody(f),
@@ -142,6 +146,7 @@ export const WINTER = group('winter', [
     ],
   }],
   ['firework-truck', 'Firework Truck', 'Вантажівка з батареєю феєрверків. Стріляє петардами.', 'truck', ['#3a3ad8', '#ffd23f'], {
+    gun: (f) => ({ at: [0, 1, 2, 3, 4].map((i) => [f.deck.x0 + 0.675 + i * 0.4, f.deck.y - 1.55 + i * 0.07]), aim: 62 }),
     parts: ['launcher'], hideParts: true,
     skin: (f) => {
       const d = f.deck;
@@ -226,6 +231,7 @@ export const WINTER = group('winter', [
     ],
   }],
   ['dual-snowballer', 'Dual Snowballer', 'Здвоєна сніжкова установка на гусеницях.', 'tracked', ['#7ab0e0', '#ffffff'], {
+    gun: () => ({ at: [[1.58, -0.91], [1.43, -1.22]], aim: 23 }),
     parts: ['twincannon'], hideParts: true,
     skin: (f) => [
       ...trackedBody(f),
@@ -334,6 +340,7 @@ export const WINTER = group('winter', [
     ],
   }],
   ['snowball-tank', 'Snowball Tank', 'Білий броньовик для снігових баталій.', 'tracked', ['#e0e8f0', '#3a8ad8'], {
+    gun: () => ({ at: [[1.38, -0.89]], aim: 21 }),
     parts: [['cannon', 0.8]], hideParts: true,
     skin: (f) => [
       ...trackedBody(f),

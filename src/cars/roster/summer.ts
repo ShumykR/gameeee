@@ -44,6 +44,7 @@ export const SUMMER = group('summer', [
     ],
   }],
   ['burger-bike', 'Burger Bike', 'Трицикл-бургерна. Жбурляє бургерами.', 'trike', ['#e0b060', '#7a3a1a'], {
+    gun: () => ({ at: [[-0.65, -0.72]], aim: 35 }),
     parts: ['hump'], hideParts: true,
     skin: (f) => [
       ...bike(f, { style: 'scooter', mat: 'red' }),

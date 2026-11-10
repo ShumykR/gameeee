@@ -51,8 +51,38 @@ describe('abilities', () => {
     expect(def.cargo?.kind).toBe('ball');
     const g = new Game({ cars: [def, CARS[1]], maps: [MAP_BY_ID.meadow], randomMaps: false, target: 9, roundTime: 60, seed: 3 });
     expect(g.items.filter((i) => i.owner === 0 && i.kind === 'ball').length).toBe(def.cargo!.n);
+    // Cargo rides hidden in the bed and only shows once it has left it.
+    for (let i = 0; i < 90; i++) g.step();
+    const own = g.items.filter((i) => i.owner === 0 && i.kind === 'ball');
+    expect(own.some((i) => i.stowed)).toBe(true);
+    const it = own.find((i) => i.stowed)!;
+    it.body.setPosition(it.body.getPosition().clone().add({ x: 0, y: -3 } as never));
+    g.step();
+    expect(it.stowed).toBeUndefined();
     expect(CAR_BY_ID['wrecking-crane'].flail).toBeDefined();
     expect(g.cars[1].flail).toBeNull();
+  });
+  it('the hearse carries its coffin inside the body, not on the roof', () => {
+    const def = CAR_BY_ID.hearse;
+    expect(def.cargo?.kind).toBe('coffin');
+    const roof = Math.min(...def.body.flatMap((p) => p.pts.map((q) => q[1])).filter((y) => y > def.head.y));
+    expect(def.cargo!.at[2]).toBeGreaterThan(roof + 0.4);
+  });
+  it('sleds and the bumper car hide their wheels', () => {
+    for (const id of ['sleigh', 'santa-sleigh', 'kicksled', 'snowmobile', 'bumper-car']) expect(CAR_BY_ID[id].wheels.every((w) => w.hidden)).toBe(true);
+    expect(CAR_BY_ID['go-kart'].wheels.some((w) => w.hidden)).toBe(false);
+  });
+  it('cars with a drawn gun fire it, from its muzzle', () => {
+    const guns = ['tank', 'mini-tank', 'tankette', 'snowball-tank', 'dual-snowballer', 'dual-soccer-cannon', 'army-bike', 'serpent-tank', 'cannon-carriage', 'gun-truck', 'monster-cannon', 'laser-tank', 'firework-truck', 'rocket-launcher'];
+    for (const id of guns) {
+      const a = CAR_BY_ID[id].ability;
+      expect(a?.kind, id).toBe('shoot');
+      expect(a?.muzzle?.length, id).toBeGreaterThan(0);
+    }
+    // fireworks go up out of the bed battery, not straight out of the nose
+    const fw = CAR_BY_ID['firework-truck'].ability!;
+    expect(fw.aim!).toBeGreaterThan(0.9);
+    expect(Math.max(...fw.muzzle!.map((m) => m[0]))).toBeLessThan(CAR_BY_ID['firework-truck'].head.x);
   });
   it('a car without an ability ignores the button', () => {
     const g = ready({ kind: 'jump' });

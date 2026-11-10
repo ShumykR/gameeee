@@ -36,6 +36,7 @@ export const RIFT = group('rift', [
     ],
   }],
   ['harpoon', 'Harpoon', 'Платформа з гарпунною гарматою: б\'є і притягує суперника.', 'pickup', ['#5a6a7a', '#ffd23f'], {
+    gun: (f) => ({ at: [[1.12, f.deck.y - 1.02]], aim: 20 }),
     parts: [['cannon', 1.2]], hideParts: true,
     skin: (f) => [
       ...pickup(f),
@@ -91,6 +92,7 @@ export const RIFT = group('rift', [
     ],
   }],
   ['urn-launcher', 'Urn Launcher', 'Мобільна катапульта: метає урни, що розбиваються з вибухом.', 'tracked', ['#7a5a3a', '#e0c080'], {
+    gun: (f) => ({ at: [[f.deck.x1 + 0.27, f.deck.y - 1.32]], aim: 45 }),
     skin: (f) => [
       ...base(f, 'body', 0.3),
       poly([[f.deck.x0 + 0.1, f.deck.y], [f.deck.x0 + 0.5, f.deck.y - 0.7], [f.deck.x0 + 0.9, f.deck.y]], 'wood'),
@@ -173,6 +175,7 @@ export const RIFT = group('rift', [
     ],
   }],
   ['atomic-ray', 'Atomic Ray', 'Гусеничний випромінювач атомних променів.', 'tracked', ['#3a3a4a', '#7aff3a'], {
+    gun: () => ({ at: [[1.42, -1.38]], aim: 37 }),
     parts: ['dish'], hideParts: true,
     skin: (f) => [
       ...base(f),

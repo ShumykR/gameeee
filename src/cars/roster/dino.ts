@@ -168,6 +168,7 @@ export const DINO = group('dino', [
     ],
   }],
   ['mechasaurus', 'Mechasaurus', 'Кібердинозавр із ракетними пускачами на спині.', 'creature', ['#a0a8b8', '#e02a2a'], {
+    gun: () => ({ at: [[-0.32, -0.98], [-0.1, -0.98], [0.12, -0.98]], aim: 35 }),
     o: o({ neck: 'raptor', mat: 'metal' }), parts: ['teeth', 'tail', 'antenna'], noLights: true, hideParts: true,
     skin: (f) => {
       const h = dinoHead('raptor', 1, 'metal');

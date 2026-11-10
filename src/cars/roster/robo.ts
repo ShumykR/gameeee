@@ -66,6 +66,7 @@ export const ROBO = group('robo', [
     ],
   }],
   ['laser-tank', 'Laser Tank', 'Футуристичний танк із лазерною гарматою.', 'tracked', ['#2a2a3a', '#5ef0ff'], {
+    gun: () => ({ at: [[1.8, -0.93]], aim: 16 }),
     parts: [['cannon', 1.2]], hideParts: true,
     skin: (f) => [
       ...trackedBase(f),

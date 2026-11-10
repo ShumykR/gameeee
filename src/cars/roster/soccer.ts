@@ -58,6 +58,7 @@ export const SOCCER = group('soccer', [
     },
   }],
   ['soccer-cannon', 'Soccer Cannon', 'Пневматична гармата для футбольних м\'ячів.', 'tracked', ['#3aa04a', '#ffffff'], {
+    gun: () => ({ at: [[1.14, -1.22]], aim: 27 }),
     s: 0.9, parts: ['cannon'], hideParts: true,
     skin: (f) => [
       ...tankBody(f), ...pitch(-1.6, 1.6, -0.2),
@@ -66,6 +67,7 @@ export const SOCCER = group('soccer', [
     ],
   }],
   ['dual-soccer-cannon', 'Dual Soccer Cannon', 'Здвоєний футбольний міномет.', 'tracked', ['#2a6ae0', '#ffffff'], {
+    gun: () => ({ at: [[1.48, -0.86], [1.33, -1.2]], aim: 20 }),
     parts: ['twincannon'], hideParts: true,
     skin: (f) => [
       ...tankBody(f), ...pitch(-1.6, 1.6, -0.2),

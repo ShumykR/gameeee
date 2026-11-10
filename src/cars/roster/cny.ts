@@ -105,6 +105,7 @@ export const CNY = group('cny', [
     ],
   }],
   ['serpent-tank', 'Serpent Dragon Tank', 'Танк у вигляді змія з драконячою пащею.', 'tracked', ['#2a8a3a', '#ffd23f'], {
+    gun: () => ({ at: [[0.93, -1.01]], aim: 15 }),
     parts: ['fangs', 'cannon'], hideParts: true,
     skin: (f) => [
       ...tracks(f, 'rubber'),
@@ -116,6 +117,7 @@ export const CNY = group('cny', [
     ],
   }],
   ['cannon-carriage', 'Cannon Carriage', 'Середньовічна гармата на великих колесах.', 'cart', ['#7a4a2a', '#3a3a3a'], {
+    gun: (f) => ({ at: [[1.08, f.deck.y - 0.55]], aim: 23 }),
     o: o({ wheel: 1.8, mat: 'wood', rim: 'spokes' }), parts: [['cannon', 0.7]], noLights: true, hideParts: true,
     skin: (f) => [
       ...path([[f.tail.x - 0.6, f.deck.y + 0.55], [f.tail.x + 0.2, f.deck.y + 0.3]], 0.16, 'wood'),

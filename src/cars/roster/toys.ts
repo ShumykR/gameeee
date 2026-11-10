@@ -213,6 +213,7 @@ export const TOYS = group('toys', [
     ],
   }],
   ['soda-popper', 'Soda Popper', 'Пляшка газованки на колесах. Стріляє корком.', 'rocket', ['#3a8a3a', '#e02a2a'], {
+    gun: (f) => ({ at: [[f.nose.x + 0.05, 0]], aim: 4 }),
     o: o({ mat: 'glass' }),
     skin: (f) => [
       blob([[f.tail.x, -0.32], [0.4, -0.32], [0.9, -0.15], [f.nose.x - 0.25, -0.12], [f.nose.x - 0.25, 0.12], [0.9, 0.15], [0.4, 0.32], [f.tail.x, 0.32]], 'green', {}, 1),
@@ -313,6 +314,7 @@ export const TOYS = group('toys', [
     ],
   }],
   ['mini-tank', 'Mini Tank', 'Мініатюрний танк із короткою гарматою.', 'tracked', ['#3a8a3a', '#ffd23f'], {
+    gun: () => ({ at: [[1.3, -0.76]], aim: 12 }),
     s: 0.9, parts: [['cannon', 0.7]], hideParts: true,
     skin: (f) => [
       ...tracks(f),
@@ -393,6 +395,7 @@ export const TOYS = group('toys', [
     skin: (f) => [...wedge(f), poly([[-1.0, -0.14], [-0.5, -0.14], [-0.7, 0.0], [-0.2, 0.0], [-0.9, 0.24], [-0.7, 0.08], [-1.1, 0.08]], 'accent', { flat: true }), ...spikesAlong(-1.4, -0.6, -0.2, 3, 0.15, 'accent')],
   }],
   ['toaster-racer', 'Toaster Racer', 'Тостер на колесах. Стріляє гарячими тостами.', 'box', ['#c0c8d0', '#c08a4a'], {
+    gun: (f) => ({ at: [[f.roof.x0 + 0.42, f.roof.y - 0.38], [f.roof.x0 + 0.92, f.roof.y - 0.32]], aim: 72 }),
     s: 0.8, o: o({ mat: 'metal' }), parts: ['toast'], wheelie: 0.7, air: 1.4, hideParts: true,
     skin: (f) => [
       rr(f.roof.x0 + 0.25, f.roof.y - 0.35, f.roof.x0 + 0.6, f.roof.y + 0.1, 0.08, 'tan'), rr(f.roof.x0 + 0.75, f.roof.y - 0.28, f.roof.x0 + 1.1, f.roof.y + 0.1, 0.08, 'tan'),

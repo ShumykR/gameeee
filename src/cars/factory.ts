@@ -852,6 +852,14 @@ export interface CarSpec {
    * and these render-only polygons are drawn in its place, under the parts.
    */
   skin?: (f: Frame) => CarPoly[];
+  /**
+   * Runners / skirt instead of wheels: the wheels stay as physics but are not drawn,
+   * and they are raised so their bottoms sit at this car-local y (where the skin's
+   * runners or skirt touch the ground).
+   */
+  glide?: number;
+  /** The drawn barrel / launcher: muzzle point(s) and launch angle in degrees above forward. */
+  gun?: (f: Frame) => { at: Pt[]; aim: number };
   /** With a skin: also hide the bolted-on parts (the skin draws them itself). */
   hideParts?: boolean;
   /** No head/tail light pixels (creatures, blobs…). */
@@ -878,8 +886,17 @@ const darken = (h: string, k: number) => {
 
 const scalePt = (p: Pt, s: number): Pt => [+(p[0] * s).toFixed(3), +(p[1] * s).toFixed(3)];
 
+/** Car-local y where sled runners meet the ground. */
+export const SLED_GLIDE = 0.27;
+
 export function buildCar(spec: CarSpec): CarDef {
   const f = frame(spec.frame, spec.o ?? {});
+  // Sleds ride on their runners: the wheels are hidden just under them.
+  const glide = spec.glide ?? (spec.frame === 'sled' ? SLED_GLIDE : undefined);
+  if (glide !== undefined) {
+    const g = glide;
+    f.wheels = f.wheels.map((w) => ({ ...w, y: +(g - w.r).toFixed(3), hidden: true }));
+  }
   const skinned = !!spec.skin;
   const polys = skinned ? f.polys.map((p) => ({ ...p, hide: true })) : [...f.polys];
   const windows = skinned ? [] : [...f.windows];
@@ -897,6 +914,18 @@ export function buildCar(spec: CarSpec): CarDef {
     if (r.arch) arch = r.arch;
   }
   if (spec.arch) arch = spec.arch;
+  // Gliders sit low on hidden wheels: trim the hull so it clears the ground by the
+  // suspension travel (otherwise the runners would scrape and brake the car).
+  if (glide !== undefined) {
+    const maxY = glide - Math.max(PRESETS[arch].travel + 0.12, spec.frame === 'sled' ? 0.4 : 0);
+    for (let i = polys.length - 1; i >= 0; i--) {
+      const p = polys[i];
+      if (p.deco) continue;
+      const pts = clipBelow(p.pts, maxY);
+      if (pts.length < 3 || polyAreaOf(pts) < 0.01) polys.splice(i, 1);
+      else polys[i] = { ...p, pts };
+    }
+  }
   if (spec.art) {
     for (const p of spec.art(f)) {
       const q = { ...p, deco: p.deco ?? true };
@@ -947,6 +976,10 @@ export function buildCar(spec: CarSpec): CarDef {
       : [f.nose.x, f.nose.y0];
     def.flail = { at: scalePt(at, s), len: fl.len * s, r: fl.r * s, look: fl.look };
   }
+  if (spec.gun) {
+    const g = spec.gun(f);
+    def.gun = { at: g.at.map((q) => scalePt(q, s)), aim: +((g.aim * Math.PI) / 180).toFixed(3) };
+  }
   if (spec.float ?? f.float) def.float = spec.float ?? f.float;
   if (spec.bounce) def.restitution = spec.bounce;
   // Normalize chassis density so the car hits its target mass, then torque for target accel.
@@ -987,6 +1020,21 @@ export function buildCar(spec: CarSpec): CarDef {
   def.motor.torque = +((accel * mass) / inv).toFixed(2);
   if (def.motor.speed > 18 && mass >= 5) def.motor.speed = 17.5;
   return def;
+}
+
+/** Convex polygon clipped to the half-plane y <= maxY. */
+function clipBelow(pts: Pt[], maxY: number): Pt[] {
+  const out: Pt[] = [];
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i], b = pts[(i + 1) % pts.length];
+    const ina = a[1] <= maxY, inb = b[1] <= maxY;
+    if (ina) out.push(a);
+    if (ina !== inb) {
+      const t = (maxY - a[1]) / (b[1] - a[1]);
+      out.push([+(a[0] + (b[0] - a[0]) * t).toFixed(3), +maxY.toFixed(3)]);
+    }
+  }
+  return out.filter((p, i) => { const q = out[(i + 1) % out.length]; return Math.hypot(p[0] - q[0], p[1] - q[1]) > 0.005; });
 }
 
 function centroidX(pts: Pt[]): [number, number] {
