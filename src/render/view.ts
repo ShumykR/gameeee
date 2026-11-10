@@ -318,7 +318,7 @@ export class GameView {
         this.particles.burst(e.x, e.y - 0.3, 18, { speed: 7, colors: [0xffe040, 0xffffff], life: 0.4, size: 0.12, dir: -Math.PI / 2, spread: 1.2, g: 10 });
         break;
       case 'suddenDeath':
-        if (e.late) this.setCenter('ЛАВА!', 1.6, 'час вийшов — лава піднімається');
+        if (e.late) this.setCenter(e.kind === 'flood' ? 'ВОДА!' : 'ЛАВА!', 1.6, `час вийшов — ${e.kind === 'flood' ? 'вода' : 'лава'} піднімається`);
         else this.setCenter('РАПТОВА СМЕРТЬ', 2.2, SUDDEN_INFO[e.kind].sub);
         break;
       case 'ability': {
@@ -1100,7 +1100,7 @@ export class GameView {
       s.position.set(Math.round(W / 2 + (i - 1) * 16 * ps), top);
     });
     let tt: string;
-    if (g.suddenDeath) tt = g.arena.sudden ? SUDDEN_INFO[g.arena.riseBody && g.arena.sudden !== 'flood' ? 'lava' : g.arena.sudden].name.toUpperCase() + '!' : 'РАПТОВА СМЕРТЬ';
+    if (g.suddenDeath) tt = g.arena.sudden ? SUDDEN_INFO[g.arena.riseBody ? g.arena.riseKind : g.arena.sudden].name.toUpperCase() + '!' : 'РАПТОВА СМЕРТЬ';
     else {
       const t = Math.ceil(g.timeLeft);
       tt = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;

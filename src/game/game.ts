@@ -144,6 +144,13 @@ export class Game {
     this.startRound();
   }
 
+  /** Lava or water, at random, for a rising sudden death. */
+  private riseLiquid(): 'lava' | 'flood' {
+    // Water can't finish off a car that swims, so then it's always lava.
+    if (this.cars.some((c) => c.hasTrait('swim'))) return 'lava';
+    return this.rand() < 0.5 ? 'lava' : 'flood';
+  }
+
   rand(): number {
     this.rngState = (Math.imul(this.rngState, 1664525) + 1013904223) >>> 0;
     return this.rngState / 4294967296;
@@ -233,13 +240,16 @@ export class Game {
       this.roundClock += dt;
       if (!this.suddenDeath && this.roundClock >= this.cfg.roundTime) {
         this.suddenDeath = true;
-        const kind = suddenKindFor(this.map);
+        let kind = suddenKindFor(this.map);
+        // A rising flood is a coin toss each time: lava or sea water.
+        if (kind === 'lava' || kind === 'flood') kind = this.riseLiquid();
         this.arena.startSuddenDeath(kind);
         this.emit({ type: 'suddenDeath', kind });
       } else if (this.suddenDeath && !this.arena.riseBody && this.roundClock >= this.cfg.roundTime + SUDDEN_FALLBACK) {
-        // Nobody fell for the variant: lava makes sure the round ends.
-        this.arena.startRise('lava');
-        this.emit({ type: 'suddenDeath', kind: 'lava', late: true });
+        // Nobody fell for the variant: rising lava or water makes sure the round ends.
+        const kind = this.riseLiquid();
+        this.arena.startRise(kind);
+        this.emit({ type: 'suddenDeath', kind, late: true });
       }
     }
 

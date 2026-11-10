@@ -2,7 +2,7 @@ import type { MapDef, SuddenDeathKind, ThemeId } from './types';
 
 export const SUDDEN_INFO: Record<SuddenDeathKind, { name: string; sub: string }> = {
   lava: { name: 'Лава', sub: 'лава піднімається!' },
-  flood: { name: 'Приплив', sub: 'море затоплює острів!' },
+  flood: { name: 'Вода', sub: 'вода піднімається!' },
   meteors: { name: 'Метеорити', sub: 'метеоритний дощ!' },
   walls: { name: 'Стіни', sub: 'стіни сходяться!' },
   blizzard: { name: 'Хуртовина', sub: 'лід, вітер і сніжки!' },
