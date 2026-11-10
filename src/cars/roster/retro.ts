@@ -330,7 +330,6 @@ export const RETRO = group('retro', [
       rect(f.head.x - 0.45, f.roof.y - 0.1, f.head.x - 0.35, -0.4, 'dark'),
       rr(f.head.x - 0.55, f.roof.y - 0.2, f.roof.x1 + 0.05, f.roof.y - 0.05, 0.05, 'accent'),
       rect(f.nose.x - 0.2, -0.3, f.nose.x + 0.3, 0.0, 'dark'),
-      circ(f.nose.x + 0.42, 0.06, 0.38, 'grey'), circ(f.nose.x + 0.42, 0.06, 0.26, 'dark'), circ(f.nose.x + 0.42, 0.06, 0.08, 'gold'),
     ],
   }],
   ['pickup-truck', 'Pickup Truck', 'Бортовий пікап із ящиками в кузові — вони падають на кожній ямі.', 'pickup', ['#c83a3a', '#f0f0f0'], {

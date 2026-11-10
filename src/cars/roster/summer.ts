@@ -150,7 +150,7 @@ export const SUMMER = group('summer', [
       rr(f.roof.x0 - 0.45, f.roof.y, f.roof.x1 + 0.4, -0.45, 0.06, 'body'), rect(f.roof.x0 - 0.36, f.roof.y + 0.12, f.roof.x0 - 0.06, -0.6, 'glass'), rr(f.roof.x0 - 0.5, f.roof.y - 0.1, f.roof.x1 + 0.05, f.roof.y + 0.02, 0.04, 'dark'),
       ...stack(0.4, -0.45, 0.45, 0.09, 'black'),
       ...path([[0.9, -0.15], [f.nose.x + 0.2, -0.05]], 0.12, 'dark'),
-      blob([[f.nose.x + 0.25, -0.65], [f.nose.x + 0.5, -0.55], [f.nose.x + 0.55, 0.42], [f.nose.x + 0.25, 0.42], [f.nose.x + 0.35, -0.1]], 'body', {}, 1),
+      blob([[f.nose.x + 0.25, -1.2], [f.nose.x + 0.62, -1.05], [f.nose.x + 0.68, 0.42], [f.nose.x + 0.25, 0.42], [f.nose.x + 0.4, -0.35]], 'body', {}, 1),
       ...path([[f.nose.x + 0.3, 0.42], [f.nose.x + 0.6, 0.42]], 0.06, 'chrome'),
     ],
   }],
