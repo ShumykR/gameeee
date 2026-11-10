@@ -161,9 +161,9 @@ export const RETRO = group('retro', [
       return [
         ...truckCab(f),
         ...seg([d.x0 + 0.1, d.y - 0.15], [d.x0 - 0.35, d.y + 0.12], 0.1, 'grey') && [seg([d.x0 + 0.1, d.y - 0.15], [d.x0 - 0.35, d.y + 0.12], 0.1, 'grey')],
-        blob([[d.x0 + 0.05, d.y - 0.2], [d.x0 + 0.2, d.y - 0.62], [d.x0 + 1.4, d.y - 0.95], [d.x1 - 0.2, d.y - 0.75], [d.x1, d.y - 0.4], [d.x1 - 0.3, d.y - 0.02], [d.x0 + 0.5, d.y]], 'accent', {}, 2),
-        blob([[d.x0 + 0.05, d.y - 0.2], [d.x0 + 0.2, d.y - 0.62], [d.x0 + 0.45, d.y - 0.7], [d.x0 + 0.45, d.y - 0.1]], 'grey', {}, 1),
-        ...[0.5, 1.1, 1.7, 2.3].map((dx) => poly([[d.x0 + dx, d.y - 0.85], [d.x0 + dx + 0.18, d.y - 0.88], [d.x0 + dx + 0.38, d.y - 0.05], [d.x0 + dx + 0.2, d.y - 0.02]], 'body', { flat: true })),
+        blob([[d.x0 + 0.05, d.y - 0.2], [d.x0 + 0.22, d.y - 0.95], [d.x0 + 1.3, d.y - 1.42], [d.x1 - 0.12, d.y - 1.15], [d.x1 + 0.02, d.y - 0.55], [d.x1 - 0.3, d.y - 0.02], [d.x0 + 0.5, d.y]], 'accent', {}, 2),
+        blob([[d.x0 + 0.05, d.y - 0.2], [d.x0 + 0.22, d.y - 0.95], [d.x0 + 0.5, d.y - 1.08], [d.x0 + 0.5, d.y - 0.1]], 'grey', {}, 1),
+        ...[0.6, 1.2, 1.8].map((dx) => poly([[d.x0 + dx, d.y - 1.2], [d.x0 + dx + 0.22, d.y - 1.24], [d.x0 + dx + 0.5, d.y - 0.08], [d.x0 + dx + 0.28, d.y - 0.04]], 'body', { flat: true })),
         rect(d.x0 + 0.2, d.y - 0.1, d.x1, d.y + 0.02, 'dark'),
         poly([[d.x0 + 0.05, d.y - 0.6], [d.x0 + 0.25, d.y - 0.75], [d.x0 + 0.1, d.y - 0.35]], 'grey'),
       ];
@@ -330,7 +330,6 @@ export const RETRO = group('retro', [
       rect(f.head.x - 0.45, f.roof.y - 0.1, f.head.x - 0.35, -0.4, 'dark'),
       rr(f.head.x - 0.55, f.roof.y - 0.2, f.roof.x1 + 0.05, f.roof.y - 0.05, 0.05, 'accent'),
       rect(f.nose.x - 0.2, -0.3, f.nose.x + 0.3, 0.0, 'dark'),
-      circ(f.nose.x + 0.42, 0.06, 0.38, 'grey'), circ(f.nose.x + 0.42, 0.06, 0.26, 'dark'), circ(f.nose.x + 0.42, 0.06, 0.08, 'gold'),
     ],
   }],
   ['pickup-truck', 'Pickup Truck', 'Бортовий пікап із ящиками в кузові — вони падають на кожній ямі.', 'pickup', ['#c83a3a', '#f0f0f0'], {
@@ -403,7 +402,8 @@ export const RETRO = group('retro', [
       ...[-1.15, -0.85, -0.55, -0.25].map((x, i) => poly([[x - 0.06, -0.72], [x + 0.06, -0.72], [x, -0.42]], i % 2 ? 'pink' : 'white')),
       rect(-1.3, -0.24, 0.15, -0.17, 'white'),
       stripe(f.tail.x, f.nose.x, 0.1, 0.08, 'accent'), ...[-1.3, -0.9, -0.5, -0.1, 0.3].map((x) => ell(x, 0.02, 0.18, 0.08, 'white')),
-      poly([[0.4, f.roof.y - 0.05], [0.52, f.roof.y - 0.05], [0.46, f.roof.y - 0.4]], 'tan'), circ(0.46, f.roof.y - 0.48, 0.13, 'pink'), circ(0.46, f.roof.y - 0.62, 0.08, 'red'),
+      poly([[f.roof.x0 + 0.02, f.roof.y - 0.85], [f.roof.x0 + 0.58, f.roof.y - 0.85], [f.roof.x0 + 0.3, f.roof.y + 0.02]], 'tan'), ...[0.3, 0.55].map((h) => seg([f.roof.x0 + 0.3 - h * 0.3, f.roof.y - h], [f.roof.x0 + 0.3 + h * 0.3, f.roof.y - h], 0.04, 'brown')),
+      circ(f.roof.x0 + 0.3, f.roof.y - 1.05, 0.36, 'pink'), circ(f.roof.x0 + 0.3, f.roof.y - 1.45, 0.26, 'cream'), circ(f.roof.x0 + 0.34, f.roof.y - 1.74, 0.1, 'red'),
     ],
   }],
   ['motorbike', 'Motorbike', 'Класичний швидкісний мотоцикл.', 'bike', ['#2a6ae0', '#ffffff'], {
@@ -412,7 +412,12 @@ export const RETRO = group('retro', [
   }],
   ['fire-truck', 'Fire Truck', 'Пожежна машина з драбиною. Брандспойт збиває суперника струменем води.', 'truck', ['#e02a2a', '#f0f0f0'], {
     gun: (f) => ({ at: [[f.deck.x1 + 0.85, -0.86]], aim: 4 }),
-    parts: ['ladder', 'siren'], hideParts: true,
+    parts: ['siren'], hideParts: true,
+    // The ladder is raised and sways on its turntable: it reaches well past the cab.
+    links: (f) => {
+      const a: [number, number] = [f.deck.x0 + 0.3, -0.75], b: [number, number] = [f.deck.x1 + 1.6, -1.95];
+      return [{ at: a, swing: [-9, 12], spring: 90, density: 0.12, hit: [seg(a, b, 0.16)], art: [...ladder(a, b, 0.2, 'chrome'), circ(a[0], a[1], 0.14, 'dark')] }];
+    },
     skin: (f) => {
       const d = f.deck;
       return [
@@ -421,7 +426,6 @@ export const RETRO = group('retro', [
         ...[0.15, 0.95, 1.75].map((dx) => rect(d.x0 + dx, -0.55, d.x0 + dx + 0.65, -0.1, 'grey', { ring: true })),
         ...[0.15, 0.95, 1.75].flatMap((dx) => [0.2, 0.4].map((dy) => rect(d.x0 + dx + 0.05, -0.55 + dy, d.x0 + dx + 0.6, -0.53 + dy, 'chrome', { flat: true }))),
         stripe(f.tail.x, f.nose.x, 0.02, 0.08, 'white'),
-        ...ladder([d.x0 - 0.15, -0.75], [d.x1 + 0.8, -0.85], 0.16, 'chrome'),
         rect(d.x1 - 0.2, -0.88, d.x1 - 0.05, -0.65, 'dark'),
         ...lightbar(f.roof.x0 + 0.05, f.roof.x1 - 0.1, f.roof.y, 'red', 'red'),
         circ(-0.65, 0.05, 0.14, 'gold'), circ(-0.65, 0.05, 0.06, 'dark'),

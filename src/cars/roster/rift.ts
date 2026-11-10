@@ -266,14 +266,14 @@ export const RIFT = group('rift', [
     },
   }],
   ['hercules-beetle', 'Hercules Beetle', 'Всюдихід-жук із рогом. Таранить з розгону.', 'blob', ['#3a2a1a', '#c0a040'], {
-    o: o({ shape: 'flat' }), parts: ['drill'], noLights: true, hideParts: true,
+    o: o({ shape: 'flat' }), parts: [['drill', 1.5]], noLights: true, hideParts: true,
     skin: (f) => [
       ...[-0.7, -0.2, 0.3].map((x) => path([[x, 0.0], [x - 0.15, 0.2], [x - 0.25, 0.42]], 0.07, 'black')).flat(),
       ell(-0.1, -0.2, 1.1, 0.42, 'accent', {}, 28),
       seg([-0.1, -0.6], [-0.1, 0.15], 0.05, 'black'),
       blob([[0.7, -0.45], [1.15, -0.5], [f.nose.x + 0.05, -0.2], [1.1, 0.05], [0.75, 0.0]], 'body', {}, 1),
-      ...path([[0.95, -0.45], [1.25, -0.85], [1.5, -1.05], [1.6, -0.95]], 0.12, 'black'),
-      ...path([[f.nose.x - 0.05, -0.2], [f.nose.x + 0.45, -0.3], [f.nose.x + 0.85, -0.2]], 0.1, 'black'),
+      ...path([[0.95, -0.45], [1.4, -1.1], [2.0, -1.35], [2.3, -1.1]], 0.16, 'black'),
+      ...path([[f.nose.x - 0.05, -0.15], [f.nose.x + 0.7, -0.35], [f.nose.x + 1.25, -0.2]], 0.2, 'black'), ...path([[f.nose.x + 0.9, -0.33], [f.nose.x + 1.05, -0.6]], 0.1, 'black'),
       circ(1.05, -0.3, 0.05, 'red'),
       ell(-0.5, -0.4, 0.25, 0.08, 'gold'),
     ],

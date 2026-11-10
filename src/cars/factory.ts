@@ -726,7 +726,7 @@ function part(f: Frame, id: PartId, k = 1): { polys: CarPoly[]; windows?: Pt[][]
       return { polys };
     }
     case 'drum':
-      return { polys: [P([[d.x0 + 0.05, d.y - 0.15], [d.x0 + 0.3, d.y - 0.75], [d.x1 - 0.05, d.y - 0.85], [d.x1 + 0.05, d.y - 0.45], [d.x1 - 0.2, d.y - 0.05]], 'accent', { density: 0.6 })] };
+      return { polys: [P([[d.x0 + 0.05, d.y - 0.15], [d.x0 + 0.25, d.y - 0.95], [d.x0 + 1.3, d.y - 1.4], [d.x1 - 0.1, d.y - 1.15], [d.x1 + 0.02, d.y - 0.55], [d.x1 - 0.2, d.y - 0.05]], 'accent', { density: 0.35 })] };
     case 'tank':
       return { polys: [O(dm, d.y - 0.38, dl / 2, 0.38, 'metal', { density: 0.6 })] };
     case 'cargo':
@@ -772,7 +772,15 @@ function part(f: Frame, id: PartId, k = 1): { polys: CarPoly[]; windows?: Pt[][]
     case 'dish':
       return { polys: [R(dm - 0.05, d.y - 0.5, dm + 0.05, d.y, 'metal'), P([[dm - 0.45, d.y - 0.85], [dm + 0.15, d.y - 0.45], [dm + 0.05, d.y - 0.42], [dm - 0.5, d.y - 0.7]], 'white')] };
     case 'cone':
-      return { polys: [T([r.x0 + 0.15, r.y - 0.35], [r.x0 + 0.45, r.y - 0.35], [r.x0 + 0.3, r.y], 'scoop'), O(r.x0 + 0.3, r.y - 0.45, 0.2, 0.16, 'white')] };
+      // A giant cone on a springy stalk: it wobbles with every bump.
+      return {
+        polys: [],
+        links: [{
+          at: [r.x0 + 0.3, r.y], swing: [-30, 30], spring: 14, density: 0.1,
+          hit: [T([r.x0 + 0.02, r.y - 0.85], [r.x0 + 0.58, r.y - 0.85], [r.x0 + 0.3, r.y], 'scoop'), O(r.x0 + 0.3, r.y - 1.05, 0.36, 0.32, 'white'), O(r.x0 + 0.3, r.y - 1.45, 0.26, 0.24, 'white')],
+          art: [], take: (x, y) => x > r.x0 - 0.15 && x < r.x0 + 0.75 && y < r.y - 0.05,
+        }],
+      };
     case 'siren':
       return { polys: [R(r.x0 + (r.x1 - r.x0) * 0.25, r.y - 0.12, r.x0 + (r.x1 - r.x0) * 0.5, r.y, 'rocket'), R(r.x0 + (r.x1 - r.x0) * 0.5, r.y - 0.12, r.x0 + (r.x1 - r.x0) * 0.75, r.y, 'glass')] };
     case 'sign':
@@ -801,7 +809,7 @@ function part(f: Frame, id: PartId, k = 1): { polys: CarPoly[]; windows?: Pt[][]
     case 'scoop':
       return { polys: [R(n.x - 0.2, n.y0 + 0.05, n.x + 0.3, n.y0 + 0.15, 'dark'), P([[n.x + 0.25, n.y0 - 0.25], [n.x + 0.38, n.y0 - 0.25], [n.x + 0.85 * k, n.y1 - 0.05], [n.x + 0.35, n.y1 - 0.02]], 'scoop', { density: 1.2 })], arch: 'scoop' };
     case 'blade':
-      return { polys: [R(n.x - 0.1, ny - 0.06, n.x + 0.3, ny + 0.06, 'dark'), P([[n.x + 0.3, n.y0 - 0.55], [n.x + 0.48, n.y0 - 0.45], [n.x + 0.5, n.y1 - 0.06], [n.x + 0.3, n.y1 - 0.06]], 'scoop', { density: 0.6 })], arch: 'ram' };
+      return { polys: [R(n.x - 0.1, ny - 0.06, n.x + 0.3, ny + 0.06, 'dark'), P([[n.x + 0.3, n.y0 - 1.0], [n.x + 0.58, n.y0 - 0.88], [n.x + 0.62, n.y1 - 0.06], [n.x + 0.3, n.y1 - 0.06]], 'scoop', { density: 0.35 })], arch: 'ram' };
     case 'plow':
       return { polys: [P([[n.x - 0.05, n.y0], [n.x + 0.15, n.y0 - 0.05], [n.x + 0.7, n.y1 - 0.08], [n.x - 0.05, n.y1 - 0.06]], 'scoop', { density: 0.5 })], arch: 'scoop' };
     case 'forks':
@@ -839,11 +847,23 @@ function part(f: Frame, id: PartId, k = 1): { polys: CarPoly[]; windows?: Pt[][]
     case 'drill':
       return { polys: [P([[n.x - 0.05, n.y0], [n.x + 0.15, n.y0], [n.x + 0.85 * k, ny], [n.x + 0.15, n.y1], [n.x - 0.05, n.y1]], 'metal', { density: 1.2 })], arch: 'spike' };
     case 'claw':
-      return { polys: [P([[n.x - 0.05, n.y0], [n.x + 0.6, n.y0 - 0.35], [n.x + 0.75, n.y0 - 0.2], [n.x + 0.1, ny]], 'body', { density: 0.4 }), P([[n.x - 0.05, ny], [n.x + 0.1, ny], [n.x + 0.75, n.y1 - 0.05], [n.x + 0.6, n.y1 + 0.0]], 'accent', { density: 0.4 })], arch: 'ram' };
+      // One oversized pincer: a fat upper claw and a hooked lower one.
+      return { polys: [P([[n.x - 0.05, n.y0], [n.x + 0.5, n.y0 - 0.75], [n.x + 1.25, n.y0 - 0.7], [n.x + 1.45, n.y0 - 0.3], [n.x + 0.2, ny]], 'body', { density: 0.15 }), P([[n.x - 0.05, ny - 0.02], [n.x + 1.3, ny - 0.02], [n.x + 0.9, ny + 0.2], [n.x - 0.05, ny + 0.12]], 'accent', { density: 0.2 })], arch: 'ram' };
     case 'bucketarm':
       return { polys: [P([[n.x - 0.6, n.y0 - 0.1], [n.x - 0.4, n.y0 - 0.2], [n.x + 0.7, n.y0 - 1.1], [n.x + 0.55, n.y0 - 1.25]], 'scoop', { density: 0.5 }), P([[n.x + 0.55, n.y0 - 1.15], [n.x + 0.75, n.y0 - 1.2], [n.x + 1.0, n.y1 - 0.2], [n.x + 0.75, n.y1 - 0.15]], 'scoop', { density: 0.4 }), P([[n.x + 0.75, n.y1 - 0.4], [n.x + 1.0, n.y1 - 0.2], [n.x + 0.7, n.y1 - 0.08], [n.x + 0.5, n.y1 - 0.2]], 'dark', { density: 0.4 })], arch: 'scoop' };
-    case 'roller':
-      return { polys: [R(n.x - 0.2, n.y0, n.x + 0.25, n.y0 + 0.12, 'dark'), O(n.x + 0.42, n.y1 - 0.2, 0.36, 0.36, 'metal', { density: 0.6 })], arch: 'ram' };
+    case 'roller': {
+      // A drum as tall as the machine, rolling on its own axle just above the road.
+      const rr = 0.66, cx = n.x + 0.18 + rr, cy = Math.max(...f.wheels.map((w) => w.y + w.r)) - rr - 0.03;
+      const art: CarPoly[] = [O(cx, cy, rr, rr, 'metal', { deco: true }, 16), O(cx, cy, rr * 0.72, rr * 0.72, 'dark', { deco: true }, 14)];
+      for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2; art.push(O(cx + Math.cos(a) * rr * 0.86, cy + Math.sin(a) * rr * 0.86, 0.05, 0.05, 'black', { deco: true }, 6)); }
+      for (let i = 0; i < 3; i++) { const a = (i / 3) * Math.PI * 2; art.push(P([[cx, cy], [cx + Math.cos(a - 0.12) * rr * 0.7, cy + Math.sin(a - 0.12) * rr * 0.7], [cx + Math.cos(a + 0.12) * rr * 0.7, cy + Math.sin(a + 0.12) * rr * 0.7]], 'gold', { deco: true })); }
+      art.push(O(cx, cy, 0.12, 0.12, 'gold', { deco: true }));
+      return {
+        polys: [P([[n.x - 0.2, n.y0 + 0.3], [n.x - 0.2, n.y0 + 0.45], [cx, cy + 0.07], [cx, cy - 0.07]], 'dark')],
+        arch: 'ram',
+        links: [{ at: [cx, cy], density: 0.25, hit: [O(cx, cy, rr, rr, 'metal')], art }],
+      };
+    }
     case 'wing':
       return { polys: [R(t.x - 0.05, t.y0 - 0.45, t.x + 0.55, t.y0 - 0.33, 'dark', { density: 0.2 }), R(t.x + 0.2, t.y0 - 0.33, t.x + 0.3, t.y0, 'dark', { density: 0.2 })] };
     case 'fin':
@@ -1106,8 +1126,10 @@ export function buildCar(spec: CarSpec): CarDef {
     const r = part(f, id, k ?? 1);
     // A part that would swallow the driver's head becomes render-only.
     for (const p of r.polys) if (!p.deco && (inPoly(p.pts, f.head.x, f.head.y) || inPoly(p.pts, f.head.x, f.head.y - f.head.r * 0.7))) p.deco = true;
-    polys.push(...(skinned && spec.hideParts ? r.polys.map((p) => ({ ...p, hide: true })) : r.polys));
-    if (r.windows && !(skinned && spec.hideParts)) windows.push(...r.windows);
+    // Horns are always the real thing: what you see is what gores.
+    const hideIt = skinned && spec.hideParts && id !== 'horns';
+    polys.push(...(hideIt ? r.polys.map((p) => ({ ...p, hide: true })) : r.polys));
+    if (r.windows && !hideIt) windows.push(...r.windows);
     if (r.boost) boost = true;
     if (r.arch) arch = r.arch;
     if (r.links) autoLinks.push(...r.links);
