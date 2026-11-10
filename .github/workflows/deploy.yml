@@ -2,16 +2,14 @@ name: Test & deploy to GitHub Pages
 
 on:
   push:
-    branches: [main, master, 'ccr-*']
+    branches: [main, 'ccr-*']
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -26,20 +24,30 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
-      - uses: actions/configure-pages@v5
-        with:
-          enablement: true
-        continue-on-error: true
-      - uses: actions/upload-pages-artifact@v3
+      # Only main publishes to Pages (other branches are not allowed by the
+      # github-pages environment's protection rules).
+      - if: github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v3
         with:
           path: dist
 
   deploy:
+    if: github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: true
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+        continue-on-error: true
       - id: deployment
         uses: actions/deploy-pages@v4

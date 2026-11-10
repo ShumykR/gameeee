@@ -49,7 +49,9 @@ export const WINTER = group('winter', [
     skin: (f) => {
       const a = f.wheels[0];
       return [
-        rr(f.tail.x - 0.05, a.y - a.r - 0.06, -0.1, a.y + a.r + 0.06, a.r + 0.06, 'rubber'),
+        // Rear drive track down to the snow (the wheels are hidden under it).
+        rr(f.tail.x - 0.05, a.y + a.r - 0.5, -0.1, a.y + a.r, 0.2, 'rubber'),
+        ...[f.tail.x + 0.2, -0.65, -0.3].map((x) => circ(x, a.y + a.r - 0.25, 0.1, 'dark')),
         ...path([[0.3, 0.08], [f.nose.x - 0.1, 0.24], [f.nose.x + 0.15, 0.18], [f.nose.x + 0.25, 0.02]], 0.08, 'chrome'),
         seg([0.6, 0.0], [0.65, 0.22], 0.07, 'dark'),
         blob([[f.tail.x, 0.1], [f.tail.x, -0.18], [-0.6, -0.22], [0.2, -0.28], [f.nose.x - 0.1, -0.12], [f.nose.x + 0.15, 0.06], [0.4, 0.12]], 'body', {}, 1),

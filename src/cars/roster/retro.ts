@@ -324,14 +324,17 @@ export const RETRO = group('retro', [
       ];
     },
   }],
-  ['bumper-car', 'Bumper Car', 'Атракціонна машинка на штанзі. Гумовий бампер — і бамс!', 'blob', ['#ff3a5a', '#ffd23f'], {
-    s: 0.85, o: o({ shape: 'flat' }), parts: ['antenna'], bounce: 0.4, noLights: true, hideParts: true,
+  ['bumper-car', 'Bumper Car', 'Атракціонна машинка на штанзі. Гумовий бампер — і бамс!', 'kart', ['#ff3a5a', '#ffd23f'], {
+    // No visible wheels: it rolls on hidden casters under the rubber skirt.
+    s: 0.85, arch: 'tiny', glide: 0.27, parts: ['antenna'], bounce: 0.4, noLights: true, hideParts: true,
     skin: (f) => [
-      rr(f.tail.x - 0.1, -0.2, f.nose.x + 0.1, 0.12, 0.15, 'rubber'),
-      blob([[f.tail.x + 0.1, -0.15], [f.tail.x, -0.5], [-0.4, -0.55], [0.3, -0.3], [f.nose.x - 0.1, -0.35], [f.nose.x, -0.15]], 'body', {}, 2),
-      starShape(0.6, -0.22, 0.12, 'gold'),
-      ...path([[f.tail.x + 0.3, -0.45], [f.tail.x + 0.35, -1.5]], 0.07, 'chrome'), circ(f.tail.x + 0.35, -1.55, 0.08, 'yellow'),
-      ...seat(-0.15, -0.35, 0.3, 'accent'),
+      rr(f.tail.x - 0.12, -0.02, f.nose.x + 0.1, 0.27, 0.13, 'rubber'),
+      rr(f.tail.x - 0.05, 0.12, f.nose.x + 0.03, 0.17, 0.02, 'dark', { flat: true }),
+      blob([[f.tail.x + 0.02, 0.0], [f.tail.x - 0.02, -0.4], [f.tail.x + 0.2, -0.5], [-0.35, -0.3], [0.35, -0.22], [f.nose.x - 0.15, -0.3], [f.nose.x, -0.15], [f.nose.x - 0.05, 0.0]], 'body', {}, 2),
+      starShape(0.6, -0.1, 0.11, 'gold'),
+      ...path([[f.tail.x + 0.2, -0.45], [f.tail.x + 0.25, -1.45]], 0.07, 'chrome'), circ(f.tail.x + 0.25, -1.5, 0.08, 'yellow'),
+      ...seat(-0.32, -0.22, 0.32, 'accent'),
+      seg([0.45, -0.24], [0.3, -0.45], 0.05, 'black'), seg([0.2, -0.5], [0.4, -0.4], 0.06, 'black'),
     ],
   }],
   ['forklift-truck', 'Forklift Truck', 'Складський навантажувач: вила підхоплюють суперника.', 'box', ['#ffc020', '#2a2a2a'], {

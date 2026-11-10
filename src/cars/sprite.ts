@@ -179,6 +179,7 @@ export function generateCarGrid(def: CarDef, ppm = CAR_PPM): PixelGrid {
 
   // Wheel arches: darken body pixels just around each wheel so wheels sit in wells.
   for (const wd of def.wheels) {
+    if (wd.hidden) continue;
     const cx = wd.x * ppm + ox, cy = wd.y * ppm + oy, r = wd.r * ppm;
     for (let y = Math.floor(cy - r - 3); y <= cy + 1; y++) {
       for (let x = Math.floor(cx - r - 3); x <= cx + r + 3; x++) {

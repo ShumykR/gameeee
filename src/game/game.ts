@@ -68,6 +68,8 @@ export interface Item {
   /** Bombs: seconds until they blow. */
   fuse?: number;
   dead?: boolean;
+  /** Cargo still inside its car's bed: not drawn until it spills out. */
+  stowed?: Car;
 }
 
 /** A lightning strike on its way down. */
@@ -961,8 +963,22 @@ export class Game {
     if (!cg) return;
     for (const [lx, ly] of cargoSlots(cg)) {
       const at = car.chassis.getWorldPoint(new Vec2(lx * car.facing, ly));
-      this.spawnItem(cg.kind, car.player, at, new Vec2(0, 0), Infinity);
+      this.spawnItem(cg.kind, car.player, at, new Vec2(0, 0), Infinity).stowed = car;
     }
+  }
+
+  /** Cargo that has left its bed (spilled, tossed, car flipped) becomes visible for good. */
+  private checkStowed(it: Item) {
+    const car = it.stowed;
+    if (!car) return;
+    const cg = car.def.cargo;
+    if (!cg || !car.alive) { it.stowed = undefined; return; }
+    const l = car.chassis.getLocalPoint(it.body.getPosition());
+    const lx = l.x * car.facing;
+    const info = ITEMS[it.kind];
+    const [x0, x1, top] = cg.at;
+    const up = Math.max(0.6, info.h * 2.2);
+    if (lx < x0 - 0.15 || lx > x1 + 0.15 || l.y < top - up || l.y > top + 0.3) it.stowed = undefined;
   }
 
   spawnItem(kind: ItemKind, owner: number, at: Vec2, vel: Vec2, ttl: number, fx?: ItemFx): Item {
@@ -1002,6 +1018,7 @@ export class Game {
   private stepItems(dt: number) {
     for (let i = this.items.length - 1; i >= 0; i--) {
       const it = this.items[i];
+      this.checkStowed(it);
       if (it.fuse !== undefined && !it.dead) {
         it.fuse -= dt;
         if (it.fuse <= 0) this.explode(it);

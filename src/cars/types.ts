@@ -36,6 +36,8 @@ export interface WheelDef {
   density?: number;
   /** Rim style for the sprite generator. */
   rim?: 'spokes' | 'disc' | 'star' | 'monster';
+  /** Physics-only wheel (sled runners, bumper-car skirt): not drawn. */
+  hidden?: boolean;
 }
 
 export interface CarPalette {

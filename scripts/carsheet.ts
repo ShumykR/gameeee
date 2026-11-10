@@ -56,10 +56,12 @@ cars.forEach((def, i) => {
   const head = generateHeadGrid(def.head.r);
   blit(head, dpal, Math.round(ox + def.head.x * CAR_PPM - head.ox), Math.round(oy + def.head.y * CAR_PPM - head.oy));
   for (const w of def.wheels) {
+    if (w.hidden) continue;
     const g = generateWheelGrid(w);
     blit(g, wheelPalette(def.palette), Math.round(ox + w.x * CAR_PPM - g.ox), Math.round(oy + w.y * CAR_PPM - g.oy));
   }
-  if (def.cargo) {
+  // Cargo rides hidden in the bed in-game; CARGO=1 shows where it sits.
+  if (def.cargo && process.env.CARGO) {
     const info = ITEMS[def.cargo.kind];
     const ig = itemGrid(def.cargo.kind, info.w, info.h, CAR_PPM);
     for (const [x, y] of cargoSlots(def.cargo)) blit(ig, DECOR_PAL, Math.round(ox + x * CAR_PPM - ig.ox), Math.round(oy + y * CAR_PPM - ig.oy));

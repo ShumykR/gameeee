@@ -1,5 +1,5 @@
-import { blob, circ, ell, eyeball, fangs, path, poly, rect, rr, seat, seg, spikesAlong, stripe, windows } from '../draw';
-import { beast, bike, boxy, carriage, fenders, hover, loco, pickup } from '../skins';
+import { blob, bumper, circ, ell, eyeball, fangs, headlight, path, poly, rect, rr, seat, seg, spikesAlong, stripe, taillight, windows } from '../draw';
+import { beast, bike, carriage, fenders, hover, loco, pickup } from '../skins';
 import type { CarPoly } from '../types';
 import { group, o } from './util';
 
@@ -18,16 +18,23 @@ function jackOLantern(cx: number, cy: number, rx: number, ry: number, face = tru
 }
 
 export const HALLOWEEN = group('halloween', [
-  ['hearse', 'Hearse', 'Чорний катафалк із труною в кузові та фіранками на вікнах.', 'van', ['#1a1a1a', '#b090e0'], {
-    o: o({ len: 1.15, tall: 0.8 }), cargo: ['coffin', 1],
-    skin: (f) => [
-      ...boxy(f, { slope: 0.55, slopeH: 0.35, round: 0.15, bumper: 'chrome' }),
-      ...windows(f.tail.x + 0.2, f.tail.x + 1.1, f.roof.y + 0.12, f.roof.y + 0.45, 2, 0.12),
-      ...[f.tail.x + 0.2, f.tail.x + 0.67].flatMap((x) => [rect(x, f.roof.y + 0.12, x + 0.12, f.roof.y + 0.45, 'accent', { flat: true }), rect(x + 0.31, f.roof.y + 0.12, x + 0.43, f.roof.y + 0.45, 'accent', { flat: true })]),
-      ...path([[f.tail.x + 1.3, f.roof.y + 0.15], [f.tail.x + 1.55, f.roof.y + 0.35], [f.tail.x + 1.3, f.roof.y + 0.55]], 0.05, 'chrome'),
-      stripe(f.tail.x, f.nose.x, 0.02, 0.05, 'chrome'),
-      rr(f.tail.x + 0.1, f.roof.y - 0.06, f.nose.x - 0.6, f.roof.y + 0.02, 0.03, 'chrome'),
-    ],
+  ['hearse', 'Hearse', 'Чорний катафалк із труною в кузові та фіранками на вікнах.', 'pickup', ['#1a1a1a', '#b090e0'], {
+    // Physically an open bed (the coffin lies in it); the skin closes it into a hearse body.
+    o: o({ len: 1.15 }), cargo: ['coffin', 1],
+    skin: (f) => {
+      const x0 = f.tail.x, x1 = f.nose.x, top = f.roof.y, bot = f.nose.y1;
+      return [
+        blob([[x0, bot], [x0, top + 0.15], [x0 + 0.15, top], [f.roof.x1 + 0.05, top], [0.95, -0.3], [x1 - 0.1, -0.22], [x1, -0.05], [x1, bot]], 'body', {}, 1),
+        poly([[f.roof.x1 + 0.05, top + 0.08], [0.88, -0.32], [f.roof.x1 + 0.05, -0.32]], 'glass'),
+        ...windows(x0 + 0.2, x0 + 1.1, top + 0.12, top + 0.45, 2, 0.12),
+        ...[x0 + 0.2, x0 + 0.67].flatMap((x) => [rect(x, top + 0.12, x + 0.12, top + 0.45, 'accent', { flat: true }), rect(x + 0.31, top + 0.12, x + 0.43, top + 0.45, 'accent', { flat: true })]),
+        ...path([[x0 + 1.3, top + 0.15], [x0 + 1.55, top + 0.35], [x0 + 1.3, top + 0.55]], 0.05, 'chrome'),
+        stripe(x0, x1, 0.02, 0.05, 'chrome'),
+        rr(x0 + 0.1, top - 0.06, f.roof.x1 - 0.1, top + 0.02, 0.03, 'chrome'),
+        headlight(x1 - 0.06, 0.08, 0.09), taillight(x0, 0.06, 0.09),
+        bumper(x1 - 0.2, x1 + 0.06, bot - 0.04, 0.12), bumper(x0 - 0.06, x0 + 0.2, bot - 0.04, 0.12),
+      ];
+    },
   }],
   ['rocking-horse', 'Horse', 'Іграшковий кінь-гойдалка на коліщатках. Стає дибки й стрибає.', 'creature', ['#8a5a3a', '#f0e0c0'], {
     parts: ['tail'], noLights: true, hideParts: true,

@@ -112,6 +112,7 @@ class CarView {
       const ws = new Sprite(cached(`wheel:${def.id}:${wd.r}:${wd.rim}:${alt}`, () => gridTexture(wg, wheelPalette(pal))));
       ws.anchor.set(0.5);
       ws.scale.set(1 / CAR_PPM);
+      ws.visible = !wd.hidden;
       this.wheels.push(ws);
     }
     this.marker = new Sprite(pixelText(PLAYER_NAMES[car.player], { size: 8, color: PLAYER_COLORS[car.player] }));
@@ -527,6 +528,7 @@ export class GameView {
         this.itemLayer.addChild(sp);
         this.itemSprites.set(it.id, sp);
       }
+      sp.visible = !it.stowed;
       const p = it.body.getPosition();
       sp.position.set(p.x, p.y);
       sp.rotation = it.body.getAngle();

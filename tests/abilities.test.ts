@@ -51,8 +51,26 @@ describe('abilities', () => {
     expect(def.cargo?.kind).toBe('ball');
     const g = new Game({ cars: [def, CARS[1]], maps: [MAP_BY_ID.meadow], randomMaps: false, target: 9, roundTime: 60, seed: 3 });
     expect(g.items.filter((i) => i.owner === 0 && i.kind === 'ball').length).toBe(def.cargo!.n);
+    // Cargo rides hidden in the bed and only shows once it has left it.
+    for (let i = 0; i < 90; i++) g.step();
+    const own = g.items.filter((i) => i.owner === 0 && i.kind === 'ball');
+    expect(own.some((i) => i.stowed)).toBe(true);
+    const it = own.find((i) => i.stowed)!;
+    it.body.setPosition(it.body.getPosition().clone().add({ x: 0, y: -3 } as never));
+    g.step();
+    expect(it.stowed).toBeUndefined();
     expect(CAR_BY_ID['wrecking-crane'].flail).toBeDefined();
     expect(g.cars[1].flail).toBeNull();
+  });
+  it('the hearse carries its coffin inside the body, not on the roof', () => {
+    const def = CAR_BY_ID.hearse;
+    expect(def.cargo?.kind).toBe('coffin');
+    const roof = Math.min(...def.body.flatMap((p) => p.pts.map((q) => q[1])).filter((y) => y > def.head.y));
+    expect(def.cargo!.at[2]).toBeGreaterThan(roof + 0.4);
+  });
+  it('sleds and the bumper car hide their wheels', () => {
+    for (const id of ['sleigh', 'santa-sleigh', 'kicksled', 'snowmobile', 'bumper-car']) expect(CAR_BY_ID[id].wheels.every((w) => w.hidden)).toBe(true);
+    expect(CAR_BY_ID['go-kart'].wheels.some((w) => w.hidden)).toBe(false);
   });
   it('a car without an ability ignores the button', () => {
     const g = ready({ kind: 'jump' });

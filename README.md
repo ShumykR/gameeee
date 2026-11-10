@@ -52,5 +52,5 @@ npm run e2e        # Playwright-смоук (потрібна збірка): ск
 
 ## Деплой
 
-`.github/workflows/deploy.yml` запускає тести, збирає і публікує `dist/` на GitHub Pages.
+`.github/workflows/deploy.yml` на кожній гілці запускає тести й збірку; публікує `dist/` на GitHub Pages лише з `main`.
 У налаштуваннях репозиторію: **Settings → Pages → Source: GitHub Actions**.
