@@ -127,7 +127,8 @@ function frame(id: FrameId, o: FrameOpts): Frame {
         windows.push([[-0.8 * L, -0.2], [hx - hw - 0.06, -0.2], [hx - hw - 0.06, top + 0.06], [-0.72 * L, top + 0.06]]);
         head = { x: hx, y: cy, r: 0.28 };
         port = [
-          [[hx - hw, top + 0.08], [rx1 - 0.03, top + 0.08], [rx1 + 0.3, -0.18], [hx - hw, -0.18]],
+          [[hx - hw, top + 0.08], [rx1, top + 0.08], [rx1, -0.18], [hx - hw, -0.18]],
+          [[rx1, top - 0.03], [rx1 + 0.75, top - 0.03], [rx1 + 0.75, -0.18], [rx1, -0.18]],
           [[hx - hw, -0.2], [hx + hw + 0.04, -0.2], [hx + hw + 0.04, cy + 0.3], [hx - hw, cy + 0.3]],
         ];
       }
@@ -175,7 +176,10 @@ function frame(id: FrameId, o: FrameOpts): Frame {
         polys.push(R(bx, top, bx + 0.1, -0.26, m));
         polys.push(R(bx, top, rx1, top + 0.08, m));
         head = { x: hx, y: cy, r: 0.29 };
-        port = [[[bx + 0.1, top + 0.08], [rx1 - 0.03, top + 0.08], [rx1 + 0.3, -0.28], [bx + 0.1, -0.28]]];
+        port = [
+          [[bx + 0.1, top + 0.08], [rx1, top + 0.08], [rx1, -0.28], [bx + 0.1, -0.28]],
+          [[rx1, top - 0.03], [rx1 + 0.75, top - 0.03], [rx1 + 0.75, -0.28], [rx1, -0.28]],
+        ];
       }
       const wr = 0.46 * wk;
       return {
@@ -200,7 +204,10 @@ function frame(id: FrameId, o: FrameOpts): Frame {
         R(dx - hw, top, dx + ROOF_OVER, lid, m),
       ];
       const windows: Pt[][] = [];
-      const port: Pt[][] = [[[dx - hw, lid], [dx + ROOF_OVER + 0.02, lid], [hl - 0.05, sill - 0.14], [hl - 0.05, sill], [dx - hw, sill]]];
+      const port: Pt[][] = [
+        [[dx - hw, lid], [dx + ROOF_OVER, lid], [dx + ROOF_OVER, sill], [dx - hw, sill]],
+        [[dx + ROOF_OVER, top - 0.03], [hl + 0.15, top - 0.03], [hl + 0.15, sill], [dx + ROOF_OVER, sill]],
+      ];
       const n = Math.max(1, Math.floor((hl * 2 - 0.9) / 0.62));
       for (let i = 0; i < n; i++) {
         const x0 = -hl + 0.2 + i * 0.62;
@@ -240,7 +247,10 @@ function frame(id: FrameId, o: FrameOpts): Frame {
         windows: [],
         wheels,
         head: { x: hx, y: cy, r: 0.28 }, cabin: true,
-        port: [[[cx0 + 0.1, lid], [hx + ROOF_OVER + 0.02, lid], [hl - 0.05, sill - 0.14], [hl - 0.05, sill], [cx0 + 0.1, sill]]],
+        port: [
+          [[cx0 + 0.1, lid], [hx + ROOF_OVER, lid], [hx + ROOF_OVER, sill], [cx0 + 0.1, sill]],
+          [[hx + ROOF_OVER, top - 0.03], [hl + 0.15, top - 0.03], [hl + 0.15, sill], [hx + ROOF_OVER, sill]],
+        ],
         deck: { x0: -hl + 0.05, x1: cx0 - 0.08, y: -0.12 }, roof: { x0: cx0, x1: hx + ROOF_OVER, y: top },
         nose: { x: hl, y0: sill, y1: 0.3 }, tail: { x: -hl, y0: -0.12, y1: 0.3 }, stripe: { y: 0.05, h: 0.09 },
         com: [0, 0.2],
