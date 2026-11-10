@@ -87,9 +87,13 @@ export function measure(def: CarDef): Handling {
   world = testWorld();
   car = new Car(world, def, 0, 0, -2.2, 1);
   car.chassis.setAngle(Math.PI);
-  for (const w of car.wheels) {
+  for (const w of [...car.wheels, ...car.linkWheels.map((lw) => lw.body)]) {
     const p = w.getPosition();
     w.setPosition(new Vec2(-p.x, -2.2 - (p.y + 2.2)));
+  }
+  for (const l of car.links) {
+    const p = l.getPosition();
+    l.setTransform(new Vec2(-p.x, -2.2 - (p.y + 2.2)), Math.PI);
   }
   let recover = Infinity;
   for (let i = 0; i < 60 * 8; i++) {

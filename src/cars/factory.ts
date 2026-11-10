@@ -49,6 +49,8 @@ export interface Frame {
   /** Extra center-of-mass offset. */
   com?: Pt;
   float?: number;
+  /** Pieces of the frame that move on their own hinge (a creature's neck and head). */
+  limbs?: LinkSpec[];
   /** Handling overrides on top of the archetype preset. */
   tune?: { wheelie?: number; air?: number; accel?: number };
 }
@@ -364,6 +366,7 @@ function frame(id: FrameId, o: FrameOpts): Frame {
       const neck = o.neck ?? 'short';
       const bx = 1.05 * L, by = 0.42 * H;
       const polys = [O(0, -0.2, bx, by, m)];
+      const body1 = polys.length;
       // legs (render only)
       for (const lx of [-0.62, 0.62]) polys.push(R(lx * L - 0.12, 0.1, lx * L + 0.12, 0.42, m, deco));
       let headEnd: Pt = [bx, -0.4];
@@ -382,6 +385,14 @@ function frame(id: FrameId, o: FrameOpts): Frame {
       }
       // eye
       if (neck !== 'none') polys.push(O(headEnd[0] - 0.22, headEnd[1] - 0.06, 0.06, 0.06, 'white', deco, 6));
+      // Neck and head are one sprung piece: the head bobs over bumps and nods on landings.
+      const limbs: LinkSpec[] = [];
+      if (neck !== 'none') {
+        const legs = 2;
+        const hit = polys.splice(body1 + legs, 2);
+        const nx = (neck === 'long' ? 0.72 : neck === 'short' ? 0.78 : 0.85) * L;
+        limbs.push({ at: [nx, -0.4], swing: [-16, 14], spring: 14, density: 0.9, hit, art: [], take: (x, y) => x > nx + 0.02 && y < -0.3 });
+      }
       const wr = 0.34 * wk;
       return {
         arch: 'allround', polys, windows: [],
@@ -389,7 +400,7 @@ function frame(id: FrameId, o: FrameOpts): Frame {
         head: { x: -0.2 * L, y: -0.2 - by - 0.18, r: 0.27 },
         deck: { x0: -0.9 * L, x1: 0.4 * L, y: -0.2 - by * 0.9 }, roof: { x0: -0.6 * L, x1: 0.4 * L, y: -0.2 - by },
         nose: { x: headEnd[0], y0: headEnd[1] - 0.1, y1: headEnd[1] + 0.1 }, tail: { x: -bx, y0: -0.4, y1: 0.0 },
-        com: [0, 0.2],
+        com: [0, 0.2], limbs,
       };
     }
     case 'boat': {
@@ -583,7 +594,7 @@ export type PartId =
 
 type Part = PartId | [PartId, number?];
 
-function part(f: Frame, id: PartId, k = 1): { polys: CarPoly[]; windows?: Pt[][]; boost?: boolean; arch?: Archetype } {
+function part(f: Frame, id: PartId, k = 1): { polys: CarPoly[]; windows?: Pt[][]; boost?: boolean; arch?: Archetype; links?: LinkSpec[] } {
   const d = f.deck, n = f.nose, t = f.tail;
   // Roof gear goes on whichever end of the roof is farther from the driver's head.
   const hx = f.head.x;
@@ -720,8 +731,11 @@ function part(f: Frame, id: PartId, k = 1): { polys: CarPoly[]; windows?: Pt[][]
       return { polys: [R(t.x - 0.32, t.y0 + 0.02, t.x + 0.05, t.y1 - 0.06, 'rocket'), R(t.x - 0.4, t.y0 + 0.08, t.x - 0.3, t.y1 - 0.12, 'dark')], boost: true, arch: 'rocket' };
     case 'jets':
       return { polys: [R(t.x - 0.3, t.y0 + 0.05, t.x + 0.1, t.y0 + 0.2, 'rocket'), R(t.x - 0.3, t.y1 - 0.25, t.x + 0.1, t.y1 - 0.1, 'rocket')], boost: true };
-    case 'tail':
-      return { polys: [P([[t.x + 0.25, t.y0], [t.x + 0.25, t.y1 - 0.1], [t.x - 0.95 * k, (t.y0 + t.y1) / 2 - 0.1]], 'body')] };
+    case 'tail': {
+      // A tail wags: it is its own piece on a hinge at the rump.
+      const tri = P([[t.x + 0.25, t.y0], [t.x + 0.25, t.y1 - 0.1], [t.x - 0.95 * k, (t.y0 + t.y1) / 2 - 0.1]], 'body');
+      return { polys: [], links: [{ at: [t.x + 0.2, (t.y0 + t.y1) / 2 - 0.05], swing: [-24, 24], spring: 8, density: 0.9, hit: [tri], art: [], take: (x) => x < t.x - 0.08 }] };
+    }
     case 'mace':
       return { polys: [P([[t.x + 0.25, t.y0], [t.x + 0.25, t.y1 - 0.1], [t.x - 0.75, (t.y0 + t.y1) / 2 - 0.1]], 'body'), O(t.x - 0.85, (t.y0 + t.y1) / 2 - 0.1, 0.22, 0.2, 'bone', { density: 1.2 })] };
     case 'plates': {
@@ -830,6 +844,8 @@ const PRESETS: Record<Archetype, Preset> = {
 
 export interface LinkSpec {
   art: CarPoly[];
+  /** Also takes every drawn piece of the car whose centre is in this region (so a skin's head art follows the neck). */
+  take?: (x: number, y: number) => boolean;
   hit?: CarPoly[];
   at: Pt;
   to?: number;
@@ -840,6 +856,7 @@ export interface LinkSpec {
   wheels?: WheelDef[];
   density?: number;
   behind?: boolean;
+  trim?: boolean;
 }
 
 /** Turn a link spec into a definition (render-only art + hidden collision shapes), scaled. */
@@ -855,6 +872,7 @@ export function makeLink(l: LinkSpec, s = 1): LinkDef {
     wheels: l.wheels?.map((w) => ({ ...w, x: +(w.x * s).toFixed(3), y: +(w.y * s).toFixed(3), r: +(w.r * s).toFixed(3) })),
     density: l.density,
     behind: l.behind,
+    trim: l.trim,
   };
 }
 
@@ -943,6 +961,7 @@ export function buildCar(spec: CarSpec): CarDef {
   if (spec.skin) for (const p of spec.skin(f)) polys.push({ ...p, deco: true });
   let boost = false;
   let arch: Archetype = f.arch;
+  const autoLinks: LinkSpec[] = [...(f.limbs ?? [])];
   for (const pp of spec.parts ?? []) {
     const [id, k] = Array.isArray(pp) ? pp : [pp, undefined];
     const r = part(f, id, k ?? 1);
@@ -952,6 +971,7 @@ export function buildCar(spec: CarSpec): CarDef {
     if (r.windows && !(skinned && spec.hideParts)) windows.push(...r.windows);
     if (r.boost) boost = true;
     if (r.arch) arch = r.arch;
+    if (r.links) autoLinks.push(...r.links);
   }
   if (spec.arch) arch = spec.arch;
   // Gliders sit low on hidden wheels: trim the hull so it clears the ground by the
@@ -1020,7 +1040,28 @@ export function buildCar(spec: CarSpec): CarDef {
     const g = spec.gun(f);
     def.gun = { at: g.at.map((q) => scalePt(q, s)), aim: +((g.aim * Math.PI) / 180).toFixed(3) };
   }
-  if (spec.links) def.links = spec.links(f).map((l) => makeLink(l, s));
+  // Frame limbs first (so a car's own links can hang off them: a jaw on a neck), then the car's, then its parts'.
+  const nLimb = f.limbs?.length ?? 0;
+  const linkSpecs = [...autoLinks.slice(0, nLimb), ...(spec.links?.(f) ?? []), ...autoLinks.slice(nLimb)];
+  if (linkSpecs.length) {
+    // Collision shapes of frame limbs and parts are drawn as they are unless a skin draws the car.
+    const showHit = !skinned;
+    def.links = linkSpecs.map((l) => {
+      const art = [...l.art];
+      if (l.take) {
+        for (let i = def.body.length - 1; i >= 0; i--) {
+          const p = def.body[i];
+          if (!p.deco || p.hide) continue;
+          let ax = Infinity, bx = -Infinity, ay = Infinity, by = -Infinity;
+          for (const [px, py] of p.pts) { ax = Math.min(ax, px); bx = Math.max(bx, px); ay = Math.min(ay, py); by = Math.max(by, py); }
+          if (l.take((ax + bx) / 2 / s, (ay + by) / 2 / s)) { art.unshift({ ...p, pts: p.pts.map((q) => scalePt(q, 1 / s)) }); def.body.splice(i, 1); }
+        }
+      }
+      const ld = makeLink({ ...l, art }, s);
+      if (showHit && !l.art.length) for (const p of ld.polys) if (p.hide) p.hide = false;
+      return ld;
+    });
+  }
   if (spec.headOn !== undefined) def.headOn = spec.headOn;
   if (spec.float ?? f.float) def.float = spec.float ?? f.float;
   if (spec.bounce) def.restitution = spec.bounce;

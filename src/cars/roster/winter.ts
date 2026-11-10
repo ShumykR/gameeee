@@ -285,10 +285,21 @@ export const WINTER = group('winter', [
     ],
   }],
   ['sled-dog', 'Sled Dog', 'Хаскі в упряжі тягне за собою сани.', 'creature', ['#8a6a4a', '#f0f0f0'], {
-    parts: ['ears', 'trailer'], noLights: true, hideParts: true,
+    parts: ['ears'], noLights: true, hideParts: true,
+    // The sled is towed on a harness: it fishtails behind the dog and bucks over bumps.
+    links: () => [{
+      at: [-1.0, 0.1], swing: [-40, 40], density: 0.5, behind: true,
+      wheels: [{ x: -2.25, y: 0.58, r: 0.22, hidden: true, drive: false }, { x: -1.6, y: 0.58, r: 0.22, hidden: true, drive: false }],
+      hit: [rect(-2.5, 0.2, -1.4, 0.62)],
+      art: [
+        seg([-1.0, 0.1], [-1.45, 0.45], 0.05, 'red'),
+        ...path([[-2.55, 0.62], [-2.45, 0.78], [-1.45, 0.78], [-1.3, 0.6]], 0.07, 'chrome'),
+        seg([-2.3, 0.6], [-2.3, 0.78], 0.05, 'chrome'), seg([-1.65, 0.6], [-1.65, 0.78], 0.05, 'chrome'),
+        blob([[-2.5, 0.62], [-2.58, 0.15], [-2.38, 0.1], [-2.28, 0.38], [-1.45, 0.38], [-1.4, 0.62]], 'wood', {}, 1),
+        rect(-2.2, 0.2, -1.85, 0.4, 'red', { ring: true }), rect(-2.05, 0.2, -2.0, 0.4, 'gold', { flat: true }),
+      ],
+    }],
     skin: (f) => [
-      ...path([[-1.6, 0.35], [-0.6, 0.35], [-0.4, 0.2]], 0.07, 'chrome'),
-      blob([[-1.65, 0.3], [-1.7, -0.15], [-1.5, -0.2], [-1.4, 0.0], [-0.8, 0.0], [-0.75, 0.3]], 'wood', {}, 1),
       ...beast(f, { mat: 'grey', belly: 'white', cx: 0.1, ry: 0.36 }),
       ...path([[0.7, -0.35], [1.25, -0.8]], 0.3, 'grey'),
       blob([[1.05, -0.95], [1.25, -1.15], [1.6, -1.05], [1.95, -0.88], [1.9, -0.75], [1.3, -0.7]], 'grey', {}, 1),

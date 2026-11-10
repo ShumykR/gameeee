@@ -41,6 +41,8 @@ export class Car {
   /** Number of wheels touching something this step. */
   wheelsOnGround = 0;
   chassisTouching = false;
+  /** A hinged piece (neck, arm, trailer) is touching something. */
+  linkTouching = false;
   /** Special action and its runtime state. */
   readonly ability: AbilityDef | null;
   /** Seconds until the ability is ready again. */
@@ -60,6 +62,8 @@ export class Car {
   /** Moving pieces on hinges (see LinkDef), in def.links order. */
   readonly links: Body[] = [];
   readonly linkJoints: RevoluteJoint[] = [];
+  /** Trim links: they never collide (see LinkDef.trim). */
+  private readonly trim = new Set<Body>();
   /** Wheels of the links (trailers): [body, link index, wheel def]. */
   readonly linkWheels: { body: Body; link: number; def: WheelDef }[] = [];
   /** Previous-step transforms of links, then link wheels (render interpolation). */
@@ -195,10 +199,11 @@ export class Car {
           restitution: 0.05,
           filterGroupIndex: group,
           filterCategoryBits: CAT.CAR,
-          filterMaskBits: MASK.CAR,
+          filterMaskBits: ld.trim ? 0 : MASK.CAR,
           userData: chassisTag,
         });
       }
+      if (ld.trim) this.trim.add(lb);
       const parent = ld.to !== undefined ? this.links[ld.to] : this.chassis;
       const jd: Record<string, unknown> = {};
       if (ld.swing) {
@@ -301,7 +306,7 @@ export class Car {
   }
 
   get mass(): number {
-    return this.bodies.reduce((s, b) => s + b.getMass(), 0);
+    return [...this.bodies, ...this.links, ...this.linkWheels.map((w) => w.body)].reduce((s, b) => s + b.getMass(), 0);
   }
 
   get position() {
@@ -317,7 +322,7 @@ export class Car {
   }
 
   get inAir(): boolean {
-    return this.wheelsOnGround === 0 && !this.chassisTouching;
+    return this.wheelsOnGround === 0 && !this.chassisTouching && !this.linkTouching;
   }
 
   /** 0 = just used, 1 = ready. */
@@ -439,6 +444,7 @@ export class Car {
   setPhased(on: boolean) {
     const solid = on ? CAT.TERRAIN | CAT.PLATFORM | CAT.HAZARD : MASK.CAR;
     for (const b of this.allBodies) {
+      if (this.trim.has(b)) continue;
       for (let fx = b.getFixtureList(); fx; fx = fx.getNext()) {
         if (fx === this.headFixture) fx.setFilterData({ groupIndex: -(this.player + 1), categoryBits: CAT.HEAD, maskBits: on ? CAT.TERRAIN | CAT.PLATFORM | CAT.HAZARD : MASK.HEAD });
         else fx.setFilterData({ groupIndex: -(this.player + 1), categoryBits: CAT.CAR, maskBits: solid });
@@ -474,14 +480,15 @@ export class Car {
         }
       }
     }
-    this.chassisTouching = false;
-    for (let ce = this.chassis.getContactList(); ce; ce = ce.next!) {
-      const c = ce.contact;
-      if (c.isTouching() && !c.getFixtureA().isSensor() && !c.getFixtureB().isSensor()) {
-        this.chassisTouching = true;
-        break;
+    const touching = (b: Body) => {
+      for (let ce = b.getContactList(); ce; ce = ce.next!) {
+        const c = ce.contact;
+        if (c.isTouching() && !c.getFixtureA().isSensor() && !c.getFixtureB().isSensor()) return true;
       }
-    }
+      return false;
+    };
+    this.chassisTouching = touching(this.chassis);
+    this.linkTouching = this.links.some(touching);
   }
 
   /** Called every fixed step before world.step(). */
@@ -492,7 +499,22 @@ export class Car {
     // Sprung links ease back to their rest pose.
     for (let i = 0; i < this.linkJoints.length; i++) {
       const ld = d.links![i];
-      if (ld.spring && !ld.spin) this.linkJoints[i].setMotorSpeed(Math.max(-8, Math.min(8, -this.linkJoints[i].getJointAngle() * 10)));
+      const j = this.linkJoints[i];
+      if (ld.spring && !ld.spin) j.setMotorSpeed(Math.max(-8, Math.min(8, -j.getJointAngle() * 10)));
+      // A light piece wedged between the car and the ground can be forced past its stops:
+      // put it back at the stop, so at full swing it behaves like a rigid part of the car.
+      if (ld.swing) {
+        const lo = j.getLowerLimit(), hi = j.getUpperLimit(), a = j.getJointAngle();
+        if (a < lo - 0.1 || a > hi + 0.1) {
+          const parent = j.getBodyA(), lb = this.links[i];
+          const ang = parent.getAngle() + Math.max(lo, Math.min(hi, a));
+          const anchor = parent.getWorldPoint(j.getLocalAnchorA());
+          const la = j.getLocalAnchorB(), c = Math.cos(ang), sn = Math.sin(ang);
+          lb.setTransform(new Vec2(anchor.x - (c * la.x - sn * la.y), anchor.y - (sn * la.x + c * la.y)), ang);
+          lb.setAngularVelocity(parent.getAngularVelocity());
+          lb.setLinearVelocity(parent.getLinearVelocityFromWorldPoint(lb.getWorldCenter()));
+        }
+      }
     }
     const dir = this.alive && this.stunT <= 0 && this.shellT <= 0 && this.stasisT <= 0 ? this.input : 0;
     const spd = (this.turboT > 0 ? 1.5 : 1) * (this.slowT > 0 ? 0.4 : 1) * (this.flatT > 0 ? 0.55 : 1);
@@ -514,7 +536,7 @@ export class Car {
       }
     }
 
-    const I = this.chassis.getInertia() + this.wheels.reduce((s, w) => s + w.getMass() * Vec2.distanceSquared(w.getPosition(), this.chassis.getWorldCenter()), 0);
+    const I = this.chassis.getInertia() + [...this.wheels, ...this.links].reduce((s, w) => s + w.getMass() * Vec2.distanceSquared(w.getWorldCenter(), this.chassis.getWorldCenter()), 0);
     const w = this.chassis.getAngularVelocity();
     const maxSpin = TUNE.maxSpin;
     // Air control: pressing toward a direction rotates the car the way the
@@ -550,7 +572,7 @@ export class Car {
       // Still stuck after a while (e.g. propped on a wheel): push progressively harder.
       const extra = Math.min(2, Math.max(0, this.flipTimer - 1.6));
       if (Math.abs(w) < 3.5) this.chassis.applyTorque(this.flipDir * (SELF_RIGHT * k * I + extra * this.mass * DEFAULT_GRAVITY * 0.5), true);
-      if (this.chassisTouching) this.chassis.applyForceToCenter(new Vec2(0, -this.mass * DEFAULT_GRAVITY * 0.75 * k), true);
+      if (this.chassisTouching || this.linkTouching) this.chassis.applyForceToCenter(new Vec2(0, -this.mass * DEFAULT_GRAVITY * 0.75 * k), true);
     }
 
     // Rocket booster.

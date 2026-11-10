@@ -73,7 +73,7 @@ cars.forEach((def, i) => {
     blit(g, wheelPalette(def.palette), Math.round(ox + w.x * CAR_PPM - g.ox), Math.round(oy + w.y * CAR_PPM - g.oy));
   }
   drawLinks(false);
-  for (const ld of def.links ?? []) for (const w of ld.wheels ?? []) {
+  for (const ld of def.links ?? []) for (const w of (ld.wheels ?? []).filter((q) => !q.hidden)) {
     const g = generateWheelGrid(w);
     blit(g, wheelPalette(def.palette), Math.round(ox + w.x * CAR_PPM - g.ox), Math.round(oy + w.y * CAR_PPM - g.oy));
   }

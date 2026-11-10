@@ -138,6 +138,7 @@ class CarView {
       const ws = new Sprite(cached(`wheel:${def.id}:${lw.def.r}:${lw.def.rim}:${alt}`, () => gridTexture(wg, wheelPalette(pal))));
       ws.anchor.set(0.5);
       ws.scale.set(1 / CAR_PPM);
+      ws.visible = !lw.def.hidden;
       this.links.push(ws);
       front.push(ws);
     }

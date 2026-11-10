@@ -147,6 +147,8 @@ export interface LinkDef {
   density?: number;
   /** Drawn behind the body instead of in front. */
   behind?: boolean;
+  /** Trim (antenna, flag, ribbon): it sways with the car but collides with nothing. */
+  trim?: boolean;
 }
 
 /** Collection a car belongs to (menu filter + themed arenas). */

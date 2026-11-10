@@ -38,14 +38,14 @@ export function carPreviewCanvas(def: CarDef, palette: CarPalette, playerColor: 
     if (!!ld.behind !== behind) return;
     const lg = generateLinkGrid(def, i);
     items.push({ g: lg, c: gridCanvas(lg, carPalette(palette)), x: -lg.ox, y: -lg.oy });
-    if (!behind) for (const w of ld.wheels ?? []) { const wg = generateWheelGrid(w); items.push({ g: wg, c: gridCanvas(wg, wheelPalette(palette)), x: w.x * CAR_PPM - wg.ox, y: w.y * CAR_PPM - wg.oy }); }
+    if (!behind) for (const w of (ld.wheels ?? []).filter((q) => !q.hidden)) { const wg = generateWheelGrid(w); items.push({ g: wg, c: gridCanvas(wg, wheelPalette(palette)), x: w.x * CAR_PPM - wg.ox, y: w.y * CAR_PPM - wg.oy }); }
   });
   linkItems(true);
   items.push({ g: body, c: gridCanvas(body, carPalette(palette)), x: -body.ox, y: -body.oy });
   items.push({ g: head, c: gridCanvas(head, dpal), x: def.head.x * CAR_PPM - head.ox, y: def.head.y * CAR_PPM - head.oy });
   def.wheels.forEach((w, i) => !w.hidden && items.push({ g: wheels[i], c: gridCanvas(wheels[i], wheelPalette(palette)), x: w.x * CAR_PPM - wheels[i].ox, y: w.y * CAR_PPM - wheels[i].oy }));
   linkItems(false);
-  for (const ld of def.links ?? []) if (ld.behind) for (const w of ld.wheels ?? []) { const wg = generateWheelGrid(w); items.push({ g: wg, c: gridCanvas(wg, wheelPalette(palette)), x: w.x * CAR_PPM - wg.ox, y: w.y * CAR_PPM - wg.oy }); }
+  for (const ld of def.links ?? []) if (ld.behind) for (const w of (ld.wheels ?? []).filter((q) => !q.hidden)) { const wg = generateWheelGrid(w); items.push({ g: wg, c: gridCanvas(wg, wheelPalette(palette)), x: w.x * CAR_PPM - wg.ox, y: w.y * CAR_PPM - wg.oy }); }
   if (def.flail) {
     const fl = def.flail;
     const fg = flailGrid(fl.look, fl.r, CAR_PPM);
