@@ -11,9 +11,9 @@ export const RETRO = group('retro', [
     hideParts: true,
     skin: (f) => [
       ...monsterChassis(f),
-      ...pickup({ ...f, nose: { ...f.nose, y0: -0.5, y1: 0.06 }, tail: { ...f.tail, y0: -0.5, y1: 0.06 }, roof: { x0: -1.05, x1: -0.1, y: -1.15 } }),
+      ...pickup({ ...f, nose: { ...f.nose, y0: -0.5, y1: 0.06 }, tail: { ...f.tail, y0: -0.5, y1: 0.06 }, roof: f.roof }),
       ...flameDecal(f.nose.x - 0.25, -0.6, -0.22, 0.28),
-      rr(-1.0, -1.28, -0.15, -1.17, 0.04, 'black'), ...[-0.85, -0.6, -0.35].map((x) => circ(x, -1.23, 0.05, 'light')),
+      rr(f.roof.x0, f.roof.y - 0.13, f.roof.x1, f.roof.y - 0.02, 0.04, 'black'), ...[0.15, 0.4, 0.65].map((x) => circ(f.roof.x0 + x, f.roof.y - 0.08, 0.05, 'light')),
     ],
   }],
   ['dragster', 'Dragster', 'Довгий болід для дрег-рейсингу. Тримай «вперед» — вмикається ракета.', 'dragster', ['#ffcc1a', '#1a1a2e'], {
@@ -211,12 +211,13 @@ export const RETRO = group('retro', [
     ],
   }],
   ['wrecking-crane', 'Wrecking Ball Crane', 'Кран зі справжнім ядром на ланцюгу: воно розгойдується і трощить усе.', 'truck', ['#f0b020', '#2a2a2a'], {
-    flail: { from: [1.55, -1.45], len: 1.1, r: 0.36, look: 'wrecking', on: 0 },
+    flail: { from: [2.8, -1.85], len: 1.1, r: 0.36, look: 'wrecking', on: 0 },
+    wheelie: 0.45, air: 1.3,
     // The jib is hinged at the turret and nods under the swinging ball.
     links: (f) => [{
-      at: [f.deck.x0 + 0.45, f.deck.y - 0.3], swing: [-14, 14], spring: 260, density: 0.3,
-      hit: [seg([f.deck.x0 + 0.45, f.deck.y - 0.3], [1.55, -1.45], 0.2)],
-      art: [...truss([f.deck.x0 + 0.45, f.deck.y - 0.3], [1.55, -1.45], 0.2, 'body'), circ(1.55, -1.45, 0.08, 'dark')],
+      at: [f.deck.x0 + 0.45, f.deck.y - 0.3], swing: [-14, 14], spring: 260, density: 0.17,
+      hit: [seg([f.deck.x0 + 0.45, f.deck.y - 0.3], [2.8, -1.85], 0.2)],
+      art: [...truss([f.deck.x0 + 0.45, f.deck.y - 0.3], [2.8, -1.85], 0.2, 'body'), circ(2.8, -1.85, 0.08, 'dark')],
     }],
     skin: (f) => [
       ...truckCab(f),
@@ -326,8 +327,8 @@ export const RETRO = group('retro', [
       rr(f.tail.x, -0.4, f.nose.x - 0.1, 0.25, 0.08, 'body'),
       tank(-0.3, f.nose.x - 0.05, -0.6, 0.28, 'black'), rect(0.2, -0.88, 0.28, -0.32, 'gold', { flat: true }),
       ...stack(f.nose.x - 0.35, -0.85, 0.7, 0.14, 'black'),
-      rect(f.tail.x + 0.05, f.roof.y - 0.55, f.tail.x + 0.15, -0.4, 'dark'), rect(-0.5, f.roof.y - 0.55, -0.4, -0.4, 'dark'),
-      rr(f.tail.x - 0.05, f.roof.y - 0.65, -0.3, f.roof.y - 0.5, 0.05, 'accent'),
+      rect(f.head.x - 0.45, f.roof.y - 0.1, f.head.x - 0.35, -0.4, 'dark'),
+      rr(f.head.x - 0.55, f.roof.y - 0.2, f.roof.x1 + 0.05, f.roof.y - 0.05, 0.05, 'accent'),
       rect(f.nose.x - 0.2, -0.3, f.nose.x + 0.3, 0.0, 'dark'),
       circ(f.nose.x + 0.42, 0.06, 0.38, 'grey'), circ(f.nose.x + 0.42, 0.06, 0.26, 'dark'), circ(f.nose.x + 0.42, 0.06, 0.08, 'gold'),
     ],

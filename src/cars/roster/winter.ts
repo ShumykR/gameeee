@@ -75,12 +75,12 @@ export const WINTER = group('winter', [
     ],
   }],
   ['snowcat', 'Snowcat', 'Важкий гусеничний ратрак із відвалом і прожекторами.', 'tracked', ['#e04a2a', '#f0f0f0'], {
-    parts: ['plow'], hideParts: true,
+    o: o({ cab: true }), parts: ['plow'], hideParts: true,
     skin: (f) => [
       ...trackedBody(f, 'body', 0.3),
-      rr(-0.85, -0.95, 0.55, -0.3, 0.08, 'body'),
-      ...windows(-0.75, 0.45, -0.85, -0.5, 2, 0.1),
-      rr(-0.8, -1.08, 0.5, -0.95, 0.04, 'dark'), ...[-0.6, -0.3, 0.0, 0.3].map((x) => circ(x, -1.1, 0.06, 'light')),
+      rr(f.roof.x0 - 0.5, f.roof.y, f.roof.x1 + 0.5, -0.3, 0.08, 'body'),
+      ...windows(f.roof.x0 - 0.42, f.roof.x0 - 0.06, f.roof.y + 0.1, -0.5, 1, 0.1),
+      rr(f.roof.x0 - 0.45, f.roof.y - 0.13, f.roof.x1, f.roof.y, 0.04, 'dark'), ...[0.0, 0.3, 0.6, 0.9].map((x) => circ(f.roof.x0 - 0.3 + x, f.roof.y - 0.15, 0.06, 'light')),
       stripe(-1.6, 1.5, -0.25, 0.08, 'accent'),
       poly([[f.nose.x - 0.1, -0.35], [f.nose.x + 0.2, -0.4], [f.nose.x + 0.75, 0.22], [f.nose.x + 0.1, 0.3]], 'chrome'),
       seg([f.nose.x - 0.4, -0.1], [f.nose.x + 0.25, -0.05], 0.1, 'dark'),

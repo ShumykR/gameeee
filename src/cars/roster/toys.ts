@@ -113,6 +113,7 @@ export const TOYS = group('toys', [
     ],
   }],
   ['swamp-monster', 'Swamp Monster', 'Монстр-трак із боліт, обвішаний твані й водоростями.', 'monster', ['#4a6a2a', '#a0c040'], {
+    o: o({ open: true }),
     parts: ['teeth'],
     skin: (f) => [
       ...monsterChassis(f, 'brown'),
@@ -274,6 +275,7 @@ export const TOYS = group('toys', [
     skin: (f) => [...formula(f, { num: true }), ...checkers(0.6, -0.04, 1.5, 0.06, 6), circ(-0.95, 0.06, 0.13, 'white')],
   }],
   ['skull-ram', 'Skull Ram', 'Броньовик із велетенським черепом-тараном.', 'monster', ['#3a3a3a', '#e8dcc0'], {
+    o: o({ open: true }),
     parts: ['skull'], arch: 'ram', hideParts: true,
     skin: (f) => [
       ...monsterChassis(f),
@@ -380,12 +382,11 @@ export const TOYS = group('toys', [
     },
   }],
   ['six-wheel-mauler', 'Six-Wheel Mauler', 'Шестиколісний гірський всюдихід із лебідкою.', 'tracked', ['#e02a2a', '#2a2a2a'], {
-    o: o({ wheels: 3, wheel: 1.6 }),
+    o: o({ wheels: 3, wheel: 1.6, cab: true }),
     skin: (f) => [
       ...f.wheels.map((w) => seg([w.x, w.y], [w.x * 0.8, -0.2], 0.1, 'dark')),
-      blob([[f.tail.x - 0.05, 0.0], [f.tail.x, -0.4], [-0.4, -0.45], [-0.2, -1.0], [0.75, -1.0], [1.2, -0.45], [f.nose.x + 0.05, -0.3], [f.nose.x, 0.0]], 'body', {}, 1),
-      poly([[-0.05, -0.48], [0.1, -0.9], [0.65, -0.9], [1.0, -0.48]], 'glass'),
-      rr(-0.2, -1.12, 0.8, -1.0, 0.03, 'black'), ...[0, 1, 2].map((i) => circ(-0.05 + i * 0.3, -1.16, 0.06, 'light')),
+      blob([[f.tail.x - 0.05, 0.0], [f.tail.x, -0.4], [f.roof.x0 - 0.5, -0.45], [f.roof.x0 - 0.3, f.roof.y], [f.roof.x1, f.roof.y], [f.roof.x1 + 0.5, -0.45], [f.nose.x + 0.05, -0.3], [f.nose.x, 0.0]], 'body', {}, 1),
+      rr(f.roof.x0 - 0.3, f.roof.y - 0.12, f.roof.x1, f.roof.y, 0.03, 'black'), ...[0, 1, 2].map((i) => circ(f.roof.x0 - 0.15 + i * 0.3, f.roof.y - 0.16, 0.06, 'light')),
       rr(f.nose.x - 0.1, -0.2, f.nose.x + 0.2, 0.1, 0.04, 'grey'), circ(f.nose.x + 0.05, -0.05, 0.08, 'dark'),
       stripe(f.tail.x, f.nose.x, -0.15, 0.07, 'accent'),
     ],

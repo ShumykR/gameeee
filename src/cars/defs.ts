@@ -95,10 +95,11 @@ const ORIGINALS: CarDef[] = [
     palette: { body: '#36c26a', accent: '#ffe24a', dark: '#1a2a20', glass: '#a8ecff', light: '#fff6c0' },
     body: [
       poly([[-1.5, -0.55], [1.35, -0.55], [1.55, -0.3], [1.5, 0.08], [-1.5, 0.08]]),
-      poly([[-0.25, -0.55], [0.6, -0.55], [0.45, -1.1], [-0.2, -1.1]]),
+      // Cab: back wall and a roof over the driver, open in front.
+      box(-0.25, -1.27, -0.15, -0.55),
+      box(-0.25, -1.27, 0.35, -1.19),
       box(-1.4, 0.08, 1.4, 0.24, { mat: 'dark' }),
     ],
-    windows: [[[0.05, -0.58], [0.47, -0.58], [0.36, -1.0], [0.05, -1.0]]],
     stripe: { y: -0.3, h: 0.12 },
     wheels: [
       { x: -1.15, y: 0.6, r: 0.66, rim: 'monster', density: 0.7 },
@@ -108,7 +109,8 @@ const ORIGINALS: CarDef[] = [
     motor: { torque: 42, speed: 12.5 },
     density: 1.2,
     tireFriction: 1.2,
-    head: { x: -0.68, y: -0.94, r: 0.31 },
+    head: { x: 0.19, y: -0.87, r: 0.31 },
+    cabin: true,
     air: 10,
     wheelie: 0.4,
   },

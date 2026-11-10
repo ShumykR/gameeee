@@ -89,6 +89,7 @@ export const ALIEN = group('alien', [
     ],
   }],
   ['monster-cannon', 'Monster Cannon', 'Самохідна гармата на колесах монстр-трака.', 'monster', ['#4a5a3a', '#ffd23f'], {
+    o: o({ open: true }),
     gun: (f) => ({ at: [[f.deck.x0 + 1.68, -1.5]], aim: 27 }),
     parts: ['cannon'], hideParts: true,
     skin: (f) => [

@@ -29,6 +29,7 @@ const pitch = (x0: number, x1: number, y: number): CarPoly[] => Array.from({ len
 
 export const SOCCER = group('soccer', [
   ['soccer-monster', 'Soccer Monster', 'Монстр-трак футбольної арени з вирячкуватими очима.', 'monster', ['#ffffff', '#2a2a2a'], {
+    o: o({ open: true }),
     skin: (f) => [
       ...monsterChassis(f),
       blob([[f.tail.x, 0.08], [f.tail.x + 0.05, -0.75], [-0.5, -1.05], [0.5, -1.05], [f.nose.x, -0.6], [f.nose.x + 0.05, 0.08]], 'body', {}, 2),
