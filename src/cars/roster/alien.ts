@@ -61,6 +61,7 @@ export const ALIEN = group('alien', [
     ],
   }],
   ['gun-truck', 'Gun Truck', 'Пікап із гарматою в кузові.', 'pickup', ['#6a7a4a', '#3a3a3a'], {
+    gun: (f) => ({ at: [[(f.deck.x0 + f.deck.x1) / 2 + 1.1, f.deck.y - 0.74]], aim: 24 }),
     parts: ['cannon'], hideParts: true,
     skin: (f) => [
       ...pickup(f),
@@ -88,6 +89,7 @@ export const ALIEN = group('alien', [
     ],
   }],
   ['monster-cannon', 'Monster Cannon', 'Самохідна гармата на колесах монстр-трака.', 'monster', ['#4a5a3a', '#ffd23f'], {
+    gun: (f) => ({ at: [[f.deck.x0 + 1.68, -1.5]], aim: 27 }),
     parts: ['cannon'], hideParts: true,
     skin: (f) => [
       ...monsterChassis(f),
@@ -98,6 +100,7 @@ export const ALIEN = group('alien', [
     ],
   }],
   ['army-bike', 'Army Bike', 'Армійський мотоцикл із кулеметом на кермі.', 'trike', ['#5a6a3a', '#2a2a2a'], {
+    gun: () => ({ at: [[1.13, -0.55]], aim: 4 }),
     parts: ['gun'], hideParts: true,
     skin: (f) => [
       blob([[-1.35, 0.2], [-1.35, -0.25], [-0.6, -0.3], [-0.5, 0.2]], 'body', {}, 1), // sidecar
@@ -107,6 +110,7 @@ export const ALIEN = group('alien', [
     ],
   }],
   ['gunboat', 'Gunboat', 'Броньований річковий катер із гарматою на носі.', 'boat', ['#5a6a7a', '#ffd23f'], {
+    gun: (f) => ({ at: [[f.nose.x - 0.35, -0.08]], aim: 0 }),
     parts: [['cannon', 0.7]], hideParts: true,
     skin: (f) => [
       blob([[f.tail.x, -0.45], [f.nose.x + 0.05, -0.55], [f.nose.x - 0.4, 0.0], [f.nose.x - 0.7, 0.12], [f.tail.x + 0.2, 0.12]], 'body', {}, 1),
@@ -117,6 +121,7 @@ export const ALIEN = group('alien', [
     ],
   }],
   ['rocket-launcher', 'Rocket Launcher', 'Система залпового вогню: ракети вибухають і відкидають суперника.', 'truck', ['#5a6a3a', '#e02a2a'], {
+    gun: (f) => ({ at: [0, 1, 2].map((i) => [f.deck.x1 + 0.12, f.deck.y - 1.0 - i * 0.12]), aim: +((Math.atan2(0.68, f.deck.x1 - f.deck.x0 - 0.2) * 180) / Math.PI).toFixed(1) }),
     parts: ['launcher'], hideParts: true,
     skin: (f) => {
       const d = f.deck;
@@ -130,6 +135,7 @@ export const ALIEN = group('alien', [
     },
   }],
   ['tank', 'Tank', 'Бойовий танк: башта, довгий ствол і п\'ять котків.', 'tracked', ['#5a6a3a', '#3a4a2a'], {
+    gun: () => ({ at: [[1.96, -0.76]], aim: 7 }),
     o: o({ wheels: 5 }), parts: ['cannon'], hideParts: true,
     skin: (f) => [
       ...tankHull(f),
@@ -158,6 +164,7 @@ export const ALIEN = group('alien', [
     ],
   }],
   ['celestial-teapot', 'Celestial Teapot', 'Космічний чайник на реактивній тязі. Хлюпає окропом.', 'blob', ['#f0f0f0', '#4a8ad8'], {
+    gun: () => ({ at: [[1.38, -1.08]], aim: 45 }),
     parts: ['booster', 'lid'], noLights: true, hideParts: true,
     skin: () => [
       ...path([[0.65, -0.4], [1.0, -0.5], [1.35, -1.05]], 0.18, 'body'),

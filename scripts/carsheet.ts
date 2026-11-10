@@ -51,6 +51,12 @@ cars.forEach((def, i) => {
   const dpal = driverPalette('#3ec1ff');
   const torso = generateTorsoGrid(def.head.r);
   blit(torso, dpal, Math.round(ox + def.head.x * CAR_PPM - torso.ox - def.head.r * CAR_PPM * 0.1), Math.round(oy + (def.head.y + def.head.r * 0.6) * CAR_PPM));
+  // Cargo lies in the bed behind the body (as in the game).
+  if (def.cargo) {
+    const info = ITEMS[def.cargo.kind];
+    const ig = itemGrid(def.cargo.kind, info.w, info.h, CAR_PPM);
+    for (const [x, y] of cargoSlots(def.cargo)) blit(ig, DECOR_PAL, Math.round(ox + x * CAR_PPM - ig.ox), Math.round(oy + y * CAR_PPM - ig.oy));
+  }
   const body = generateCarGrid(def);
   blit(body, carPalette(def.palette), ox - body.ox, oy - body.oy);
   const head = generateHeadGrid(def.head.r);
@@ -60,18 +66,25 @@ cars.forEach((def, i) => {
     const g = generateWheelGrid(w);
     blit(g, wheelPalette(def.palette), Math.round(ox + w.x * CAR_PPM - g.ox), Math.round(oy + w.y * CAR_PPM - g.oy));
   }
-  // Cargo rides hidden in the bed in-game; CARGO=1 shows where it sits.
-  if (def.cargo && process.env.CARGO) {
-    const info = ITEMS[def.cargo.kind];
-    const ig = itemGrid(def.cargo.kind, info.w, info.h, CAR_PPM);
-    for (const [x, y] of cargoSlots(def.cargo)) blit(ig, DECOR_PAL, Math.round(ox + x * CAR_PPM - ig.ox), Math.round(oy + y * CAR_PPM - ig.oy));
-  }
   if (def.flail) {
     const fl = def.flail;
     const fg = flailGrid(fl.look, fl.r, CAR_PPM);
     blit(fg, DECOR_PAL, Math.round(ox + fl.at[0] * CAR_PPM - fg.ox), Math.round(oy + (fl.at[1] + fl.len) * CAR_PPM - fg.oy));
   }
-  console.log(i, def.id, '-', def.name);
+  // MUZZLE=1: mark where shots leave (red, or yellow = default nose point) and the launch direction.
+  if (process.env.MUZZLE && def.ability?.kind === 'shoot') {
+    let front = 0;
+    for (const p of def.body) for (const q of p.pts) front = Math.max(front, q[0]);
+    const ms = def.ability.muzzle ?? [[front + 0.35, Math.min(-0.2, def.head.y * 0.6)]];
+    const a = def.ability.aim ?? 0.12;
+    const col: RGB = def.ability.muzzle ? [255, 40, 40] : [255, 230, 0];
+    for (const [mx, my] of ms) {
+      const px = ox + mx * CAR_PPM, py = oy + my * CAR_PPM;
+      for (let t = 0; t < 14; t++) for (let k = 0; k < scale; k++) put(Math.round((px + Math.cos(a) * t) * scale) + k, Math.round((py - Math.sin(a) * t) * scale), [255, 255, 255]);
+      for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (let a2 = 0; a2 < scale; a2++) for (let b = 0; b < scale; b++) put(Math.round(px + dx) * scale + a2, Math.round(py + dy) * scale + b, col);
+    }
+  }
+  console.log(i, def.id, '-', def.name, def.ability?.kind === 'shoot' ? def.ability.projectile : '');
 });
 
 // PNG

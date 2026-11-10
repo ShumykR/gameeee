@@ -150,6 +150,15 @@ export const KIT: Record<string, Kit> = {
   'soda-popper': { ab: 'shoot:cork|Корок' },
   'toaster-racer': { ab: 'shoot:toast|Тостомет' },
   'twin-devil': { traits: [{ kind: 'spill', item: 'flame', every: 0.9 }], blurb: 'Дводвигунний дрегстер із рогами. Лишає за собою вогняний слід.' },
+  // ---------------------------------------------------------------- drawn guns that now fire
+  'mini-tank': { ab: 'shoot:popshell|Міні-постріл', blurb: 'Мініатюрний танк із короткою гарматою: часті легкі постріли.' },
+  tankette: { ab: 'shoot:grapeshot|Картеч', blurb: 'Танкетка з баштою позаду водія. Б\'є віялом картечі.' },
+  'snowball-tank': { ab: 'shoot:slush|Крижана каша', blurb: 'Білий броньовик. Стріляє крижаною кашею — суперник грузне й сповільнюється.' },
+  'dual-snowballer': { ab: 'shoot:twinsnow|Дуплет', blurb: 'Здвоєна сніжкова установка: дві сніжки з двох стволів разом.' },
+  'dual-soccer-cannon': { ab: 'shoot:twinball|Подвійний пас', blurb: 'Здвоєний футбольний міномет: два м\'ячі з двох стволів одразу.' },
+  'army-bike': { ab: 'shoot:tracer|Кулемет на кермі', blurb: 'Армійський мотоцикл із кулеметом на кермі: швидкі трасери з малою перезарядкою.' },
+  'serpent-tank': { ab: 'shoot:dragonshell|Драконячий постріл', blurb: 'Танк-змій. Гармата на спині б\'є вибуховим драконячим снарядом.' },
+  'cannon-carriage': { ab: 'shoot:chainshot|Ланцюгове ядро', blurb: 'Середньовічна гармата на великих колесах. Важке ядро відкидає суперника.' },
 };
 
 const KINDS = new Set<AbilityKind>([
@@ -180,6 +189,11 @@ export function applyKit(def: CarDef): CarDef {
   delete out.traits;
   if (!k) return out;
   if (k.ab) out.ability = parseAbility(k.ab);
+  // Shots leave from the car's drawn barrel, along it.
+  if (out.ability?.kind === 'shoot' && def.gun) {
+    out.ability.muzzle = def.gun.at;
+    out.ability.aim = def.gun.aim;
+  }
   if (k.traits) out.traits = k.traits;
   if (k.blurb) out.blurb = k.blurb;
   return out;

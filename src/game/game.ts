@@ -68,7 +68,7 @@ export interface Item {
   /** Bombs: seconds until they blow. */
   fuse?: number;
   dead?: boolean;
-  /** Cargo still inside its car's bed: not drawn until it spills out. */
+  /** Cargo still inside its car's bed: drawn behind the car body until it spills out. */
   stowed?: Car;
 }
 
@@ -883,19 +883,29 @@ export class Game {
     const car = this.cars[p];
     const pr = PROJECTILES[kind];
     const def = car.def;
+    const ab = car.ability;
     const front = this.carEnd(car, 1);
-    const muzzle = car.chassis.getWorldPoint(new Vec2((front + pr.r + 0.15) * car.facing, Math.min(-0.2, def.head.y * 0.6)));
+    // Shots leave from the car's own barrel when it has one, else just past the nose.
+    const muzzles = ab?.muzzle?.length ? ab.muzzle : [[front + pr.r + 0.15, Math.min(-0.2, def.head.y * 0.6)] as [number, number]];
     const f = car.forward();
     const n = pr.count ?? 1;
     const cv = car.chassis.getLinearVelocity();
-    const lift = pr.flight === 'flat' || pr.flight === 'skid' ? 0 : pr.flight === 'lob' ? 0.6 : 0.12;
+    const lift = ab?.aim ?? (pr.flight === 'flat' || pr.flight === 'skid' ? 0 : pr.flight === 'lob' ? 0.6 : 0.12);
     let dir = f;
     for (let i = 0; i < n; i++) {
-      // aim a little above the nose; pellets fan out
+      // aim along the barrel; pellets fan out
       const off = n > 1 ? ((i / (n - 1)) - 0.5) * (pr.spread ?? 0) : 0;
       const up = (lift + off) * car.facing;
       dir = new Vec2(f.x * Math.cos(up) + f.y * Math.sin(up), -f.x * Math.sin(up) + f.y * Math.cos(up));
-      const at = pr.flight === 'skid' ? car.chassis.getWorldPoint(new Vec2((front + pr.r + 0.2) * car.facing, 0.1)) : muzzle;
+      // Several barrels take turns (or share a volley).
+      const [mx, my] = muzzles[(this.shotId + 1) % muzzles.length];
+      let at: Vec2;
+      if (pr.flight === 'skid' && !ab?.muzzle) at = car.chassis.getWorldPoint(new Vec2((front + pr.r + 0.2) * car.facing, 0.1));
+      else {
+        at = car.chassis.getWorldPoint(new Vec2(mx * car.facing, my));
+        // a barrel's shot starts just out of its mouth
+        if (ab?.muzzle) at = new Vec2(at.x + dir.x * pr.r, at.y + dir.y * pr.r);
+      }
       const body = this.world.createBody({ type: 'dynamic', position: at, bullet: true, gravityScale: pr.gravity, angle: car.chassis.getAngle(), fixedRotation: pr.flight === 'skid' });
       const id = ++this.shotId;
       body.createFixture({
@@ -967,7 +977,7 @@ export class Game {
     }
   }
 
-  /** Cargo that has left its bed (spilled, tossed, car flipped) becomes visible for good. */
+  /** Cargo that has left its bed (spilled, tossed, car flipped) moves in front of the cars for good. */
   private checkStowed(it: Item) {
     const car = it.stowed;
     if (!car) return;

@@ -65,7 +65,8 @@ export type ProjectileKind =
   | 'cannon' | 'snowball' | 'ball' | 'laser' | 'firework' | 'toast' | 'harpoon' | 'bubble' | 'pumpkin'
   | 'bone' | 'missile' | 'water' | 'ice' | 'fire' | 'urn' | 'zap' | 'cork' | 'burger' | 'web'
   | 'golf' | 'bullet' | 'bigsnow' | 'bat' | 'penguin' | 'mega' | 'torpedo' | 'volley' | 'tea' | 'plasma'
-  | 'seeker' | 'fist' | 'railgun' | 'atom' | 'hook' | 'quill' | 'ink';
+  | 'seeker' | 'fist' | 'railgun' | 'atom' | 'hook' | 'quill' | 'ink'
+  | 'popshell' | 'grapeshot' | 'slush' | 'twinsnow' | 'twinball' | 'tracer' | 'dragonshell' | 'chainshot';
 
 /** Loose things a car carries (start in the bed and spill out), drops, or an arena scatters around. */
 export type ItemKind =
@@ -82,6 +83,10 @@ export interface AbilityDef {
   item?: ItemKind;
   /** Car-specific name shown in menus ("Тостомет", "Сирена"…). */
   name?: string;
+  /** For 'shoot': car-local muzzle point(s) the shots leave from (pellets cycle through them). */
+  muzzle?: Pt[];
+  /** For 'shoot': launch angle above the car's forward axis, radians (default: a little above level). */
+  aim?: number;
 }
 
 /** Passive, always-on quirk of a car (shown next to its active ability). */
@@ -175,6 +180,8 @@ export interface CarDef {
   flail?: FlailDef;
   /** Draw head/tail lights (default true). */
   lights?: boolean;
+  /** Where the car's own barrel / launcher is: shots leave from here (see AbilityDef.muzzle). */
+  gun?: { at: Pt[]; aim: number };
   /** Gravity scale for the whole car (<1 = floaty hover/flying vehicles). */
   float?: number;
 }

@@ -369,6 +369,7 @@ export const RETRO = group('retro', [
     skin: (f) => [...bike(f, { style: 'sport' }), stripe(-0.2, 0.5, -0.02, 0.05, 'accent')],
   }],
   ['fire-truck', 'Fire Truck', 'Пожежна машина з драбиною. Брандспойт збиває суперника струменем води.', 'truck', ['#e02a2a', '#f0f0f0'], {
+    gun: (f) => ({ at: [[f.deck.x1 + 0.85, -0.86]], aim: 4 }),
     parts: ['ladder', 'siren'], hideParts: true,
     skin: (f) => {
       const d = f.deck;

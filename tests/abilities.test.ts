@@ -72,6 +72,18 @@ describe('abilities', () => {
     for (const id of ['sleigh', 'santa-sleigh', 'kicksled', 'snowmobile', 'bumper-car']) expect(CAR_BY_ID[id].wheels.every((w) => w.hidden)).toBe(true);
     expect(CAR_BY_ID['go-kart'].wheels.some((w) => w.hidden)).toBe(false);
   });
+  it('cars with a drawn gun fire it, from its muzzle', () => {
+    const guns = ['tank', 'mini-tank', 'tankette', 'snowball-tank', 'dual-snowballer', 'dual-soccer-cannon', 'army-bike', 'serpent-tank', 'cannon-carriage', 'gun-truck', 'monster-cannon', 'laser-tank', 'firework-truck', 'rocket-launcher'];
+    for (const id of guns) {
+      const a = CAR_BY_ID[id].ability;
+      expect(a?.kind, id).toBe('shoot');
+      expect(a?.muzzle?.length, id).toBeGreaterThan(0);
+    }
+    // fireworks go up out of the bed battery, not straight out of the nose
+    const fw = CAR_BY_ID['firework-truck'].ability!;
+    expect(fw.aim!).toBeGreaterThan(0.9);
+    expect(Math.max(...fw.muzzle!.map((m) => m[0]))).toBeLessThan(CAR_BY_ID['firework-truck'].head.x);
+  });
   it('a car without an ability ignores the button', () => {
     const g = ready({ kind: 'jump' });
     (g.cars[0] as { ability: unknown }).ability = null;

@@ -3,7 +3,8 @@ import { gridToRGBA, PixelGrid } from '../render/grid';
 import type { RGB } from '../render/color';
 import { carPalette, driverPalette, generateCarGrid, generateHeadGrid, generateTorsoGrid, generateWheelGrid, wheelPalette } from './sprite';
 import type { CarDef, CarPalette } from './types';
-import { DECOR_PAL, flailGrid } from '../maps/decor';
+import { ITEMS, cargoSlots } from '../game/abilities';
+import { DECOR_PAL, flailGrid, itemGrid } from '../maps/decor';
 import { makeGrid, gset } from '../render/grid';
 
 function gridCanvas(g: PixelGrid, pal: (RGB | null)[]) {
@@ -25,11 +26,17 @@ export function carPreviewCanvas(def: CarDef, palette: CarPalette, playerColor: 
   const wheels = def.wheels.map((w) => generateWheelGrid(w));
   const items: { g: PixelGrid; c: HTMLCanvasElement; x: number; y: number }[] = [];
   const dpal = driverPalette(playerColor);
+  // Cargo lies in the bed behind the body: bed walls and closed bodies hide it.
+  if (def.cargo) {
+    const info = ITEMS[def.cargo.kind];
+    const ig = itemGrid(def.cargo.kind, info.w, info.h, CAR_PPM);
+    const ic = gridCanvas(ig, DECOR_PAL);
+    for (const [x, y] of cargoSlots(def.cargo)) items.push({ g: ig, c: ic, x: x * CAR_PPM - ig.ox, y: y * CAR_PPM - ig.oy });
+  }
   items.push({ g: torso, c: gridCanvas(torso, dpal), x: def.head.x * CAR_PPM - torso.ox - def.head.r * CAR_PPM * 0.1, y: (def.head.y + def.head.r * 0.6) * CAR_PPM });
   items.push({ g: body, c: gridCanvas(body, carPalette(palette)), x: -body.ox, y: -body.oy });
   items.push({ g: head, c: gridCanvas(head, dpal), x: def.head.x * CAR_PPM - head.ox, y: def.head.y * CAR_PPM - head.oy });
   def.wheels.forEach((w, i) => !w.hidden && items.push({ g: wheels[i], c: gridCanvas(wheels[i], wheelPalette(palette)), x: w.x * CAR_PPM - wheels[i].ox, y: w.y * CAR_PPM - wheels[i].oy }));
-  // Cargo rides hidden inside the bed (it only shows once it spills out).
   if (def.flail) {
     const fl = def.flail;
     const fg = flailGrid(fl.look, fl.r, CAR_PPM);

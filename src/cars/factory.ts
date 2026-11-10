@@ -858,6 +858,8 @@ export interface CarSpec {
    * runners or skirt touch the ground).
    */
   glide?: number;
+  /** The drawn barrel / launcher: muzzle point(s) and launch angle in degrees above forward. */
+  gun?: (f: Frame) => { at: Pt[]; aim: number };
   /** With a skin: also hide the bolted-on parts (the skin draws them itself). */
   hideParts?: boolean;
   /** No head/tail light pixels (creatures, blobs…). */
@@ -973,6 +975,10 @@ export function buildCar(spec: CarSpec): CarDef {
       : fl.from === 'tail' ? [f.tail.x, (f.tail.y0 + f.tail.y1) / 2]
       : [f.nose.x, f.nose.y0];
     def.flail = { at: scalePt(at, s), len: fl.len * s, r: fl.r * s, look: fl.look };
+  }
+  if (spec.gun) {
+    const g = spec.gun(f);
+    def.gun = { at: g.at.map((q) => scalePt(q, s)), aim: +((g.aim * Math.PI) / 180).toFixed(3) };
   }
   if (spec.float ?? f.float) def.float = spec.float ?? f.float;
   if (spec.bounce) def.restitution = spec.bounce;

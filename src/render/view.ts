@@ -25,7 +25,7 @@ export const PLAYER_NAMES = ['P1', 'P2'];
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 /** Shots drawn rotated along their flight. */
-const ALONG = new Set<string>(['laser', 'zap', 'bullet', 'firework', 'missile', 'harpoon', 'cork', 'volley', 'seeker', 'torpedo', 'railgun', 'hook', 'quill', 'bat', 'penguin', 'fist']);
+const ALONG = new Set<string>(['laser', 'zap', 'bullet', 'tracer', 'firework', 'missile', 'harpoon', 'cork', 'volley', 'seeker', 'torpedo', 'railgun', 'hook', 'quill', 'bat', 'penguin', 'fist']);
 /** A sagging rope (tow hook, tether). */
 function fxRope(g: Graphics, x0: number, y0: number, x1: number, y1: number) {
   const n = 10;
@@ -193,7 +193,9 @@ export class GameView {
   readonly particles = new Particles();
   private mapLayer = new Container();
   private dynLayer = new Container();
-  /** Loose cargo sits in front of the car bodies (it rides in their beds). */
+  /** Cargo still in a bed sits behind the car bodies, so bed walls and closed bodies hide it. */
+  private stowLayer = new Container();
+  /** Loose items (spilled cargo, drops) sit in front of the cars. */
   private itemLayer = new Container();
   private carLayer = new Container();
   private fxLayer = new Container();
@@ -237,7 +239,7 @@ export class GameView {
   private debugGfx = new Graphics();
 
   constructor(readonly app: Application, readonly input: InputManager) {
-    this.world.addChild(this.mapLayer, this.dynLayer, this.carLayer, this.itemLayer, this.particles.container, this.ringGfx, this.fxGfx, this.fxLayer, this.debugGfx);
+    this.world.addChild(this.mapLayer, this.dynLayer, this.stowLayer, this.carLayer, this.itemLayer, this.particles.container, this.ringGfx, this.fxGfx, this.fxLayer, this.debugGfx);
     app.stage.addChild(this.bgLayer, this.world, this.flash, this.hud, this.touchLayer, this.touchLabels);
     for (let i = 0; i < 3; i++) {
       const s = new Sprite();
@@ -528,7 +530,8 @@ export class GameView {
         this.itemLayer.addChild(sp);
         this.itemSprites.set(it.id, sp);
       }
-      sp.visible = !it.stowed;
+      const layer = it.stowed ? this.stowLayer : this.itemLayer;
+      if (sp.parent !== layer) layer.addChild(sp);
       const p = it.body.getPosition();
       sp.position.set(p.x, p.y);
       sp.rotation = it.body.getAngle();
