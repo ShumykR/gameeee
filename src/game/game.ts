@@ -95,6 +95,8 @@ export interface GameConfig {
 const COUNTDOWN = 3;
 /** How far aim assist may turn a shot away from the barrel (rad). */
 const AIM_ASSIST = 0.26;
+/** For shots the head counts as this many times its radius. */
+const HEAD_SHOT_PAD = 1.5;
 const ROUND_END_DELAY = 2.8;
 
 export class Game {
@@ -888,6 +890,12 @@ export class Game {
       case 'boom':
         s.dead = true;
         break;
+      default:
+        // A plain shell, ball or bullet still shoves the car it lands on: heavier shots harder, pellets share.
+        if (!pr.harmless) {
+          const k = Math.min(7, 2.5 + 45 * pr.r * pr.r * pr.density) / Math.max(1, (pr.count ?? 1) * 0.6);
+          car.kick(ux * k, uy * k * 0.4 - k * 0.35);
+        }
     }
   }
 
@@ -986,6 +994,15 @@ export class Game {
       const pos = s.body.getPosition();
       const age = this.time - s.born;
       const v = s.body.getLinearVelocity();
+      // Shots find a head a little more easily than its outline suggests: a near miss counts.
+      const foe = this.cars[1 - s.owner];
+      if (!pr.harmless && !s.dead && foe.alive && foe.headFixture) {
+        const hp = foe.headWorld();
+        if (Math.hypot(hp.x - pos.x, hp.y - pos.y) < foe.def.head.r * HEAD_SHOT_PAD + pr.r) {
+          if (foe.reflectT > 0) this.reflectShot(s.id, 1 - s.owner);
+          else { this.kill(1 - s.owner, 'hit', s.owner); if (pr.pop) s.dead = true; }
+        }
+      }
       if (pr.flight === 'boomerang' && age > 0.4) {
         // Swing back to the thrower; caught when it gets home.
         const o = this.cars[s.owner];
