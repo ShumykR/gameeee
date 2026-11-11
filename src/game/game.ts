@@ -150,8 +150,8 @@ export class Game {
 
   /** Lava or water, at random, for a rising sudden death. */
   private riseLiquid(): 'lava' | 'flood' {
-    // Water can't finish off a car that swims, so then it's always lava.
-    if (this.cars.some((c) => c.hasTrait('swim'))) return 'lava';
+    // One swimmer keeps its edge in a flood; water can't end a round between two of them, so then it's lava.
+    if (this.cars.every((c) => c.hasTrait('swim'))) return 'lava';
     return this.rand() < 0.5 ? 'lava' : 'flood';
   }
 
