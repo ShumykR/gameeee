@@ -14,7 +14,9 @@ export const DOME = group('dome', [
     ],
   }],
   ['quad-bike', 'Quad Bike', 'Маневрений квадроцикл із багажником.', 'buggy', ['#e02a2a', '#2a2a2a'], {
-    s: 0.85, o: o({ wheel: 1.1 }),
+    s: 0.85, o: o({ wheel: 1.1, open: true }),
+    // Backrest and handlebar post are solid: they keep the quad off its back.
+    art: () => [{ ...rect(-0.78, -0.82, -0.66, -0.25, 'black'), deco: false }, { ...rect(0.3, -0.7, 0.4, -0.25, 'chrome'), deco: false }],
     skin: (f) => [
       rr(f.tail.x - 0.05, -0.32, -0.6, -0.22, 0.03, 'black'), rr(0.6, -0.32, f.nose.x + 0.05, -0.22, 0.03, 'black'),
       ...f.wheels.map((w) => blob([[w.x - w.r - 0.1, -0.05], [w.x - w.r, -0.25], [w.x + w.r, -0.25], [w.x + w.r + 0.1, -0.05]], 'body', {}, 1)),

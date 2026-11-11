@@ -66,15 +66,21 @@ export const RETRO = group('retro', [
   ['go-kart', 'Go-Kart', 'Компактний гоночний карт: низький, легкий і верткий.', 'kart', ['#3ad15a', '#ffffff'], {
     skin: (f) => [...kart(f), circ(0.45, 0.06, 0.11, 'white'), rect(0.41, 0.0, 0.48, 0.12, 'black', { flat: true })],
   }],
-  ['timber-lorry', 'Timber Lorry', 'Лісовоз. Колоди лежать у кузові вільно й розлітаються на поворотах.', 'truck', ['#3a7a3a', '#c8a060'], {
-    cargo: ['log', 3],
-    art: (f) => [hidden(tailgate(f.deck.x0, f.deck.y, 0.6, 'wood')), hidden(rect(f.deck.x1 - 0.1, f.deck.y - 0.65, f.deck.x1 - 0.02, f.deck.y, 'wood', { deco: false }))],
-    skin: (f) => [
-      ...truckCab(f, { stack: true }),
-      rr(f.deck.x0, f.deck.y - 0.02, f.deck.x1, f.deck.y + 0.1, 0.03, 'brown'),
-      ...[f.deck.x0 + 0.02, -0.36, f.deck.x1 - 0.08].map((x) => rr(x, f.deck.y - 0.7, x + 0.08, f.deck.y, 0.03, 'black')),
-      ...fenders({ ...f, wheels: f.wheels.slice(0, 2) }, 'dark'),
-    ],
+  ['timber-lorry', 'Timber Lorry', 'Лісовоз із напівпричепом. Колоди лежать між стійками вільно й розлітаються, коли причіп мотляє.', 'truck', ['#3a7a3a', '#c8a060'], {
+    o: o({ len: 0.55, wheels: 2 }),
+    cargo: ['log', 4],
+    cargoAt: (f) => [f.wheels[0].x - 3.2, f.wheels[0].x + 0.3, f.deck.y],
+    skin: (f) => [...truckCab(f, { stack: true })],
+    links: (f) => [semi(f, (x0, x1, y) => {
+      const posts = [x0 + 0.02, x0 + 1.75, x1 - 0.2];
+      return {
+        hit: [rect(posts[0], y - 0.85, posts[0] + 0.1, y), rect(posts[2], y - 0.85, posts[2] + 0.1, y)],
+        art: [
+          rr(x0, y - 0.04, x1, y + 0.08, 0.03, 'brown'),
+          ...posts.map((x) => rr(x, y - 0.85, x + 0.1, y, 0.03, 'black')),
+        ],
+      };
+    })],
   }],
   ['farm-tractor', 'Tractor', 'Колісний трактор: велетенське заднє колесо і страшна тяга.', 'tractor', ['#3aa84a', '#ffd23f'], {
     skin: (f) => [...tractor(f), ...[1.0, 1.15, 1.3].map((x) => rect(x, -0.2, x + 0.06, 0.1, 'dark', { flat: true }))],
@@ -306,7 +312,7 @@ export const RETRO = group('retro', [
     s: 0.85, parts: ['dome'], hideParts: true,
     skin: () => [
       ell(0.05, -0.3, 0.98, 0.72, 'body', {}, 28),
-      blob([[-0.25, -0.6], [0.0, -1.0], [0.55, -0.9], [0.85, -0.45]], 'glass', {}, 2),
+      ...path(Array.from({ length: 13 }, (_, i): [number, number] => [-0.07 - Math.cos(i * Math.PI / 12) * 0.62, -0.8 - Math.sin(i * Math.PI / 12) * 0.66]), 0.06, 'white'),
       stripe(-0.9, 0.95, -0.05, 0.07, 'white'),
       headlight(0.88, -0.25, 0.1), rect(-0.2, -0.5, -0.12, 0.2, 'body', { ring: true }),
       bumper(-1.0, 1.05, 0.28, 0.08),
@@ -503,9 +509,8 @@ export const RETRO = group('retro', [
     skin: (f) => [
       blob([[f.tail.x, 0.22], [f.tail.x, -0.15], [-0.3, -0.12], [0.6, -0.1], [f.nose.x, 0.0], [f.nose.x, 0.22]], 'body', {}, 1),
       ...seat(f.head.x + 0.05, -0.12, 0.42, 'accent'),
-      seg([-0.85, -0.12], [-0.75, f.roof.y], 0.07, 'chrome'), seg([0.6, -0.12], [0.35, f.roof.y], 0.07, 'chrome'),
+      seg([-0.85, -0.12], [-0.75, f.roof.y], 0.07, 'chrome'), seg([0.53, -0.1], [0.41, -0.36], 0.07, 'chrome'),
       rr(f.roof.x0 - 0.15, f.roof.y - 0.12, f.roof.x1 + 0.15, f.roof.y + 0.02, 0.05, 'accent'),
-      pane(0.3, f.roof.y + 0.05, 0.58, -0.15, 0.2),
       rr(f.tail.x + 0.02, -0.72, f.tail.x + 0.32, -0.08, 0.06, 'black'),
       ...[0.06, 0.16, 0.24].map((dx, i) => seg([f.tail.x + dx + 0.04, -0.72], [f.tail.x + dx - 0.02 + i * 0.05, -1.05], 0.05, 'chrome')),
       ...fenders(f, 'body', 0.08), wheelPlate(f.nose.x - 0.25),

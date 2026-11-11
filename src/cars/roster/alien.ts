@@ -177,7 +177,7 @@ export const ALIEN = group('alien', [
     ],
   }],
   ['moon-rover', 'Moon Rover', 'Місяцехід з антеною-тарілкою. Стрибає, як у невагомості.', 'buggy', ['#e0e0e0', '#ffd23f'], {
-    o: o({ wheel: 1.1 }), parts: ['dish'], hideParts: true,
+    o: o({ wheel: 1.1, open: true }), parts: ['dish'], hideParts: true,
     skin: (f) => [
       ...f.wheels.map((w) => seg([w.x, w.y], [w.x * 0.6, -0.05], 0.08, 'grey')),
       rr(f.tail.x, -0.25, f.nose.x - 0.1, 0.05, 0.05, 'gold'),

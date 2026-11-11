@@ -54,7 +54,8 @@ export const ROBO = group('robo', [
     ],
   }],
   ['hovercar', 'Hovercar', 'Антигравітаційний седан без коліс-видимих: просто ширяє.', 'hover', ['#3a8ad8', '#ffffff'], {
-    skin: (f) => [...hover(f, { glow: 'sky' }), stripe(f.tail.x, f.nose.x - 0.1, -0.12, 0.06, 'accent')],
+    glide: 0.34,
+    skin: (f) => [...hover(f, { glow: 'sky' }), rr(f.tail.x + 0.5, 0.26, f.nose.x - 0.6, 0.34, 0.04, 'light'), stripe(f.tail.x, f.nose.x - 0.1, -0.12, 0.06, 'accent')],
   }],
   ['brass-bike', 'Brass Bike', 'Стімпанк-байк із латуні: шестерні, клепки й труба.', 'bike', ['#c8902a', '#5a3a1a'], {
     o: o({ mat: 'gold' }), parts: ['stack'], hideParts: true,
