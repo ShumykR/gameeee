@@ -47,7 +47,7 @@ export const RIFT = group('rift', [
       stripe(f.tail.x, f.nose.x, 0.06, 0.06, 'accent'),
     ],
   }],
-  ['mine-lander', 'Mine Lander', 'Гусеничний мінний загороджувач: ставить міни позаду.', 'tracked', ['#3a3a4a', '#ff3a3a'], {
+  ['mine-lander', 'Mine Lander', 'Гусеничний мінний загороджувач: закидає міни вперед.', 'tracked', ['#3a3a4a', '#ff3a3a'], {
     parts: ['barrels'], hideParts: true,
     skin: (f) => [
       ...base(f),

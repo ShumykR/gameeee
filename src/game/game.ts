@@ -744,24 +744,26 @@ export class Game {
         break;
       case 'drop': {
         const item = ab.item ?? 'mine';
-        const tail = this.carEnd(car, -1);
-        const at = car.chassis.getWorldPoint(new Vec2((tail - ITEMS[item].w * 0.6 - 0.1) * car.facing, -0.1));
+        // Lobbed forward over the nose, so it lands in the foe's path.
+        const nose = this.carEnd(car, 1);
+        const at = car.chassis.getWorldPoint(new Vec2((nose + ITEMS[item].w * 0.6 + 0.1) * car.facing, -0.3));
         const v = car.chassis.getLinearVelocity();
         const fx = DROP_FX[item];
         const flat = fx === 'oil' || fx === 'tar' || fx === 'flat' || fx === 'slip' || fx === 'explode';
-        this.spawnItem(item, p, at, new Vec2(v.x * 0.3 - fwd.x * 2, v.y * 0.3 - 1), flat ? 20 : 12, fx);
+        this.spawnItem(item, p, at, new Vec2(v.x * 0.5 + fwd.x * 6, v.y * 0.3 - 4), flat ? 20 : 12, fx);
         break;
       }
       case 'dump': {
+        // The bed tips forward and the load flies out over the cab.
         const item = ab.item ?? car.def.cargo?.kind ?? 'crate';
-        const tail = this.carEnd(car, -1);
+        const nose = this.carEnd(car, 1);
         const deckY = car.def.cargo?.at[2] ?? -0.4;
         const v = car.chassis.getLinearVelocity();
         const fx = item === 'concrete' ? 'set' : undefined;
         for (let i = 0; i < 4; i++) {
-          const at = car.chassis.getWorldPoint(new Vec2((tail + 0.2 + i * 0.25) * car.facing, deckY - 0.4 - (i % 2) * 0.35));
-          const sp = 5 + this.rand() * 3;
-          this.spawnItem(item, p, at, new Vec2(v.x * 0.5 - fwd.x * sp, v.y * 0.5 - 3 - this.rand() * 2), 12, fx);
+          const at = car.chassis.getWorldPoint(new Vec2((nose + 0.3 + i * 0.25) * car.facing, deckY - 0.4 - (i % 2) * 0.35));
+          const sp = 6 + this.rand() * 3;
+          this.spawnItem(item, p, at, new Vec2(v.x * 0.5 + fwd.x * sp, v.y * 0.5 - 4 - this.rand() * 2), 12, fx);
         }
         break;
       }

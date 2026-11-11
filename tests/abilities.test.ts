@@ -179,12 +179,12 @@ describe('abilities', () => {
     g.useAbility(0);
     expect(g.cars[1].stunT).toBeGreaterThan(0.5);
   });
-  it('drop leaves a mine behind that blows up the opponent', () => {
+  it('drop lobs a mine ahead that blows up the opponent', () => {
     const g = ready({ kind: 'drop', item: 'mine' });
     g.useAbility(0);
     const mine = g.items.find((i) => i.kind === 'mine');
     expect(mine).toBeDefined();
-    expect(mine!.body.getPosition().x).toBeLessThan(g.cars[0].position.x);
+    expect((mine!.body.getPosition().x - g.cars[0].position.x) * g.cars[0].facing).toBeGreaterThan(0);
     for (let i = 0; i < 30; i++) g.step();
     const events: string[] = [];
     g.on((e) => { if (e.type === 'blast') events.push(e.kind); });
@@ -197,11 +197,12 @@ describe('abilities', () => {
     for (let i = 0; i < 60 && !events.length; i++) g.step();
     expect(events).toContain('bomb');
   });
-  it('dump throws cargo out the back', () => {
+  it('dump throws cargo out the front', () => {
     const g = ready({ kind: 'dump', item: 'log' });
     const n = g.items.length;
     g.useAbility(0);
     expect(g.items.length).toBe(n + 4);
+    for (const it of g.items.slice(n)) expect(it.body.getLinearVelocity().x * g.cars[0].facing).toBeGreaterThan(0);
   });
   it('phase lets the car pass through and then turns solid again', () => {
     const g = ready({ kind: 'phase' });

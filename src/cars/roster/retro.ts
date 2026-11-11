@@ -184,7 +184,7 @@ export const RETRO = group('retro', [
       rr(f.tail.x + 0.3, f.roof.y - 0.28, f.tail.x + 0.9, f.roof.y - 0.1, 0.05, 'orange'),
     ],
   }],
-  ['concrete-truck', 'Concrete Truck', 'Бетонозмішувач. Барабан крутиться, а бетон виливається назад брилами.', 'truck', ['#e0e0e0', '#ff8030'], {
+  ['concrete-truck', 'Concrete Truck', 'Бетонозмішувач. Барабан крутиться, а бетон вилітає вперед брилами.', 'truck', ['#e0e0e0', '#ff8030'], {
     parts: ['drum'], hideParts: true,
     skin: (f) => {
       const d = f.deck;

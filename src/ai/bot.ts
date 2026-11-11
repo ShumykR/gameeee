@@ -143,8 +143,8 @@ export class Bot implements Controller {
       case 'howl': return dist < 6.5;
       case 'beam': return Math.abs(dx) < 3.4 && dy > -1.5 && dist < 8;
       case 'storm': return dist < 18;
-      case 'drop': return behind && dist < 7;
-      case 'dump': return behind && dist < 9;
+      case 'drop': return facingFoe && dist > 3 && dist < 9;
+      case 'dump': return facingFoe && dist > 3 && dist < 11;
       case 'tailwhip': return behind && dist < 4.2;
       case 'punch': case 'kick': case 'scoop': return facingFoe && dist < 3.8;
       case 'phase': return dist < 3 || (foe.ability?.kind === 'shoot' && foe.abilityCd < 0.2 && dist < 10);
