@@ -67,7 +67,7 @@ export const KIT: Record<string, Kit> = {
   snowcat: { traits: [{ kind: 'grip' }], blurb: 'Ратрак на широких гусеницях. Чіпляється за будь-який схил.' },
   snowman: { ab: 'shoot:snowball|Сніжки' },
   'snowball-cannon': { ab: 'shoot:bigsnow|Снігова брила', blurb: 'Гармата, що котить на суперника величезну снігову брилу.' },
-  'santa-sleigh': { ab: 'drop:gift|Подарунок-пружина', blurb: 'Сани Санти. Лишає позаду подарунок із пружиною: хто торкнеться — злетить.' },
+  'santa-sleigh': { ab: 'drop:gift|Подарунок-пружина', blurb: 'Сани Санти. Закидає вперед подарунок із пружиною: хто торкнеться — злетить.' },
   'gift-box': { ab: 'surprise|Сюрприз', blurb: 'Коробка з бантом. Що всередині — щоразу сюрприз.' },
   'firework-truck': { ab: 'shoot:firework|Салют' },
   'frosty-car': { ab: 'shoot:ice|Крижаний подих' },

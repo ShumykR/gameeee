@@ -54,8 +54,8 @@ export const ABILITY_INFO: Record<AbilityKind, AbilityInfo> = {
   recall: { name: 'Петля часу', icon: '⏪', cd: 6, blurb: 'Повертається туди, де був дві секунди тому.' },
   icewall: { name: 'Крижана стіна', icon: '🧊', cd: 5, blurb: 'Ставить перед собою стіну з льоду.' },
   shoot: { name: 'Постріл', icon: '🎯', cd: 2.4, blurb: 'Снаряд уперед. Влучання в голову — очко!' },
-  drop: { name: 'Пастка', icon: '💣', cd: 4, blurb: 'Скидає позаду сюрприз для суперника.' },
-  dump: { name: 'Вивантажити', icon: '📦', cd: 5, blurb: 'Висипає вантаж назад — суперникові під колеса.' },
+  drop: { name: 'Пастка', icon: '💣', cd: 4, blurb: 'Закидає навісом уперед сюрприз для суперника.' },
+  dump: { name: 'Вивантажити', icon: '📦', cd: 5, blurb: 'Кузов хилиться, і вантаж летить уперед — суперникові під колеса.' },
 };
 
 /** What a projectile does to a car it hits (heads always lose unless `harmless`). */
@@ -287,10 +287,10 @@ function actionBlurb(a: AbilityDef): string {
       flat: 'хто наїде — спускає шини', set: 'застигає горбом',
     };
     const f = DROP_FX[a.item];
-    return `Скидає позаду: ${ITEMS[a.item].name}${f && fx[f] ? ` — ${fx[f]}` : ''}.`;
+    return `Закидає вперед: ${ITEMS[a.item].name}${f && fx[f] ? ` — ${fx[f]}` : ''}.`;
   }
   if (a.kind === 'dump' && a.item) {
-    return a.item === 'concrete' ? 'Виливає назад бетон, що за мить застигає перешкодою.' : `Висипає назад: ${ITEMS[a.item].name}.`;
+    return a.item === 'concrete' ? 'Виливає вперед бетон, що за мить застигає перешкодою.' : `Викидає вперед: ${ITEMS[a.item].name}.`;
   }
   return ABILITY_INFO[a.kind].blurb;
 }
