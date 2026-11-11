@@ -93,6 +93,8 @@ export interface GameConfig {
 }
 
 const COUNTDOWN = 3;
+/** How far aim assist may turn a shot away from the barrel (rad). */
+const AIM_ASSIST = 0.26;
 const ROUND_END_DELAY = 2.8;
 
 export class Game {
@@ -900,7 +902,7 @@ export class Game {
     const f = car.forward();
     const n = pr.count ?? 1;
     const cv = car.chassis.getLinearVelocity();
-    const lift = ab?.aim ?? (pr.flight === 'flat' || pr.flight === 'skid' ? 0 : pr.flight === 'lob' ? 0.6 : 0.12);
+    const lift = this.assistAim(p, pr, muzzles[(this.shotId + 1) % muzzles.length], ab?.aim ?? (pr.flight === 'flat' || pr.flight === 'skid' ? 0 : pr.flight === 'lob' ? 0.6 : 0.12));
     let dir = f;
     for (let i = 0; i < n; i++) {
       // aim along the barrel; pellets fan out
@@ -935,6 +937,46 @@ export class Game {
     }
     const recoil = (pr.harmless ? 0.6 : 1.6) * (pr.recoil ?? 1);
     car.kick(-dir.x * recoil, -dir.y * recoil);
+  }
+
+  /**
+   * Aim assist: nudge the launch angle (at most AIM_ASSIST either way from the barrel) so the
+   * shot's path passes as close as it can to where the opponent's head is right now. The
+   * player still has to face the foe and time the shot; a moving target can drive out of it.
+   */
+  private assistAim(p: number, pr: (typeof PROJECTILES)[ProjectileKind], muzzle: [number, number], lift: number): number {
+    const car = this.cars[p];
+    if (pr.flight === 'flat' || pr.flight === 'skid' || pr.flight === 'homing' || pr.flight === 'wobble') return lift;
+    const foe = this.cars[1 - p];
+    if (!foe.alive) return lift;
+    const f = car.forward();
+    const from = car.chassis.getWorldPoint(new Vec2(muzzle[0] * car.facing, muzzle[1]));
+    const hp = foe.headWorld();
+    // aim at the crown of the helmet: a shot that skims in over the bonnet still finds it
+    const crown = foe.chassis.getWorldVector(new Vec2(0, -foe.def.head.r * 0.7));
+    const tx = hp.x + crown.x - from.x, ty = hp.y + crown.y - from.y;
+    if (tx * f.x + ty * f.y <= 0.5) return lift;
+    const g = (this.map.gravity ?? DEFAULT_GRAVITY) * pr.gravity;
+    const cv = car.chassis.getLinearVelocity();
+    let best = lift, bestD = Infinity, high: number | undefined;
+    const N = 32, T = 40;
+    // A barrel that points at the sky may still be levelled.
+    const lo = Math.min(lift - AIM_ASSIST, 0.03), hi = lift + AIM_ASSIST;
+    for (let i = 0; i <= N; i++) {
+      const a = lo + (i / N) * (hi - lo);
+      const up = a * car.facing;
+      const vx = (f.x * Math.cos(up) + f.y * Math.sin(up)) * pr.speed + cv.x * 0.5;
+      const vy = (-f.x * Math.sin(up) + f.y * Math.cos(up)) * pr.speed + cv.y * 0.5;
+      let d = Infinity;
+      for (let k = 1; k <= T; k++) {
+        const t = (k / T) * pr.life;
+        d = Math.min(d, Math.hypot(vx * t - tx, vy * t + 0.5 * g * t * t - ty));
+      }
+      // Of the angles that find the head, the steepest drops in over the bonnet.
+      if (d < 0.2) high = a;
+      if (d < bestD) { bestD = d; best = a; }
+    }
+    return high ?? best;
   }
 
   private stepShots() {
