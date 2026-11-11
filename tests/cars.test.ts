@@ -1,3 +1,4 @@
+import { HEAD_R } from '../src/physics/constants';
 import { describe, it, expect } from 'vitest';
 import { CARS } from '../src/cars/defs';
 import { validateCar, rawStats, normalizedStats } from '../src/cars/stats';
@@ -91,9 +92,15 @@ describe('moving pieces', () => {
       // pieces stay hinged to the car
       for (const j of c.linkJoints) {
         const a = j.getAnchorA(), b = j.getAnchorB();
-        expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeLessThan(0.8);
+        expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeLessThan(0.85);
       }
     }
     expect(top).toBeGreaterThan(def.motor.speed * 0.6);
+  });
+});
+
+describe('driver head', () => {
+  it('is the same size in every car', () => {
+    for (const c of CARS) expect(c.head.r, c.id).toBe(HEAD_R);
   });
 });

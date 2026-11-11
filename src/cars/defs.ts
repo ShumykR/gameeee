@@ -1,3 +1,4 @@
+import { HEAD_R } from '../physics/constants';
 import type { CarDef, CarPoly, Pt } from './types';
 import { buildCar } from './factory';
 import { applyKit } from './kit';
@@ -583,7 +584,12 @@ const ORIGINALS: CarDef[] = [
 export const CARS: CarDef[] = [
   ...ORIGINALS.map((c) => skinOriginal({ ...c, category: 'originals' as const })),
   ...ROSTER.map(buildCar),
-].map(applyKit).map(openCockpit).map(chunkyWheels);
+].map(uniformHead).map(applyKit).map(openCockpit).map(chunkyWheels);
+
+/** The driver's head is the same size in every car. */
+function uniformHead(def: CarDef): CarDef {
+  return def.head.r === HEAD_R ? def : { ...def, head: { ...def.head, r: HEAD_R } };
+}
 
 /**
  * Where the driver sits there is no glass: the head pokes out of an open cockpit,
