@@ -503,9 +503,8 @@ export const RETRO = group('retro', [
     skin: (f) => [
       blob([[f.tail.x, 0.22], [f.tail.x, -0.15], [-0.3, -0.12], [0.6, -0.1], [f.nose.x, 0.0], [f.nose.x, 0.22]], 'body', {}, 1),
       ...seat(f.head.x + 0.05, -0.12, 0.42, 'accent'),
-      seg([-0.85, -0.12], [-0.75, f.roof.y], 0.07, 'chrome'), seg([0.6, -0.12], [0.35, f.roof.y], 0.07, 'chrome'),
+      seg([-0.85, -0.12], [-0.75, f.roof.y], 0.07, 'chrome'), seg([0.53, -0.1], [0.41, -0.36], 0.07, 'chrome'),
       rr(f.roof.x0 - 0.15, f.roof.y - 0.12, f.roof.x1 + 0.15, f.roof.y + 0.02, 0.05, 'accent'),
-      pane(0.3, f.roof.y + 0.05, 0.58, -0.15, 0.2),
       rr(f.tail.x + 0.02, -0.72, f.tail.x + 0.32, -0.08, 0.06, 'black'),
       ...[0.06, 0.16, 0.24].map((dx, i) => seg([f.tail.x + dx + 0.04, -0.72], [f.tail.x + dx - 0.02 + i * 0.05, -1.05], 0.05, 'chrome')),
       ...fenders(f, 'body', 0.08), wheelPlate(f.nose.x - 0.25),

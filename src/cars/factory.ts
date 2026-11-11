@@ -405,9 +405,11 @@ function frame(id: FrameId, o: FrameOpts): Frame {
         arch: 'bouncy',
         polys: [
           P([[-hl, -0.08], [hl - 0.25, -0.12], [hl + 0.05, 0.06], [hl - 0.1, 0.26], [-hl + 0.1, 0.26]], m),
-          P([[-0.85 * L, -0.08], [-0.7 * L, -0.08], [-0.55 * L, -0.92], [-0.68 * L, -0.92]], 'metal'),
-          P([[0.55 * L, -0.1], [0.7 * L, -0.11], [0.32 * L, -0.92], [0.2 * L, -0.92]], 'metal'),
-          R(-0.68 * L, -1.0, 0.32 * L, -0.9, 'metal'),
+          ...(o.open ? [] : [
+            P([[-0.85 * L, -0.08], [-0.7 * L, -0.08], [-0.55 * L, -0.92], [-0.68 * L, -0.92]], 'metal'),
+            P([[0.55 * L, -0.1], [0.7 * L, -0.11], [0.55 * L, -0.42], [0.41 * L, -0.42]], 'metal'),
+            R(-0.68 * L, -1.0, 0.32 * L, -0.9, 'metal'),
+          ]),
         ],
         windows: [],
         wheels: [W(-1.0 * L, 0.36, wr, rim ?? 'star'), W(1.0 * L, 0.36, wr, rim ?? 'star')],
@@ -608,12 +610,11 @@ function frame(id: FrameId, o: FrameOpts): Frame {
     case 'tractor': {
       const wr0 = 0.62 * wk, wr1 = 0.36 * wk;
       return {
-        arch: 'heavy', tune: { accel: 1.25 },
+        arch: 'heavy', tune: { accel: 1.25 }, com: [0.1, 0],
         polys: [
           P([[-0.4, -0.35], [1.5 * L, -0.3], [1.62 * L, 0.0], [1.55 * L, 0.22], [-0.4, 0.22]], m),
           R(-1.3, -0.25, -0.35, 0.18, m),
           R(-1.25, -1.15 * H, -1.12, -0.25, 'dark'),
-          R(-0.45, -1.15 * H, -0.32, -0.35, 'dark'),
           R(-1.35, -1.27 * H, -0.25, -1.13 * H, 'accent'),
           R(0.9 * L, -0.75, 1.02 * L, -0.3, 'metal'),
         ],
@@ -762,7 +763,7 @@ function part(f: Frame, id: PartId, k = 1): { polys: CarPoly[]; windows?: Pt[][]
     case 'ball':
       return { polys: [O(dm, d.y - 0.45 * k, 0.45 * k, 0.45 * k, 'white', { density: 0.3 })] };
     case 'cage':
-      return { polys: [R(d.x0, d.y - 0.75, d.x0 + 0.08, d.y, 'metal'), R(d.x1 - 0.08, d.y - 0.75, d.x1, d.y, 'metal'), R(d.x0, d.y - 0.83, d.x1, d.y - 0.75, 'metal'), R(dm - 0.04, d.y - 0.75, dm + 0.04, d.y, 'metal', deco)] };
+      return { polys: [R(d.x0, d.y - 0.75, d.x0 + 0.08, d.y, 'metal'), R(d.x1 - 0.08, d.y - 0.3, d.x1, d.y, 'metal'), R(d.x0, d.y - 0.83, dm + 0.04, d.y - 0.75, 'metal'), R(dm - 0.04, d.y - 0.75, dm + 0.04, d.y, 'metal', deco)] };
     case 'cannon':
       return { polys: [O(dm, d.y - 0.18, 0.32, 0.22, 'dark'), P([[dm, d.y - 0.32], [dm + 0.12, d.y - 0.14], [dm + 1.1 * k, d.y - 0.62], [dm + 1.02 * k, d.y - 0.8]], 'metal', { density: 0.5 })] };
     case 'twincannon':

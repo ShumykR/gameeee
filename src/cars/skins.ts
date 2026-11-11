@@ -366,7 +366,7 @@ export function tractor(f: Frame, o: { mat?: CarMat; cab?: boolean } = {}): CarP
   out.push(...stack(fw.x - 0.2, -0.3, 0.6, 0.09, 'black'));
   out.push(seg([-0.2, -0.32], [-0.38, -0.62], 0.06, 'black'));
   if (o.cab !== false) {
-    out.push(rect(-1.25, -1.2, -1.12, -0.3, 'dark'), rect(-0.45, -1.2, -0.32, -0.36, 'dark'), rr(-1.38, -1.3, -0.22, -1.12, 0.05, 'accent'));
+    out.push(rect(-1.25, -1.2, -1.12, -0.3, 'dark'), rr(-1.38, -1.3, -0.22, -1.12, 0.05, 'accent'));
   }
   out.push(headlight(f.nose.x - 0.05, -0.12, 0.08));
   return out;
