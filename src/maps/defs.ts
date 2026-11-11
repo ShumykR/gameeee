@@ -1,3 +1,4 @@
+import { smoothMap } from './smooth';
 import type { MapDef, Pt } from './types';
 import { CAVE_MAPS } from './caves';
 
@@ -401,6 +402,8 @@ export const MAPS: MapDef[] = [
     bounds: { x0: 0, y0: -6, x1: 50, y1: 26 },
     killY: 34,
     spawns: [[8.4, 13], [41.6, 13]],
+    // the kickers into the loop pit are built ramps: keep their lips
+    smooth: 0.7,
     solids: [
       { mat: 'track', pts: heightfield(0, 50, 0.25, profile([[0, 3], [3, 8], [5.5, 15], [9, 15.4], [12.5, 15.4], [16.6, 12.8], [17.4, 12.6], [17.9, 15.9], [25, 16.2], [32.1, 15.9], [32.6, 12.6], [33.4, 12.8], [37.5, 15.4], [41, 15.4], [44.5, 15], [47, 8], [50, 3]]), 30) },
       { mat: 'rock', pts: slab(-4, -10, 1, 30) },
@@ -418,5 +421,7 @@ export const MAPS: MapDef[] = [
 ];
 
 MAPS.push(...CAVE_MAPS);
+// Every arena's ground is rounded off once, here (see smooth.ts).
+for (let i = 0; i < MAPS.length; i++) MAPS[i] = smoothMap(MAPS[i]);
 
 export const MAP_BY_ID: Record<string, MapDef> = Object.fromEntries(MAPS.map((m) => [m.id, m]));

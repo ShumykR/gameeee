@@ -67,7 +67,7 @@ export const RETRO = group('retro', [
     skin: (f) => [...kart(f), circ(0.45, 0.06, 0.11, 'white'), rect(0.41, 0.0, 0.48, 0.12, 'black', { flat: true })],
   }],
   ['timber-lorry', 'Timber Lorry', 'Лісовоз із напівпричепом. Колоди лежать між стійками вільно й розлітаються, коли причіп мотляє.', 'truck', ['#3a7a3a', '#c8a060'], {
-    o: o({ len: 0.55, wheels: 2 }),
+    o: o({ len: 0.55, wheels: 2 }), wheelie: 0.15,
     cargo: ['log', 4],
     cargoAt: (f) => [f.wheels[0].x - 3.2, f.wheels[0].x + 0.3, f.deck.y],
     skin: (f) => [...truckCab(f, { stack: true })],
@@ -302,8 +302,8 @@ export const RETRO = group('retro', [
     skin: (f) => [
       blob([[f.tail.x + 0.05, 0.3], [f.tail.x - 0.05, 0.0], [f.tail.x + 0.4, -0.45], [-0.5, f.roof.y - 0.02], [0.3, f.roof.y - 0.02], [0.95, -0.2], [f.nose.x, 0.05], [f.nose.x - 0.05, 0.3]], 'body', {}, 2),
       poly([[-0.6, -0.2], [-0.45, f.roof.y + 0.08], [-0.1, f.roof.y + 0.06], [-0.1, -0.2]], 'glass'),
-      poly([[0.0, -0.2], [0.0, f.roof.y + 0.06], [0.3, f.roof.y + 0.08], [0.7, -0.2]], 'glass'),
       ...fenders(f, 'body', 0.12), ...door(-0.6, -0.16, 0.65, 0.2),
+      { ...poly([[f.head.x - 0.4, -0.16], [f.head.x - 0.34, f.roof.y + 0.08], [0.32, f.roof.y + 0.08], [0.85, -0.16]]), cut: true },
       headlight(f.nose.x - 0.2, -0.05, 0.1), bumper(f.nose.x - 0.25, f.nose.x + 0.05, 0.26, 0.09), bumper(f.tail.x - 0.05, f.tail.x + 0.25, 0.26, 0.09),
       ...path([[0.3, f.roof.y + 0.02], [0.6, f.roof.y - 0.3]], 0.05, 'black'), circ(0.62, f.roof.y - 0.33, 0.06, 'black'),
     ],
@@ -358,7 +358,7 @@ export const RETRO = group('retro', [
       tank(-0.3, f.nose.x - 0.05, -0.6, 0.28, 'black'), rect(0.2, -0.88, 0.28, -0.32, 'gold', { flat: true }),
       ...stack(f.nose.x - 0.35, -0.85, 0.7, 0.14, 'black'),
       rect(f.head.x - 0.45, f.roof.y - 0.1, f.head.x - 0.35, -0.4, 'dark'),
-      rr(f.head.x - 0.55, f.roof.y - 0.2, f.roof.x1 + 0.05, f.roof.y - 0.05, 0.05, 'accent'),
+      rr(f.head.x - 0.7, f.roof.y - 0.26, f.roof.x1 + 0.3, f.roof.y - 0.04, 0.07, 'accent'), rect(f.head.x - 0.6, f.roof.y - 0.1, f.roof.x1 + 0.2, f.roof.y - 0.04, 'dark', { flat: true }),
       rect(f.nose.x - 0.2, -0.3, f.nose.x + 0.3, 0.0, 'dark'),
     ],
   }],
@@ -372,7 +372,7 @@ export const RETRO = group('retro', [
     skin: (f) => [...bike(f, { style: 'dirt' }), circ(0.15, -0.12, 0.12, 'white'), rect(0.12, -0.18, 0.18, -0.06, 'black', { flat: true })],
   }],
   ['car-carrier', 'Car Carrier', 'Тягач із двоярусним автовозом-напівпричепом, повним машинок.', 'truck', ['#3a5ab0', '#e0e0e0'], {
-    o: o({ len: 0.55, wheels: 2 }),
+    o: o({ len: 0.55, wheels: 2 }), wheelie: 0.15,
     skin: (f) => [...truckCab(f)],
     links: (f) => [semi(f, (x0, x1, y) => {
       const mini = (x: number, yy: number, m: 'red' | 'yellow' | 'green' | 'blue') => [
@@ -529,7 +529,7 @@ export const RETRO = group('retro', [
     ],
   }],
   ['tanker-truck', 'Tanker Truck', 'Тягач із цистерною-напівпричепом: вона мотляється ззаду й складається на поворотах.', 'truck', ['#e0e0e0', '#3a6ad8'], {
-    o: o({ len: 0.55, wheels: 2 }),
+    o: o({ len: 0.55, wheels: 2 }), wheelie: 0.15,
     skin: (f) => [...truckCab(f, { mat: 'accent', stack: true })],
     links: (f) => [semi(f, (x0, x1, y) => ({
       hit: [rect(x0 + 0.05, y - 1.02, x1 - 0.1, y)],

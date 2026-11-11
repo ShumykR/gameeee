@@ -150,8 +150,8 @@ export class Game {
 
   /** Lava or water, at random, for a rising sudden death. */
   private riseLiquid(): 'lava' | 'flood' {
-    // Water can't finish off a car that swims, so then it's always lava.
-    if (this.cars.some((c) => c.hasTrait('swim'))) return 'lava';
+    // One swimmer keeps its edge in a flood; water can't end a round between two of them, so then it's lava.
+    if (this.cars.every((c) => c.hasTrait('swim'))) return 'lava';
     return this.rand() < 0.5 ? 'lava' : 'flood';
   }
 
@@ -1011,16 +1011,18 @@ export class Game {
         s.body.setLinearVelocity(new Vec2(v.x * 0.94 + (dx / d) * 1.6, v.y * 0.94 + (dy / d) * 1.6));
         if (d < 1.2 && age > 0.6) s.dead = true;
       } else if (pr.flight === 'wobble') {
-        s.body.setLinearVelocity(new Vec2(v.x, Math.sin(age * 14 + (s.phase ?? 0)) * 4));
-      } else if (pr.flight === 'homing') {
-        const foe = this.cars[1 - s.owner];
+        // Flutters up and down; a seeking swarm also drifts toward the foe's height.
+        const drift = pr.seek && foe.alive ? Math.max(-3, Math.min(3, (foe.headWorld().y - pos.y) * pr.seek * 40)) : 0;
+        s.body.setLinearVelocity(new Vec2(v.x, Math.sin(age * 14 + (s.phase ?? 0)) * 4 + drift));
+      } else if (pr.flight === 'homing' || pr.seek) {
         if (foe.alive && age > 0.15) {
           const want = Math.atan2(foe.position.y - 0.3 - pos.y, foe.position.x - pos.x);
           const cur = Math.atan2(v.y, v.x);
           let da = want - cur;
           while (da > Math.PI) da -= Math.PI * 2;
           while (da < -Math.PI) da += Math.PI * 2;
-          const turn = Math.max(-0.07, Math.min(0.07, da));
+          const lim = pr.seek ?? 0.07;
+          const turn = Math.max(-lim, Math.min(lim, da));
           const sp = Math.max(pr.speed, v.length());
           s.body.setLinearVelocity(new Vec2(Math.cos(cur + turn) * sp, Math.sin(cur + turn) * sp));
         }

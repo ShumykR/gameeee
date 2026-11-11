@@ -333,7 +333,7 @@ export function loco(f: Frame, o: { mat?: CarMat; boiler?: CarMat; trim?: CarMat
   out.push(rr(x0, 0.12, x1, 0.3, 0.04, 'dark'));
   // cab
   out.push(rr(x0 + 0.05, -1.3, x0 + 1.25, 0.15, 0.04, m));
-  out.push(rr(x0 - 0.05, -1.4, x0 + 1.4, -1.2, 0.06, o.trim ?? 'black'));
+  out.push(rr(x0 - 0.05, -1.4, x0 + 1.1, -1.2, 0.06, o.trim ?? 'black'));
   out.push(rr(x0 + 0.65, -1.05, x0 + 1.1, -0.65, 0.05, 'glass'));
   // boiler
   out.push(tank(x0 + 1.2, x1 + 0.05, -0.32, 0.34, o.boiler ?? 'black'));

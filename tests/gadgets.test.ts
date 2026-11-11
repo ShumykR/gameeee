@@ -47,6 +47,8 @@ describe('arena gadgets are real', () => {
       g.step();
       rode ||= g.arena.loopRiding(0);
       if (Math.abs(c.position.x - L.x) < 2) minY = Math.min(minY, c.position.y);
+      // once out of the loop, lift off: at full throttle the car would ride on up the arena wall
+      if (rode && c.position.x > L.x + 3.5) g.inputs[0] = 0;
     }
     expect(rode).toBe(true);
     expect(minY).toBeLessThan(L.y - 2); // went over the top

@@ -19,6 +19,34 @@ export function curve(points: Pt[]): Fn {
     return points[points.length - 1][1];
   };
 }
+/**
+ * Smooth outline through control points (centripetal Catmull-Rom), sampled about every `step` metres
+ * of its length. Unlike `curve` it has no flat ledge at each control point and no coarse facets on
+ * steep parts, so a car can ride it from the floor up the wall. Both ends leave vertically: that is
+ * where a floor outline meets its ceiling.
+ */
+export function spline(points: Pt[], step = 0.4): Pt[] {
+  const n = points.length;
+  const mirror = (a: Pt, b: Pt): Pt => [b[0], 2 * a[1] - b[1]];
+  const P: Pt[] = [mirror(points[0], points[1]), ...points, mirror(points[n - 1], points[n - 2])];
+  const out: Pt[] = [];
+  for (let i = 1; i < P.length - 2; i++) {
+    const p0 = P[i - 1], p1 = P[i], p2 = P[i + 1], p3 = P[i + 2];
+    const d = (a: Pt, b: Pt) => Math.max(1e-4, Math.sqrt(Math.hypot(b[0] - a[0], b[1] - a[1])));
+    const t0 = 0, t1 = t0 + d(p0, p1), t2 = t1 + d(p1, p2), t3 = t2 + d(p2, p3);
+    const m = Math.max(2, Math.ceil(Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) / step));
+    for (let k = 0; k < m; k++) {
+      const t = t1 + ((t2 - t1) * k) / m;
+      const L = (a: Pt, b: Pt, ta: number, tb: number): Pt => [(a[0] * (tb - t) + b[0] * (t - ta)) / (tb - ta), (a[1] * (tb - t) + b[1] * (t - ta)) / (tb - ta)];
+      const a1 = L(p0, p1, t0, t1), a2 = L(p1, p2, t1, t2), a3 = L(p2, p3, t2, t3);
+      const b1 = L(a1, a2, t0, t2), b2 = L(a2, a3, t1, t3);
+      const c = L(b1, b2, t1, t2);
+      out.push([+c[0].toFixed(3), +c[1].toFixed(3)]);
+    }
+  }
+  out.push(points[n - 1]);
+  return out;
+}
 /** Sample y = f(x) from x0 to x1. */
 export function sample(x0: number, x1: number, f: Fn, step = 0.35): Pt[] {
   const n = Math.max(2, Math.round((x1 - x0) / step));
@@ -78,11 +106,10 @@ const rect = (x0: number, y0: number, x1: number, y1: number): Pt[] => [[x0, y0]
 
 // ---------------------------------------------------------------- arenas
 
-const EIGHT_TOP = curve([[2, 12], [3, 8.5], [6, 5.5], [11, 4.2], [17, 4.6], [21, 6.4], [24, 9.0], [27, 6.4], [31, 4.6], [37, 4.2], [42, 5.5], [45, 8.5], [46, 12]]);
-const EIGHT_BOT = curve([[2, 12], [3, 15.5], [5, 17.5], [10, 18.6], [16, 18.6], [21, 17.2], [24, 16.5], [27, 17.2], [32, 18.6], [38, 18.6], [43, 17.5], [45, 15.5], [46, 12]]);
+const EIGHT_TOP_PTS: Pt[] = [[2, 12], [3, 8.5], [6, 5.5], [11, 4.2], [17, 4.6], [21, 6.4], [24, 9.0], [27, 6.4], [31, 4.6], [37, 4.2], [42, 5.5], [45, 8.5], [46, 12]];
+const EIGHT_BOT_PTS: Pt[] = [[2, 12], [3, 15.5], [5, 17.5], [10, 18.6], [16, 18.6], [21, 17.2], [24, 16.5], [27, 17.2], [32, 18.6], [38, 18.6], [43, 17.5], [45, 15.5], [46, 12]];
 
-const BONE_BOT = curve([[2, 12], [2.6, 15.2], [4.2, 17.6], [7, 18.1], [9.6, 16.9], [11.2, 16.2], [36.8, 16.2], [38.4, 16.9], [41, 18.1], [43.8, 17.6], [45.4, 15.2], [46, 12]]);
-const BONE_TOP: (x: number) => number = (x) => 24 - BONE_BOT(x);
+const BONE_BOT_PTS: Pt[] = [[2, 12], [2.6, 15.2], [4.2, 17.6], [7, 18.1], [9.6, 16.9], [11.2, 16.2], [36.8, 16.2], [38.4, 16.9], [41, 18.1], [43.8, 17.6], [45.4, 15.2], [46, 12]];
 
 const DONUT = { cx: 24, cy: 12.5, rx: 21, ry: 9.5 };
 const ell = (e: typeof DONUT, s: 1 | -1) => (x: number) => e.cy + s * e.ry * Math.sqrt(Math.max(0, 1 - ((x - e.cx) / e.rx) ** 2));
@@ -91,12 +118,13 @@ const DONUT_FLOOR = (x: number) => DONUT.cy + DONUT.ry * Math.max(0, 1 - Math.ab
 
 const MINE_TOP = curve([[2, 13], [3, 8], [6, 5.2], [14, 4.4], [24, 5.0], [34, 4.4], [42, 5.2], [45, 8], [46, 13]]);
 
-const CRYPT_TOP = curve([[3, 15], [4, 10], [8, 6], [15, 3.6], [24, 2.6], [33, 3.6], [40, 6], [44, 10], [45, 15]]);
-const CRYPT_BOT = curve([[3, 15], [4, 17.4], [7, 18.4], [14, 18.6], [20, 17.8], [24, 17.4], [28, 17.8], [34, 18.6], [41, 18.4], [44, 17.4], [45, 15]]);
+const CRYPT_TOP_PTS: Pt[] = [[3, 15], [4, 10], [8, 6], [15, 3.6], [24, 2.6], [33, 3.6], [40, 6], [44, 10], [45, 15]];
+const CRYPT_BOT_PTS: Pt[] = [[3, 15], [4, 17.4], [7, 18.4], [14, 18.6], [20, 17.8], [24, 17.4], [28, 17.8], [34, 18.6], [41, 18.4], [44, 17.4], [45, 15]];
 
 export const CAVE_MAPS: MapDef[] = [
   {
     id: 'eight',
+    smooth: 0, // its outline is a smooth curve already
     name: 'Вісімка',
     theme: 'cavern',
     blurb: 'Печера з двох залів під одним склепінням. Розженись — і їдь по стінах.',
@@ -104,7 +132,7 @@ export const CAVE_MAPS: MapDef[] = [
     killY: 34,
     spawns: [[10.5, 16.2], [37.5, 16.2]],
     solids: [
-      ...cavern({ x0: -10, y0: -10, x1: 58, y1: 34 }, sample(2, 46, EIGHT_TOP), sample(2, 46, EIGHT_BOT), 'cave'),
+      ...cavern({ x0: -10, y0: -10, x1: 58, y1: 34 }, spline(EIGHT_TOP_PTS), spline(EIGHT_BOT_PTS), 'cave'),
       { mat: 'amber', pts: capsule(10.5, 17.5, 10.2, 0.45) },
       { mat: 'amber', pts: capsule(30.5, 37.5, 10.2, 0.45) },
     ],
@@ -113,6 +141,7 @@ export const CAVE_MAPS: MapDef[] = [
   },
   {
     id: 'bone',
+    smooth: 0, // its outline is a smooth curve already
     name: 'Кістка',
     theme: 'catacomb',
     blurb: 'Катакомба у формі кістки: сталева балка посередині ділить її на два поверхи.',
@@ -120,7 +149,7 @@ export const CAVE_MAPS: MapDef[] = [
     killY: 34,
     spawns: [[13, 15.4], [35, 15.4]],
     solids: [
-      ...cavern({ x0: -10, y0: -10, x1: 58, y1: 34 }, sample(2, 46, BONE_TOP), sample(2, 46, BONE_BOT), 'cave'),
+      ...cavern({ x0: -10, y0: -10, x1: 58, y1: 34 }, spline(BONE_BOT_PTS.map(([x, y]): Pt => [x, 24 - y])), spline(BONE_BOT_PTS), 'cave'),
       { mat: 'steel', pts: capsule(16.5, 31.5, 12, 0.42) },
     ],
     backdrop: [rect(-10, -10, 58, 34)],
@@ -129,6 +158,7 @@ export const CAVE_MAPS: MapDef[] = [
   },
   {
     id: 'donut',
+    smooth: 0, // its outline is a smooth curve already
     name: 'Пончик',
     theme: 'grotto',
     blurb: 'Кільцевий грот довкола острова. Сині промені на краях закидають нагору.',
@@ -215,6 +245,7 @@ export const CAVE_MAPS: MapDef[] = [
   },
   {
     id: 'crypt',
+    smooth: 0, // its outline is a smooth curve already
     name: 'Маятник',
     theme: 'crypt',
     blurb: 'Склеп під куполом, де над головами гойдається пилка на ланцюгу.',
@@ -222,7 +253,7 @@ export const CAVE_MAPS: MapDef[] = [
     killY: 34,
     spawns: [[9.5, 16.2], [38.5, 16.2]],
     solids: [
-      ...cavern({ x0: -10, y0: -10, x1: 58, y1: 34 }, sample(3, 45, CRYPT_TOP), sample(3, 45, CRYPT_BOT), 'cave'),
+      ...cavern({ x0: -10, y0: -10, x1: 58, y1: 34 }, spline(CRYPT_TOP_PTS), spline(CRYPT_BOT_PTS), 'cave'),
     ],
     saws: [{ x: 24, y: 3.4, r: 1.15, swing: { len: 9.4, amp: 0.95, period: 3.6 } }],
     backdrop: [rect(-10, -10, 58, 34)],

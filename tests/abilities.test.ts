@@ -218,7 +218,7 @@ describe('abilities', () => {
     expect(g.cars[0].position.x).toBeGreaterThan(x0 + 1.5);
   });
   it('ice shots freeze, bubbles lift, water does not knock the head off', () => {
-    for (const [proj, check] of [['ice', (c: Game['cars'][0]) => c.stunT > 0], ['bubble', (c: Game['cars'][0]) => c.liftT > 0]] as const) {
+    for (const [proj, check] of [['ice', (c: Game['cars'][0]) => c.stunT > 0 || !c.alive /* aim assist may put it straight into the helmet */], ['bubble', (c: Game['cars'][0]) => c.liftT > 0]] as const) {
       const g = ready({ kind: 'shoot', projectile: proj });
       placeFoe(g, 4);
       g.useAbility(0);
