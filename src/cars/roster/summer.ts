@@ -8,8 +8,8 @@ const hidden = (p: CarPoly): CarPoly => ({ ...p, hide: true });
 
 export const SUMMER = group('summer', [
   ['harvester', 'Harvester', 'Зернозбиральний комбайн із мотовилом. Скидає тюки сіна.', 'box', ['#3aa04a', '#ffd23f'], {
-    o: o({ len: 1.15, tall: 1.2 }), parts: ['plow'], cargo: ['hay', 2], hideParts: true,
-    art: (f) => [hidden(tailgate(f.deck.x0, f.deck.y, 0.3, 'accent'))],
+    o: o({ len: 1.15, tall: 1.2 }), arch: 'scoop', cargo: ['hay', 2],
+    art: (f) => [hidden(tailgate(f.deck.x0, f.deck.y, 0.3, 'accent')), hidden(poly([[f.nose.x - 0.2, -0.3], [f.nose.x + 0.7, -0.15], [f.nose.x + 0.75, 0.3], [f.nose.x - 0.2, 0.3]], 'yellow', { deco: false }))],
     // The reel is absurdly big and really turns: it combs whatever is in front up and over the header.
     links: (f) => {
       const cx = f.nose.x + 0.75, cy = -0.75, r = 0.85;

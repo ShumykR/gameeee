@@ -74,7 +74,6 @@ export const HALLOWEEN = group('halloween', [
     skin: (f) => [
       rr(f.tail.x + 0.05, 0.06, f.nose.x - 0.05, 0.18, 0.04, 'gold'),
       ...jackOLantern(0, (f.roof.y + 0.2) / 2, 1.0, (0.2 - f.roof.y) / 2, false),
-      rr(-0.35, f.roof.y + 0.25, 0.35, f.roof.y + 0.7, 0.15, 'cream'), rr(-0.28, f.roof.y + 0.32, 0.28, f.roof.y + 0.62, 0.12, 'glass'),
       ...path([[0.05, f.roof.y], [0.25, f.roof.y - 0.3], [0.45, f.roof.y - 0.35]], 0.07, 'leaf'), ell(0.35, f.roof.y - 0.12, 0.18, 0.08, 'leaf'),
       ...path([[-0.6, f.roof.y + 0.1], [-0.9, f.roof.y - 0.2], [-1.0, f.roof.y - 0.05]], 0.04, 'leaf'),
       ...[-1.0, 1.0].map((x) => path([[x, 0.12], [x * 1.1, 0.4]], 0.05, 'gold')).flat(),

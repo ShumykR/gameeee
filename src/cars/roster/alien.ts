@@ -194,6 +194,7 @@ export const ALIEN = group('alien', [
       poly([[f.tail.x + 0.2, -0.3], [f.tail.x - 0.2, -0.95], [f.tail.x + 0.2, -0.95], [f.tail.x + 0.9, -0.3]], 'accent'),
       rr(f.tail.x - 0.35, -0.25, f.tail.x + 0.05, -0.05, 0.05, 'grey'), rr(f.tail.x - 0.35, 0.0, f.tail.x + 0.05, 0.18, 0.05, 'grey'),
       ...hover(f, { glow: 'accent' }),
+      ...path(Array.from({ length: 11 }, (_, i): [number, number] => [f.head.x - Math.cos(i * Math.PI / 10) * 0.62, -0.34 - Math.sin(i * Math.PI / 10) * 0.62]), 0.06, 'accent'),
       ...eyeball(0.0, -0.48, 0.12, 'leaf'), ...eyeball(-0.3, -0.5, 0.1, 'leaf'),
       poly([[-0.4, 0.05], [0.8, 0.05], [-0.6, 0.45]], 'body'),
     ],
