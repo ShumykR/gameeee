@@ -303,7 +303,7 @@ export const RIFT = group('rift', [
   ['mini-tentacle', 'Mini Tentacle', 'Малий щупальцевий юніт з одним оком.', 'blob', ['#7a3ae0', '#5ef0ff'], {
     s: 0.8, parts: ['tentacles'], noLights: true, hideParts: true,
     skin: () => [
-      ...tentacles(-0.7, -0.4, 3, 0.7, 'body'),
+      ...tentacles(-0.6, -0.55, 4, 1.4, 'body'),
       ell(0, -0.35, 0.95, 0.72, 'body', {}, 28),
       ...eyeball(0.3, -0.5, 0.28, 'accent'),
       ...[[-0.5, -0.8], [-0.6, -0.2], [0.0, 0.1]].map(([x, y]) => circ(x, y, 0.07, 'accent')),
