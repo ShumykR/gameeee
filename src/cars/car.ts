@@ -3,6 +3,8 @@ import { CAT, MASK, STEP_DT, DEFAULT_GRAVITY } from '../physics/constants';
 
 /** Tuning knobs shared by all cars. */
 export const TUNE = { groundTilt: 1.6, maxSpin: 7.5, selfRight: 14 };
+/** Wall riding: grip force on a vertical wall (× weight), and the speed along the surface where it starts / is full. */
+export const WALL_GRIP = { force: 1.0, from: 3, full: 7 };
 const SELF_RIGHT = TUNE.selfRight;
 import type { FixtureTag } from '../physics/tags';
 import type { AbilityDef, CarDef, Pt, WheelDef } from './types';
@@ -40,6 +42,8 @@ export class Car {
   private flipDir = 1;
   /** Number of wheels touching something this step. */
   wheelsOnGround = 0;
+  /** Unit normal of the ground the wheels stand on (pointing away from it), if any. */
+  groundNormal: Vec2 | null = null;
   chassisTouching = false;
   /** A hinged piece (neck, arm, trailer) is touching something. */
   linkTouching = false;
@@ -471,15 +475,25 @@ export class Car {
 
   private scanContacts() {
     this.wheelsOnGround = 0;
+    let nx = 0, ny = 0;
     for (const w of this.wheels) {
       for (let ce = w.getContactList(); ce; ce = ce.next!) {
         const c = ce.contact;
         if (c.isTouching() && !c.getFixtureA().isSensor() && !c.getFixtureB().isSensor()) {
           this.wheelsOnGround++;
+          // The surface under the wheels (terrain and platforms only), pointing away from it.
+          const mine = c.getFixtureA().getBody() === w;
+          const other = mine ? c.getFixtureB().getBody() : c.getFixtureA().getBody();
+          const of = mine ? c.getFixtureB() : c.getFixtureA();
+          // (the loop-the-loop presses its riders on by itself)
+          const wm = other.isDynamic() || !c.isEnabled() || (of.getUserData() as { kind?: string } | null)?.kind === 'loop' ? null : c.getWorldManifold(null);
+          if (wm) { const k = mine ? -1 : 1; nx += wm.normal.x * k; ny += wm.normal.y * k; }
           break;
         }
       }
     }
+    const nl = Math.hypot(nx, ny);
+    this.groundNormal = nl > 1e-6 ? new Vec2(nx / nl, ny / nl) : null;
     const touching = (b: Body) => {
       for (let ce = b.getContactList(); ce; ce = ce.next!) {
         const c = ce.contact;
@@ -549,13 +563,27 @@ export class Car {
     } else if (dir !== 0) {
       // Ground tilt: pressing a direction lifts that end (wheelie / stoppie).
       // A PD controller eases the car toward its wheelie angle instead of flipping it.
-      const lift = -dir * this.angle; // >0 when the pressed end is already up
+      // Measured from the surface the wheels are on, so a car climbing a wall isn't told to level out.
+      const n = this.groundNormal;
+      const lift = -dir * wrapAngle(this.angle - (n ? Math.atan2(n.x, -n.y) : 0)); // >0 when the pressed end is already up
       const liftRate = -dir * w;
       const want = 80 * ((d.wheelie ?? 0.45) - lift) - 9 * liftRate;
       // Below the target it lifts; above it, a weaker assist pushes back down so
       // holding the throttle doesn't simply loop the car over.
       const mag = Math.min(Math.max(want, -d.air * TUNE.groundTilt * 0.6), d.air * TUNE.groundTilt);
       if (mag !== 0) this.chassis.applyTorque(-dir * mag * I, true);
+    }
+
+    // Wall riding: a car driven at speed is pressed onto steep ground, the steeper the harder,
+    // so momentum carries it up a wall and along a ceiling. It lets go once the car slows down.
+    if (dir !== 0 && this.groundNormal && this.alive) {
+      const n = this.groundNormal;
+      const steep = 1 + n.y; // 0 on the flat, 1 on a wall, 2 under a ceiling
+      const v = this.chassis.getLinearVelocity();
+      const along = Math.abs(v.x * -n.y + v.y * n.x);
+      const gate = Math.max(0, Math.min(1, (along - WALL_GRIP.from) / (WALL_GRIP.full - WALL_GRIP.from)));
+      const f = this.mass * DEFAULT_GRAVITY * WALL_GRIP.force * Math.min(2, steep) * gate;
+      if (steep > 0.08 && f > 0) this.chassis.applyForceToCenter(new Vec2(-n.x * f, -n.y * f), true);
     }
 
     // Self-righting: if stuck upside down / on the side, slowly roll back.

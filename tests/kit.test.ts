@@ -119,7 +119,7 @@ describe('new mechanics', () => {
     const g = game(as({ kind: 'recall' }), CARS[1]);
     const x0 = g.cars[0].position.x;
     g.inputs[0] = 1;
-    for (let i = 0; i < 150; i++) g.step();
+    for (let i = 0; i < 100; i++) g.step();
     g.inputs[0] = 0;
     const moved = g.cars[0].position.x;
     expect(moved).toBeGreaterThan(x0 + 3);
