@@ -169,12 +169,12 @@ export const WINTER = group('winter', [
     ],
   }],
   ['christmas-tree', 'Christmas Tree', 'Ялинка з іграшками на шестиколісній гусениці.', 'tracked', ['#2a8a3a', '#ffd23f'], {
-    o: o({ wheels: 6 }), parts: ['tree'], hideParts: true,
+    o: o({ wheels: 6 }), parts: [['tree', 1.3]], hideParts: true,
     skin: (f) => [
       ...tracks(f, 'red'),
       rr(-1.3, -0.45, 1.3, -0.1, 0.06, 'gold'), stripe(-1.3, 1.3, -0.28, 0.07, 'red'),
-      ...fir(0.5, -0.4, 1.0), ...ornaments(0.5, -0.4),
-      ...path([[0.0, -0.6], [0.5, -0.75], [1.0, -0.6]], 0.04, 'yellow'),
+      ...fir(0.6, -0.4, 1.3), ...ornaments(0.6, -0.5), ...ornaments(0.7, -0.8),
+      ...path([[-0.1, -0.65], [0.6, -0.9], [1.3, -0.65]], 0.05, 'yellow'), ...path([[0.25, -1.2], [0.6, -1.32], [0.95, -1.2]], 0.05, 'yellow'),
     ],
   }],
   ['snow-racer', 'Snow Racer', 'Одномісні спортивні сани з номером.', 'sled', ['#3a8ad8', '#ffd23f'], {

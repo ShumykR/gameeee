@@ -744,9 +744,9 @@ function part(f: Frame, id: PartId, k = 1): { polys: CarPoly[]; windows?: Pt[][]
     case 'tree':
       return {
         polys: [
-          T([dm - 0.6, d.y - 0.1], [dm + 0.6, d.y - 0.1], [dm, d.y - 0.75], 'leaf', { density: 0.3 }),
-          T([dm - 0.45, d.y - 0.55], [dm + 0.45, d.y - 0.55], [dm, d.y - 1.15], 'leaf', { density: 0.3 }),
-          T([dm - 0.3, d.y - 0.95], [dm + 0.3, d.y - 0.95], [dm, d.y - 1.45], 'leaf', { density: 0.3 }),
+          T([dm - 0.6 * k, d.y - 0.1], [dm + 0.6 * k, d.y - 0.1], [dm, d.y - 0.75 * k], 'leaf', { density: 0.3 / k }),
+          T([dm - 0.45 * k, d.y - 0.55 * k], [dm + 0.45 * k, d.y - 0.55 * k], [dm, d.y - 1.15 * k], 'leaf', { density: 0.3 / k }),
+          T([dm - 0.3 * k, d.y - 0.95 * k], [dm + 0.3 * k, d.y - 0.95 * k], [dm, d.y - 1.45 * k], 'leaf', k > 1 ? deco : { density: 0.3 }),
           O(dm, d.y - 1.5, 0.1, 0.1, 'gold', deco, 5, -Math.PI / 2),
           R(dm - 0.08, d.y - 0.12, dm + 0.08, d.y, 'wood'),
         ],

@@ -306,7 +306,7 @@ export const RETRO = group('retro', [
     s: 0.85, parts: ['dome'], hideParts: true,
     skin: () => [
       ell(0.05, -0.3, 0.98, 0.72, 'body', {}, 28),
-      blob([[-0.25, -0.6], [0.0, -1.0], [0.55, -0.9], [0.85, -0.45]], 'glass', {}, 2),
+      ...path(Array.from({ length: 13 }, (_, i): [number, number] => [-0.07 - Math.cos(i * Math.PI / 12) * 0.62, -0.8 - Math.sin(i * Math.PI / 12) * 0.66]), 0.06, 'white'),
       stripe(-0.9, 0.95, -0.05, 0.07, 'white'),
       headlight(0.88, -0.25, 0.1), rect(-0.2, -0.5, -0.12, 0.2, 'body', { ring: true }),
       bumper(-1.0, 1.05, 0.28, 0.08),

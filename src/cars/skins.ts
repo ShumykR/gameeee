@@ -303,7 +303,7 @@ export function saucer(f: Frame, o: { mat?: CarMat; dome?: CarMat; lights?: CarM
   const m = o.mat ?? 'body';
   const x0 = f.tail.x, x1 = f.nose.x;
   const out: CarPoly[] = [
-    ell(0, -0.42, 0.62, 0.48, o.dome ?? 'glass'),
+    ...path(Array.from({ length: 13 }, (_, i): [number, number] => [-Math.cos(i * Math.PI / 12) * 0.6, -0.26 - Math.sin(i * Math.PI / 12) * 0.68]), 0.06, o.dome ?? 'white'),
     ell((x0 + x1) / 2, 0.0, (x1 - x0) / 2 + 0.05, 0.26, m, {}, 28),
     ell((x0 + x1) / 2, -0.12, (x1 - x0) / 2 - 0.35, 0.14, 'chrome', {}, 24),
     ell((x0 + x1) / 2, 0.2, 0.55, 0.12, 'dark'),
