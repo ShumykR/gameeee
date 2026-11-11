@@ -124,6 +124,7 @@ const CRYPT_BOT_PTS: Pt[] = [[3, 15], [4, 17.4], [7, 18.4], [14, 18.6], [20, 17.
 export const CAVE_MAPS: MapDef[] = [
   {
     id: 'eight',
+    smooth: 0, // its outline is a smooth curve already
     name: 'Вісімка',
     theme: 'cavern',
     blurb: 'Печера з двох залів під одним склепінням. Розженись — і їдь по стінах.',
@@ -140,6 +141,7 @@ export const CAVE_MAPS: MapDef[] = [
   },
   {
     id: 'bone',
+    smooth: 0, // its outline is a smooth curve already
     name: 'Кістка',
     theme: 'catacomb',
     blurb: 'Катакомба у формі кістки: сталева балка посередині ділить її на два поверхи.',
@@ -156,6 +158,7 @@ export const CAVE_MAPS: MapDef[] = [
   },
   {
     id: 'donut',
+    smooth: 0, // its outline is a smooth curve already
     name: 'Пончик',
     theme: 'grotto',
     blurb: 'Кільцевий грот довкола острова. Сині промені на краях закидають нагору.',
@@ -242,6 +245,7 @@ export const CAVE_MAPS: MapDef[] = [
   },
   {
     id: 'crypt',
+    smooth: 0, // its outline is a smooth curve already
     name: 'Маятник',
     theme: 'crypt',
     blurb: 'Склеп під куполом, де над головами гойдається пилка на ланцюгу.',

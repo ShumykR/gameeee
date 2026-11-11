@@ -109,6 +109,8 @@ export interface MapDef {
   /** Anything falling below this y dies. */
   killY: number;
   spawns: [Pt, Pt];
+  /** How much the ground is rounded off (see smooth.ts): 1 by default, less to keep built ramps crisp. */
+  smooth?: number;
   solids: SolidDef[];
   platforms?: PlatformDef[];
   pads?: PadDef[];
