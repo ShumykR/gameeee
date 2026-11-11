@@ -88,6 +88,8 @@ export interface ProjectileInfo {
   friction?: number;
   /** Recoil multiplier. */
   recoil?: number;
+  /** Steers toward the opponent: the most it can turn per step (rad). Small = lazy and dodgeable. */
+  seek?: number;
 }
 
 export const PROJECTILES: Record<ProjectileKind, ProjectileInfo> = {
@@ -101,7 +103,7 @@ export const PROJECTILES: Record<ProjectileKind, ProjectileInfo> = {
   bubble: { r: 0.4, speed: 9, density: 0.1, gravity: -0.05, life: 2.6, bounce: 0.9, name: 'бульбашка', pop: true, effect: 'lift', harmless: true },
   pumpkin: { r: 0.3, speed: 21, density: 1, gravity: 1, life: 2.2, bounce: 0.1, name: 'гарбуз-бомба', pop: true, effect: 'boom' },
   bone: { r: 0.18, speed: 20, density: 1.4, gravity: 0.15, life: 1.6, bounce: 0.4, name: 'кістка-бумеранг', flight: 'boomerang' },
-  missile: { r: 0.18, speed: 22, density: 1, gravity: 0.45, life: 1.6, bounce: 0, name: 'ракета', pop: true, effect: 'boom', cd: 1.25 },
+  missile: { r: 0.18, speed: 22, density: 1, gravity: 0.45, life: 1.6, bounce: 0, name: 'ракета з наведенням', pop: true, effect: 'boom', cd: 1.25, seek: 0.03 },
   water: { r: 0.16, speed: 18, density: 0.6, gravity: 0.7, life: 0.8, bounce: 0, name: 'струмінь води', pop: true, effect: 'push', harmless: true, count: 6, spread: 0.08, cd: 0.75, recoil: 0.4 },
   ice: { r: 0.2, speed: 22, density: 1, gravity: 0.6, life: 1.6, bounce: 0, name: 'крижаний заряд', pop: true, effect: 'freeze' },
   fire: { r: 0.2, speed: 12, density: 0.2, gravity: -0.3, life: 0.45, bounce: 0, name: 'полум\'я', pop: true, count: 5, spread: 0.3, cd: 1.3 },
@@ -113,13 +115,13 @@ export const PROJECTILES: Record<ProjectileKind, ProjectileInfo> = {
   golf: { r: 0.1, speed: 30, density: 3, gravity: 0.8, life: 2, bounce: 0.6, name: 'м\'ячик для гольфу' },
   bullet: { r: 0.08, speed: 34, density: 3, gravity: 0.5, life: 0.8, bounce: 0, name: 'кулі', pop: true, count: 3, spread: 0.1 },
   bigsnow: { r: 0.55, speed: 16, density: 1.6, gravity: 1, life: 4, bounce: 0.05, name: 'снігова брила', friction: 0.9, effect: 'push', cd: 1.3, recoil: 2 },
-  bat: { r: 0.16, speed: 11, density: 0.4, gravity: 0, life: 1.8, bounce: 0, name: 'кажани', pop: true, count: 3, spread: 0.5, flight: 'wobble' },
+  bat: { r: 0.16, speed: 11, density: 0.4, gravity: 0, life: 1.8, bounce: 0, name: 'кажани', pop: true, count: 3, spread: 0.5, flight: 'wobble', seek: 0.05 },
   penguin: { r: 0.22, speed: 19, density: 1, gravity: 1, life: 3.2, bounce: 0.1, name: 'пінгвін', friction: 0, flight: 'skid', effect: 'push' },
   mega: { r: 0.42, speed: 17, density: 6, gravity: 1, life: 2.6, bounce: 0.1, name: 'надважке ядро', effect: 'knock', cd: 1.4, recoil: 4 },
-  torpedo: { r: 0.16, speed: 15, density: 1, gravity: 0, life: 2.2, bounce: 0, name: 'торпеда', pop: true, effect: 'boom', flight: 'flat', blast: 2.8 },
+  torpedo: { r: 0.16, speed: 15, density: 1, gravity: 0, life: 2.2, bounce: 0, name: 'торпеда', pop: true, effect: 'boom', flight: 'flat', blast: 2.8, seek: 0.02 },
   volley: { r: 0.12, speed: 20, density: 0.8, gravity: 0.45, life: 1.3, bounce: 0, name: 'залп ракет', pop: true, effect: 'boom', count: 4, spread: 0.4, blast: 1.8, cd: 1.4 },
   tea: { r: 0.15, speed: 14, density: 0.5, gravity: 0.9, life: 0.9, bounce: 0, name: 'окріп', pop: true, effect: 'slip', harmless: true, count: 4, spread: 0.18, recoil: 0.4 },
-  plasma: { r: 0.34, speed: 10, density: 0.5, gravity: 0.08, life: 2.6, bounce: 0, name: 'плазмова куля', pop: true, effect: 'boom', blast: 3.4 },
+  plasma: { r: 0.34, speed: 10, density: 0.5, gravity: 0, life: 2.6, bounce: 0, name: 'плазмова куля', pop: true, effect: 'boom', blast: 3.4, seek: 0.022, cd: 1.25 },
   seeker: { r: 0.16, speed: 15, density: 0.8, gravity: 0, life: 2.4, bounce: 0, name: 'самонавідна ракета', pop: true, effect: 'boom', flight: 'homing', cd: 1.5 },
   fist: { r: 0.3, speed: 20, density: 2, gravity: 0.4, life: 0.9, bounce: 0, name: 'кулак', pop: true, effect: 'knock' },
   railgun: { r: 0.1, speed: 48, density: 4, gravity: 0.2, life: 0.6, bounce: 0, name: 'рейковий заряд', effect: 'knock', flight: 'pierce', cd: 1.3 },
