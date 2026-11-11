@@ -114,6 +114,8 @@ export const DOME = group('dome', [
   }],
   ['tow-truck', 'Tow Truck', 'Евакуатор із гаком на тросі: чіпляє суперника й тягне до себе.', 'truck', ['#f0a020', '#2a2a2a'], {
     o: o({ wheels: 2 }), parts: ['crane'], hideParts: true,
+    // A real hook on a cable: it swings behind the truck and clouts whoever tailgates.
+    flail: { from: [-2.05, -1.22], len: 0.75, r: 0.24, look: 'anchor' },
     skin: (f) => {
       const d = f.deck;
       return [
@@ -121,8 +123,6 @@ export const DOME = group('dome', [
         ...[f.roof.x0 + 0.15, f.roof.x0 + 0.4].map((x, i) => rr(x, f.roof.y - 0.14, x + 0.22, f.roof.y, 0.04, i ? 'orange' : 'red')),
         rr(d.x0, d.y - 0.2, d.x1, d.y + 0.08, 0.04, 'dark'),
         ...truss([d.x1 - 0.1, d.y - 0.1], [d.x0 - 0.1, d.y - 1.1], 0.2, 'yellow'),
-        seg([d.x0 - 0.1, d.y - 1.1], [d.x0 - 0.15, d.y - 0.45], 0.04, 'black'),
-        ...path([[d.x0 - 0.15, d.y - 0.45], [d.x0 - 0.15, d.y - 0.3], [d.x0 - 0.3, d.y - 0.28], [d.x0 - 0.32, d.y - 0.42]], 0.06, 'chrome'),
         stripe(f.tail.x, f.nose.x, 0.06, 0.07, 'accent'),
       ];
     },

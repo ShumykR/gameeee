@@ -2,9 +2,33 @@ import { tailgate } from '../art';
 import { beacon, blob, bumper, checkers, circ, door, ell, fender, flameDecal, grille, headlight, ladder, lightbar, pane, path, plus, poly, rect, rr, seat, seg, spare, stack, starShape, stripe, taillight, tank, truss, windows } from '../draw';
 import { bike, boxy, carriage, fenders, formula, kart, monsterChassis, pickup, sedan, tracks, tractor, truckCab } from '../skins';
 import type { CarPoly } from '../types';
+import type { Frame, LinkSpec } from '../factory';
 import { group, o } from './util';
 
 const hidden = (p: CarPoly): CarPoly => ({ ...p, hide: true });
+
+/**
+ * Semi-trailer behind a short tractor unit: its own body on a fifth-wheel hinge over the
+ * tractor's rear axle, riding on a tandem axle of its own. It swings, jack-knifes and bucks.
+ * `load` gets the trailer's bed: x0 (rear end), x1 (front end) and the deck height.
+ */
+function semi(f: Frame, load: (x0: number, x1: number, y: number) => { hit: CarPoly[]; art: CarPoly[] }): LinkSpec {
+  const hx = f.wheels[0].x, y = f.deck.y;
+  const x0 = hx - 3.35, x1 = hx + 0.5;
+  const l = load(x0, x1, y);
+  const wy = f.wheels[0].y + f.wheels[0].r - 0.5;
+  return {
+    at: [hx, y], swing: [-38, 38], density: 0.22,
+    wheels: [{ x: x0 + 0.55, y: wy, r: 0.5, rim: f.wheels[0].rim, drive: false }, { x: x0 + 1.6, y: wy, r: 0.5, rim: f.wheels[0].rim, drive: false }],
+    hit: [rect(x0, y, x1, y + 0.2), ...l.hit],
+    art: [
+      rr(x0, y - 0.02, x1, y + 0.22, 0.04, 'dark'),
+      rect(x0 + 0.2, y + 0.2, x0 + 1.95, y + 0.34, 'dark'),
+      ...l.art,
+      taillight(x0, y + 0.1, 0.07), circ(hx, y + 0.02, 0.1, 'grey'),
+    ],
+  };
+}
 
 export const RETRO = group('retro', [
   ['monster-truck', 'Monster Truck', 'Позашляховик на колесах вище за людину. Стрибає через усе.', 'monster', ['#d83a2e', '#ffd23f'], {
@@ -341,22 +365,25 @@ export const RETRO = group('retro', [
     o: o({ wheel: 1.1 }), arch: 'bouncy',
     skin: (f) => [...bike(f, { style: 'dirt' }), circ(0.15, -0.12, 0.12, 'white'), rect(0.12, -0.18, 0.18, -0.06, 'black', { flat: true })],
   }],
-  ['car-carrier', 'Car Carrier', 'Двоярусний автовоз із машинками на палубах.', 'truck', ['#3a5ab0', '#e0e0e0'], {
-    parts: ['cage'], hideParts: true,
-    skin: (f) => {
-      const d = f.deck;
-      const mini = (x: number, y: number, m: 'red' | 'yellow' | 'green' | 'blue') => [
-        blob([[x, y], [x, y - 0.2], [x + 0.25, y - 0.22], [x + 0.4, y - 0.38], [x + 0.7, y - 0.38], [x + 0.85, y - 0.2], [x + 1.0, y - 0.18], [x + 1.0, y]], m, {}, 1),
-        poly([[x + 0.45, y - 0.22], [x + 0.48, y - 0.33], [x + 0.68, y - 0.33], [x + 0.78, y - 0.22]], 'glass'),
-        circ(x + 0.22, y, 0.1, 'rubber'), circ(x + 0.8, y, 0.1, 'rubber'),
+  ['car-carrier', 'Car Carrier', 'Тягач із двоярусним автовозом-напівпричепом, повним машинок.', 'truck', ['#3a5ab0', '#e0e0e0'], {
+    o: o({ len: 0.55, wheels: 2 }),
+    skin: (f) => [...truckCab(f)],
+    links: (f) => [semi(f, (x0, x1, y) => {
+      const mini = (x: number, yy: number, m: 'red' | 'yellow' | 'green' | 'blue') => [
+        blob([[x, yy], [x, yy - 0.2], [x + 0.25, yy - 0.22], [x + 0.4, yy - 0.38], [x + 0.7, yy - 0.38], [x + 0.85, yy - 0.2], [x + 1.0, yy - 0.18], [x + 1.0, yy]], m, {}, 1),
+        poly([[x + 0.45, yy - 0.22], [x + 0.48, yy - 0.33], [x + 0.68, yy - 0.33], [x + 0.78, yy - 0.22]], 'glass'),
+        circ(x + 0.22, yy, 0.1, 'rubber'), circ(x + 0.8, yy, 0.1, 'rubber'),
       ];
-      return [
-        ...truckCab(f),
-        ...[d.x0 + 0.05, (d.x0 + d.x1) / 2, d.x1 - 0.1].map((x) => rect(x, d.y - 0.95, x + 0.07, d.y, 'chrome')),
-        rect(d.x0, d.y - 0.62, d.x1, d.y - 0.56, 'chrome'), rect(d.x0, d.y - 0.04, d.x1, d.y + 0.04, 'chrome'),
-        ...mini(d.x0 + 0.2, d.y - 0.12, 'red'), ...mini(d.x0 + 1.5, d.y - 0.12, 'yellow'), ...mini(d.x0 + 0.6, d.y - 0.7, 'green'),
-      ];
-    },
+      return {
+        hit: [rect(x0 + 0.05, y - 0.78, x1 - 0.45, y - 0.68), rect(x0 + 0.02, y - 1.2, x0 + 0.12, y), rect(x1 - 0.55, y - 1.2, x1 - 0.45, y)],
+        art: [
+          ...[x0 + 0.02, (x0 + x1) / 2 - 0.25, x1 - 0.55].map((x) => rect(x, y - 1.2, x + 0.09, y, 'chrome')),
+          rect(x0, y - 0.8, x1 - 0.45, y - 0.7, 'chrome'), rect(x0, y - 1.24, x1 - 0.45, y - 1.17, 'chrome'),
+          ...mini(x0 + 0.25, y - 0.1, 'red'), ...mini(x0 + 1.45, y - 0.1, 'yellow'), ...mini(x0 + 2.6, y - 0.1, 'blue'),
+          ...mini(x0 + 0.5, y - 0.88, 'green'), ...mini(x0 + 1.9, y - 0.88, 'red'),
+        ],
+      };
+    })],
   }],
   ['bumper-car', 'Bumper Car', 'Атракціонна машинка на штанзі. Гумовий бампер — і бамс!', 'kart', ['#ff3a5a', '#ffd23f'], {
     // No visible wheels: it rolls on hidden casters under the rubber skirt.
@@ -496,19 +523,19 @@ export const RETRO = group('retro', [
       circ(0.25, f.deck.y + 0.3, 0.1, 'gold'), circ(0.25, f.deck.y + 0.3, 0.05, 'red'),
     ],
   }],
-  ['tanker-truck', 'Tanker Truck', 'Автоцистерна з небезпечним вантажем.', 'truck', ['#e0e0e0', '#3a6ad8'], {
-    parts: ['tank'], hideParts: true,
-    skin: (f) => {
-      const d = f.deck;
-      return [
-        ...truckCab(f, { mat: 'accent' }),
-        tank(d.x0 - 0.05, d.x1 + 0.02, d.y - 0.4, 0.42, 'chrome'),
-        stripe(d.x0, d.x1, d.y - 0.42, 0.1, 'accent'),
-        ...[0.7, 1.5, 2.3].map((dx) => rect(d.x0 + dx, d.y - 0.82, d.x0 + dx + 0.06, d.y + 0.02, 'grey', { flat: true })),
-        poly([[-0.4, d.y - 0.62], [-0.2, d.y - 0.42], [-0.4, d.y - 0.22], [-0.6, d.y - 0.42]], 'orange'), rect(-0.42, d.y - 0.5, -0.38, d.y - 0.36, 'black', { flat: true }),
-        rr(d.x0 + 0.3, d.y - 0.9, d.x0 + 0.6, d.y - 0.8, 0.03, 'grey'),
-      ];
-    },
+  ['tanker-truck', 'Tanker Truck', 'Тягач із цистерною-напівпричепом: вона мотляється ззаду й складається на поворотах.', 'truck', ['#e0e0e0', '#3a6ad8'], {
+    o: o({ len: 0.55, wheels: 2 }),
+    skin: (f) => [...truckCab(f, { mat: 'accent', stack: true })],
+    links: (f) => [semi(f, (x0, x1, y) => ({
+      hit: [rect(x0 + 0.05, y - 1.02, x1 - 0.1, y)],
+      art: [
+        tank(x0 - 0.02, x1 - 0.05, y - 0.52, 0.52, 'chrome'),
+        stripe(x0 + 0.1, x1 - 0.15, y - 0.52, 0.12, 'accent'),
+        ...[0.9, 1.9, 2.9].map((dx) => rect(x0 + dx, y - 1.02, x0 + dx + 0.07, y + 0.0, 'grey', { flat: true })),
+        poly([[x0 + 1.9, y - 0.8], [x0 + 2.18, y - 0.52], [x0 + 1.9, y - 0.24], [x0 + 1.62, y - 0.52]], 'orange'), rect(x0 + 1.87, y - 0.64, x0 + 1.93, y - 0.44, 'black', { flat: true }),
+        rr(x0 + 0.4, y - 1.12, x0 + 0.8, y - 1.0, 0.03, 'grey'), rr(x0 + 2.4, y - 1.12, x0 + 2.8, y - 1.0, 0.03, 'grey'),
+      ],
+    }))],
   }],
   ['roadster', 'Roadster', 'Відкритий дводверний спорткар зі стрічками на капоті.', 'coupe', ['#c02a2a', '#f0e0c0'], {
     o: o({ open: true }), speed: 1.1,
