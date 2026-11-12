@@ -382,7 +382,6 @@ export class Game {
         if (it && !it.dead && it.fx) this.itemHit(it, b.player);
       }
     } else if (a.kind === 'car') {
-      if (b.kind === 'hazard' && b.type === 'lava') this.kill(a.player, 'hazard');
       if (b.kind === 'car' && b.player !== a.player) this.carTouch(a.player, b.player);
       if (b.kind === 'pad') {
         const car = this.cars[a.player];

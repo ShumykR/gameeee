@@ -230,3 +230,20 @@ describe('abilities', () => {
     expect(PROJECTILES.water.harmless).toBe(true);
   });
 });
+
+describe('lava', () => {
+  it('only the head kills: the body and car may touch it', () => {
+    const g = new Game({ cars: [CARS[0], CARS[1]], maps: [MAP_BY_ID.foundry], randomMaps: false, target: 9, roundTime: 60, seed: 3 });
+    while (g.phase !== 'play') g.step();
+    const lava = g.arena.lavaBodies[0];
+    expect(lava).toBeDefined();
+    const c = g.cars[0];
+    // Put the chassis (not the head) into the lava.
+    const head = c.headWorld();
+    const lp = lava.getPosition();
+    const dy = lp.y - (head.y + 1.9);
+    for (const b of c.allBodies) b.setPosition(new Vec2(b.getPosition().x - head.x + lp.x, b.getPosition().y + dy));
+    for (let i = 0; i < 3; i++) g.step();
+    expect(c.alive).toBe(true);
+  });
+});
